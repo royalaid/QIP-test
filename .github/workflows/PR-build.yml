@@ -57,3 +57,8 @@ jobs:
           else
             echo "No QIP files changed. Skipping validation."
           fi
+      - name: Add automerge label
+        if: success()
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: automerge
