@@ -17,8 +17,19 @@ jobs:
         id: pr
         run: |
           echo "Fetching PR number from workflow run"
-          PR_NUMBER=$(echo '${{ github.event.workflow_run.pull_requests[0].number }}')
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
+          if [ "$PR_DATA" != "null" ] && [ "$PR_DATA" != "[]" ]; then
+            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            else
+              echo "No PR number found"
+              echo "pr_number=" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No pull requests found"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+          fi
       
       - name: Add automerge label
         if: steps.pr.outputs.pr_number
