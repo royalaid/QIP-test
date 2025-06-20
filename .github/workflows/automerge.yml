@@ -1,7 +1,9 @@
 name: "Automerge Pull Requests"
 on:
-  pull_request_target:
-    types: [labeled, reopened, synchronize]
+  workflow_run:
+    workflows: ["Label Validated PRs"]
+    types:
+      - completed
 
 permissions:
   pull-requests: write
@@ -9,12 +11,43 @@ permissions:
 
 jobs:
   automerge:
-    if: contains(github.event.pull_request.labels.*.name, 'automerge')
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Get PR number and check for automerge label
+        id: pr
+        run: |
+          echo "Fetching PR number from workflow run"
+          PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
+          if [ "$PR_DATA" != "null" ] && [ "$PR_DATA" != "[]" ]; then
+            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+              
+              # Check if PR has automerge label
+              LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name')
+              if echo "$LABELS" | grep -q "automerge"; then
+                echo "has_automerge_label=true" >> $GITHUB_OUTPUT
+              else
+                echo "has_automerge_label=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "No PR number found"
+              echo "pr_number=" >> $GITHUB_OUTPUT
+              echo "has_automerge_label=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No pull requests found"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            echo "has_automerge_label=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Enable Auto-Merge
+        if: steps.pr.outputs.pr_number && steps.pr.outputs.has_automerge_label == 'true'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ github.event.pull_request.number }}
+          pull-request-number: ${{ steps.pr.outputs.pr_number }}
           merge-method: squash
