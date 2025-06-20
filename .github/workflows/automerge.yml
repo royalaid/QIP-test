@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   automerge:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Get PR number and check for automerge label
@@ -28,8 +28,10 @@ jobs:
               LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name')
               if echo "$LABELS" | grep -q "automerge"; then
                 echo "has_automerge_label=true" >> $GITHUB_OUTPUT
+                echo "✅ PR #$PR_NUMBER has automerge label"
               else
                 echo "has_automerge_label=false" >> $GITHUB_OUTPUT
+                echo "❌ PR #$PR_NUMBER does not have automerge label"
               fi
             else
               echo "No PR number found"
