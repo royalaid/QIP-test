@@ -1,9 +1,7 @@
 name: "Automerge Pull Requests"
 on:
-  workflow_run:
-    workflows: ["Label Validated PRs"]
-    types:
-      - completed
+  pull_request_target:
+    types: [labeled]
 
 permissions:
   pull-requests: write
@@ -11,46 +9,12 @@ permissions:
 
 jobs:
   automerge:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: contains(github.event.pull_request.labels.*.name, 'automerge')
     runs-on: ubuntu-latest
     steps:
-      - name: Get PR number and check for automerge label
-        id: pr
-        run: |
-          echo "Fetching PR number from workflow run"
-          
-          # Get the head SHA from the workflow run
-          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
-          echo "Head SHA: $HEAD_SHA"
-          
-          # Find PR associated with this commit
-          PR_NUMBER=$(gh pr list --state open --json number,headRefOid --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number")
-          
-          if [ -n "$PR_NUMBER" ]; then
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            echo "✅ Found PR #$PR_NUMBER for commit $HEAD_SHA"
-            
-            # Check if PR has automerge label
-            LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name')
-            if echo "$LABELS" | grep -q "automerge"; then
-              echo "has_automerge_label=true" >> $GITHUB_OUTPUT
-              echo "✅ PR #$PR_NUMBER has automerge label"
-            else
-              echo "has_automerge_label=false" >> $GITHUB_OUTPUT
-              echo "❌ PR #$PR_NUMBER does not have automerge label"
-            fi
-          else
-            echo "❌ No open PR found for commit $HEAD_SHA"
-            echo "pr_number=" >> $GITHUB_OUTPUT
-            echo "has_automerge_label=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Enable Auto-Merge
-        if: steps.pr.outputs.pr_number && steps.pr.outputs.has_automerge_label == 'true'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.pr.outputs.pr_number }}
+          pull-request-number: ${{ github.event.pull_request.number }}
           merge-method: squash
