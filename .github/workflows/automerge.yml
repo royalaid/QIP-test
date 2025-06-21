@@ -18,28 +18,29 @@ jobs:
         id: pr
         run: |
           echo "Fetching PR number from workflow run"
-          PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
-          if [ "$PR_DATA" != "null" ] && [ "$PR_DATA" != "[]" ]; then
-            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
-            if [ -n "$PR_NUMBER" ]; then
-              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-              
-              # Check if PR has automerge label
-              LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name')
-              if echo "$LABELS" | grep -q "automerge"; then
-                echo "has_automerge_label=true" >> $GITHUB_OUTPUT
-                echo "✅ PR #$PR_NUMBER has automerge label"
-              else
-                echo "has_automerge_label=false" >> $GITHUB_OUTPUT
-                echo "❌ PR #$PR_NUMBER does not have automerge label"
-              fi
+          
+          # Get the head SHA from the workflow run
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          echo "Head SHA: $HEAD_SHA"
+          
+          # Find PR associated with this commit
+          PR_NUMBER=$(gh pr list --state open --json number,headRefOid --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number")
+          
+          if [ -n "$PR_NUMBER" ]; then
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "✅ Found PR #$PR_NUMBER for commit $HEAD_SHA"
+            
+            # Check if PR has automerge label
+            LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name')
+            if echo "$LABELS" | grep -q "automerge"; then
+              echo "has_automerge_label=true" >> $GITHUB_OUTPUT
+              echo "✅ PR #$PR_NUMBER has automerge label"
             else
-              echo "No PR number found"
-              echo "pr_number=" >> $GITHUB_OUTPUT
               echo "has_automerge_label=false" >> $GITHUB_OUTPUT
+              echo "❌ PR #$PR_NUMBER does not have automerge label"
             fi
           else
-            echo "No pull requests found"
+            echo "❌ No open PR found for commit $HEAD_SHA"
             echo "pr_number=" >> $GITHUB_OUTPUT
             echo "has_automerge_label=false" >> $GITHUB_OUTPUT
           fi
