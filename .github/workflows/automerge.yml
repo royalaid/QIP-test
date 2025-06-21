@@ -2,99 +2,41 @@ name: "Automerge Pull Requests"
 on:
   pull_request_target:
     types: [labeled, synchronize]
-  check_suite:
-    types: [completed]
 
 permissions:
   pull-requests: write
   contents: write
-  checks: read
 
 jobs:
   automerge:
+    if: github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'automerge')
     runs-on: ubuntu-latest
     steps:
-      - name: Get PR details
-        id: pr
-        run: |
-          # Get PR number based on event type
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            echo "Event: pull_request_target"
-          elif [ "${{ github.event_name }}" = "check_suite" ]; then
-            # For check_suite events, find the PR from the head SHA
-            HEAD_SHA="${{ github.event.check_suite.head_sha }}"
-            PR_DATA=$(gh api --paginate "repos/${{ github.repository }}/pulls" \
-              --jq ".[] | select(.head.sha == \"$HEAD_SHA\") | .number" | head -n1)
-            PR_NUMBER="$PR_DATA"
-            echo "Event: check_suite for SHA $HEAD_SHA"
-          fi
-          
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR number found"
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          echo "PR Number: $PR_NUMBER"
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          
-          # Get PR details
-          PR_INFO=$(gh pr view $PR_NUMBER --json labels,mergeable,mergeStateStatus,statusCheckRollup)
-          
-          # Check if PR has automerge label
-          HAS_LABEL=$(echo "$PR_INFO" | jq -r '.labels[] | select(.name == "automerge") | .name')
-          if [ "$HAS_LABEL" = "automerge" ]; then
-            echo "✅ PR has automerge label"
-            echo "has_automerge_label=true" >> $GITHUB_OUTPUT
-          else
-            echo "❌ PR does not have automerge label"
-            echo "has_automerge_label=false" >> $GITHUB_OUTPUT
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Check merge state status
-          MERGE_STATE=$(echo "$PR_INFO" | jq -r '.mergeStateStatus')
-          echo "Merge state: $MERGE_STATE"
-          
-          # Check if all status checks have passed
-          STATUS_ROLLUP=$(echo "$PR_INFO" | jq -r '.statusCheckRollup')
-          if [ "$STATUS_ROLLUP" = "null" ] || [ -z "$STATUS_ROLLUP" ]; then
-            echo "No status checks configured"
-            echo "all_checks_passed=true" >> $GITHUB_OUTPUT
-          else
-            # Check the conclusion of the status check rollup
-            PENDING=$(echo "$PR_INFO" | jq -r '[.statusCheckRollup[] | select(.status == "PENDING" or .status == "IN_PROGRESS")] | length')
-            FAILED=$(echo "$PR_INFO" | jq -r '[.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED" or .status == "ERROR")] | length')
-            
-            if [ "$PENDING" -gt 0 ]; then
-              echo "⏳ $PENDING checks still pending"
-              echo "all_checks_passed=false" >> $GITHUB_OUTPUT
-              echo "should_continue=false" >> $GITHUB_OUTPUT
-            elif [ "$FAILED" -gt 0 ]; then
-              echo "❌ $FAILED checks failed"
-              echo "all_checks_passed=false" >> $GITHUB_OUTPUT
-              echo "should_continue=false" >> $GITHUB_OUTPUT
-            else
-              echo "✅ All checks passed"
-              echo "all_checks_passed=true" >> $GITHUB_OUTPUT
-            fi
-          fi
-          
-          # Determine if we should continue
-          if [ "$MERGE_STATE" = "CLEAN" ] || [ "$MERGE_STATE" = "UNSTABLE" ]; then
-            echo "should_continue=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Enable Auto-Merge
-        if: steps.pr.outputs.should_continue == 'true' && steps.pr.outputs.has_automerge_label == 'true' && steps.pr.outputs.all_checks_passed == 'true'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.pr.outputs.pr_number }}
+          pull-request-number: ${{ github.event.pull_request.number }}
           merge-method: squash
+  
+  remove-label-on-new-commit:
+    if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove automerge label
+        uses: actions-ecosystem/action-remove-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.pull_request.number }}
+          labels: automerge
+      
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔄 New commit detected. The automerge label has been removed. It will be re-added if validation passes.'
+            })
