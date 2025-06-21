@@ -7,7 +7,6 @@ on:
 
 permissions:
   pull-requests: write
-  contents: write
 
 jobs:
   label:
@@ -23,6 +22,7 @@ jobs:
             PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
             if [ -n "$PR_NUMBER" ]; then
               echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+              echo "✅ Found PR #$PR_NUMBER"
             else
               echo "No PR number found"
               echo "pr_number=" >> $GITHUB_OUTPUT
@@ -38,16 +38,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           number: ${{ steps.pr.outputs.pr_number }}
-          labels: automerge
-      
-      - name: Wait for label to be registered
-        if: steps.pr.outputs.pr_number
-        run: sleep 5
-      
-      - name: Enable Auto-Merge
-        if: steps.pr.outputs.pr_number
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.pr.outputs.pr_number }}
-          merge-method: squash 
+          labels: automerge 
