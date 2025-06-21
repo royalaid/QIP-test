@@ -1,4 +1,8 @@
 name: "Automerge Pull Requests"
+# Note: This workflow only triggers when labels are added manually.
+# When labels are added by GitHub Actions (using GITHUB_TOKEN), 
+# this workflow won't trigger due to GitHub's security features.
+# Programmatic automerge is handled in label-validated-prs.yml
 on:
   pull_request_target:
     types: [labeled, synchronize]
