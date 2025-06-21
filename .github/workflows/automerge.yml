@@ -1,10 +1,8 @@
-name: "Automerge Pull Requests"
-# Note: This workflow only triggers when labels are added manually.
-# When labels are added by GitHub Actions (using GITHUB_TOKEN), 
-# this workflow won't trigger due to GitHub's security features.
-# Programmatic automerge is handled in label-validated-prs.yml
+name: "Handle Manual Automerge"
+# This workflow handles manual automerge label additions and new commits.
+# The automatic flow (validation -> label -> automerge) is handled by pull-request-complete.yml
 on:
-  pull_request_target:
+  pull_request:
     types: [labeled, synchronize]
 
 permissions:
@@ -12,16 +10,34 @@ permissions:
   contents: write
 
 jobs:
-  automerge:
-    if: github.event.action == 'labeled' && contains(github.event.pull_request.labels.*.name, 'automerge')
+  handle-manual-automerge:
+    if: github.event.action == 'labeled' && contains(github.event.label.name, 'automerge')
     runs-on: ubuntu-latest
     steps:
-      - name: Enable Auto-Merge
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ github.event.pull_request.number }}
-          merge-method: squash
+      - name: Check if this is manual addition
+        id: check_manual
+        run: |
+          # Check if the label was added by a human (not a bot/action)
+          ACTOR="${{ github.actor }}"
+          if [[ "$ACTOR" != *"[bot]"* ]] && [[ "$ACTOR" != "github-actions" ]]; then
+            echo "is_manual=true" >> $GITHUB_OUTPUT
+            echo "✅ Manual label addition by $ACTOR"
+          else
+            echo "is_manual=false" >> $GITHUB_OUTPUT
+            echo "❌ Automated label addition, skipping"
+          fi
+      
+      - name: Enable auto-merge for manual label
+        if: steps.check_manual.outputs.is_manual == 'true'
+        run: |
+          echo "🔄 Enabling auto-merge for manually labeled PR #${{ github.event.pull_request.number }}"
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --squash \
+            --auto \
+            --delete-branch \
+            --repo ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   
   remove-label-on-new-commit:
     if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'automerge')

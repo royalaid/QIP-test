@@ -1,0 +1,119 @@
+name: "Pull Request Complete Flow"
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  validate-qips:
+    name: Validate new/changed QIPs
+    runs-on: ubuntu-latest
+    outputs:
+      validation_passed: ${{ steps.validate.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 4
+      - uses: oven-sh/setup-bun@v2
+      - name: Get changed QIP files
+        id: changed_qips
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.sha }}
+          echo "Comparing $BASE_SHA → $HEAD_SHA for contents/QIP/"
+          CHANGED=$(git diff --name-only $BASE_SHA $HEAD_SHA -- contents/QIP/)
+          echo "$CHANGED" > changed_qips.txt
+          echo "Wrote $(wc -l < changed_qips.txt) entries to changed_qips.txt"
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Check only QIP .md files changed
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.sha }}
+          echo "Checking for non-QIP or non-.md file changes between $BASE_SHA and $HEAD_SHA"
+          CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
+          echo "Changed files:" >&2
+          echo "$CHANGED_FILES" >&2
+          NON_QIP=$(echo "$CHANGED_FILES" | grep -vE '^contents/QIP/[^/]+\.md$' | grep -vE '^$' || true)
+          if [ -n "$NON_QIP" ]; then
+            echo "Error: The following files are not allowed in this PR:" >&2
+            echo "$NON_QIP" >&2
+            exit 1
+          else
+            echo "All changed files are .md files in contents/QIP."
+          fi
+      
+      - name: Validate new/changed QIPs
+        id: validate
+        if: ${{ steps.changed_qips.outputs.files != '' }}
+        run: |
+          if [ -s changed_qips.txt ]; then
+            bun scripts/validate-qip.ts $(cat changed_qips.txt)
+          else
+            echo "No QIP files changed. Skipping validation."
+          fi
+
+  validate-author:
+    name: Validate QIP Author
+    runs-on: ubuntu-latest
+    outputs:
+      validation_passed: ${{ steps.validate_author.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: Validate author can modify QIP
+        id: validate_author
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.sha }}
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          
+          echo "PR Author: $PR_AUTHOR"
+          echo "Checking modified QIP files..."
+          
+          MODIFIED_QIPS=$(git diff --name-only $BASE_SHA $HEAD_SHA -- contents/QIP/ | xargs -I {} sh -c 'git show $BASE_SHA:{} >/dev/null 2>&1 && echo {}' || true)
+          
+          if [ -z "$MODIFIED_QIPS" ]; then
+            echo "No existing QIP files were modified. Validation passed."
+            exit 0
+          fi
+          
+          bun scripts/validate-author.ts "$PR_AUTHOR" $MODIFIED_QIPS
+
+  add-automerge-label:
+    name: Add automerge label
+    needs: [validate-qips, validate-author]
+    if: needs.validate-qips.outputs.validation_passed == 'true' && needs.validate-author.outputs.validation_passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add automerge label
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.pull_request.number }}
+          labels: automerge
+
+  enable-automerge:
+    name: Enable auto-merge
+    needs: [validate-qips, validate-author, add-automerge-label]
+    if: needs.validate-qips.outputs.validation_passed == 'true' && needs.validate-author.outputs.validation_passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge for PR
+        run: |
+          echo "✅ All validations passed, enabling auto-merge for PR #${{ github.event.pull_request.number }}"
+          gh pr merge ${{ github.event.pull_request.number }} \
+            --squash \
+            --auto \
+            --delete-branch \
+            --repo ${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
