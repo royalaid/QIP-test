@@ -83,7 +83,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
       const proposalOptions: Proposal = {
         space,
         type: "basic",
-        title: frontmatter.title,
+        title: `QIP${frontmatter.qip}: ${frontmatter.title}`,
         body: `QIP #${frontmatter.qip}: ${frontmatter.title}\n\n${stripHtml(html)}`,
         choices: ["For", "Against", "Abstain"],
         start: now + startOffset,
