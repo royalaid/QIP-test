@@ -61,18 +61,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
 
   const isQipValid = highestQip !== null && frontmatter.qip === highestQip + 1;
 
-  const proposalOptions: Proposal = {
-    space: "qidao.eth",
-    type: "single-choice",
-    title: frontmatter.title,
-    body: `QIP #${frontmatter.qip}: ${frontmatter.title}\n\n${stripHtml(html)}`,
-    choices: ["Yes", "No", "Abstain"],
-    start: Math.floor(Date.now() / 1000) + 3600,
-    end: Math.floor(Date.now() / 1000) + 3600 + 86400,
-    snapshot: 0,
-    discussion: "",
-    plugins: "",
-  };
+  const space = "qidao.eth";
 
   const handleSubmit = async () => {
     if (!signer) {
@@ -86,6 +75,26 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
     setLoading(true);
     setStatus(null);
     try {
+      // Calculate timestamps right before submission
+      const now = Math.floor(Date.now() / 1000);
+      const startOffset = 86400; // Exactly 24 hours
+      const endOffset = 345600; // Exactly 4 days
+
+      const proposalOptions: Proposal = {
+        space,
+        type: "basic",
+        title: `QIP${frontmatter.qip}: ${frontmatter.title}`,
+        body: `QIP #${frontmatter.qip}: ${frontmatter.title}\n\n${stripHtml(html)}`,
+        choices: ["For", "Against", "Abstain"],
+        start: now + startOffset,
+        end: now + endOffset,
+        snapshot: 0,
+        discussion: "",
+        plugins: JSON.stringify({}),
+        app: "snapshot-v2",
+        timestamp: now, // Add explicit timestamp
+      };
+
       const receipt = await createProposal(signer, "https://hub.snapshot.org", proposalOptions);
       if (receipt && (receipt as any).id) {
         const proposalId = (receipt as any).id;
