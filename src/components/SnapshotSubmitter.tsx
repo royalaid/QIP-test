@@ -63,6 +63,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
   const isQipValid = highestQip !== null && frontmatter.qip === highestQip + 1;
   const space = SNAPSHOT_SPACE;
 
+
   const handleSubmit = async () => {
     if (!signer) {
       setStatus("Please connect your wallet first.");
