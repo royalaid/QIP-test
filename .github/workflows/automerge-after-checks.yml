@@ -1,0 +1,114 @@
+name: "Automerge After All Checks"
+on:
+  workflow_run:
+    workflows: 
+      - "QIP File Validation"
+      - "QIP Author Validation"
+    types:
+      - completed
+
+permissions:
+  pull-requests: write
+  contents: write
+  checks: read
+
+jobs:
+  automerge:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR details
+        id: pr_details
+        run: |
+          # Get associated pull requests from workflow run
+          PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
+          if [ "$PR_DATA" = "null" ] || [ "$PR_DATA" = "[]" ]; then
+            echo "No PR associated with this workflow run"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "Found PR #$PR_NUMBER from workflow: ${{ github.event.workflow.name }}"
+          
+          # Get PR details including labels
+          PR_INFO=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER)
+          
+          # Check if PR has automerge label
+          HAS_AUTOMERGE=$(echo "$PR_INFO" | jq -r '.labels[] | select(.name == "automerge") | .name')
+          
+          if [ "$HAS_AUTOMERGE" != "automerge" ]; then
+            echo "❌ PR #$PR_NUMBER does not have automerge label"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "✅ PR #$PR_NUMBER has automerge label"
+          
+          # Get the commit SHA for this PR
+          HEAD_SHA=$(echo "$PR_INFO" | jq -r '.head.sha')
+          
+          # Check ALL workflow runs for this commit to ensure they're all complete and successful
+          echo "Checking all workflow runs for commit $HEAD_SHA"
+          
+          # Get all check runs for this commit
+          CHECK_RUNS=$(gh api repos/${{ github.repository }}/commits/$HEAD_SHA/check-runs --paginate --jq '.check_runs[]')
+          
+          # Filter out this current workflow run to avoid circular dependency
+          RELEVANT_CHECKS=$(echo "$CHECK_RUNS" | jq -s '[.[] | select(.name != "automerge" and .app.slug == "github-actions")]')
+          
+          TOTAL_CHECKS=$(echo "$RELEVANT_CHECKS" | jq 'length')
+          SUCCESSFUL_CHECKS=$(echo "$RELEVANT_CHECKS" | jq '[.[] | select(.conclusion == "success")] | length')
+          PENDING_CHECKS=$(echo "$RELEVANT_CHECKS" | jq '[.[] | select(.status != "completed")] | length')
+          FAILED_CHECKS=$(echo "$RELEVANT_CHECKS" | jq '[.[] | select(.conclusion != "success" and .conclusion != null)] | length')
+          
+          echo "Check status: $SUCCESSFUL_CHECKS/$TOTAL_CHECKS successful, $PENDING_CHECKS pending, $FAILED_CHECKS failed"
+          
+          # List pending checks if any
+          if [ "$PENDING_CHECKS" -gt 0 ]; then
+            echo "Pending checks:"
+            echo "$RELEVANT_CHECKS" | jq -r '.[] | select(.status != "completed") | "  - \(.name)"'
+          fi
+          
+          # We need ALL checks to be complete and successful
+          REQUIRED_WORKFLOWS=("Validate new/changed QIPs" "Validate QIP Author")
+          FOUND_WORKFLOWS=0
+          
+          for workflow in "${REQUIRED_WORKFLOWS[@]}"; do
+            if echo "$RELEVANT_CHECKS" | jq -e --arg wf "$workflow" '.[] | select(.name == $wf and .conclusion == "success")' > /dev/null; then
+              echo "✅ Found successful run for: $workflow"
+              ((FOUND_WORKFLOWS++))
+            else
+              echo "❌ Missing or unsuccessful: $workflow"
+            fi
+          done
+          
+          if [ "$FOUND_WORKFLOWS" -eq "${#REQUIRED_WORKFLOWS[@]}" ] && [ "$PENDING_CHECKS" -eq 0 ] && [ "$FAILED_CHECKS" -eq 0 ]; then
+            echo "✅ All required checks have passed!"
+            echo "should_proceed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⏳ Not all required checks have passed yet"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Merge PR
+        if: steps.pr_details.outputs.should_proceed == 'true'
+        run: |
+          PR_NUMBER="${{ steps.pr_details.outputs.pr_number }}"
+          echo "🔀 Attempting to merge PR #$PR_NUMBER"
+          
+          # Use auto flag to respect branch protection rules
+          gh pr merge $PR_NUMBER --squash --delete-branch --auto
+          
+          echo "✅ Auto-merge enabled for PR #$PR_NUMBER"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

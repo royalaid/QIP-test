@@ -1,0 +1,95 @@
+# Workflow for building and deploying QIPs site to GitHub Pages (Vite)
+# This workflow builds the static site with Vite and publishes the dist/ folder to Pages
+name: Deploy QIPs site to Pages (Vite)
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+# Default to bash
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v4
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build with Vite
+        env:
+          # Required secrets for blockchain and Web3 functionality
+          VITE_QIP_REGISTRY_ADDRESS: ${{ secrets.QIP_REGISTRY_ADDRESS }}
+          VITE_BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
+          VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
+          
+          # Required for IPFS uploads via Mai API
+          VITE_IPFS_API_URL: ${{ secrets.IPFS_API_URL }}
+          
+          # Mai API endpoint for fetching QIPs (24x performance improvement)
+          VITE_MAI_API_URL: ${{ vars.VITE_MAI_API_URL || secrets.MAI_API_URL || 'https://api.mai.finance' }}
+          
+          # Optional: Snapshot governance space (defaults to qidao.eth)
+          VITE_SNAPSHOT_SPACE: ${{ secrets.SNAPSHOT_SPACE || 'qidao.eth' }}
+          
+          # Optional: Pinata group ID for organizing QIP uploads
+          # Uncomment if you want to group uploads:
+          # VITE_PINATA_GROUP_ID: ${{ secrets.PINATA_GROUP_ID }}
+          
+          # Optional: Custom Pinata gateway (defaults to https://gateway.pinata.cloud)
+          # Uncomment if using a custom gateway:
+          # VITE_PINATA_GATEWAY: ${{ secrets.PINATA_GATEWAY }}
+          
+          # Hardcoded production values (not sensitive)
+          VITE_USE_TESTNET: 'false'
+          VITE_USE_LOCAL_IPFS: 'false'
+          VITE_USE_MAI_API: 'true'
+          VITE_LOCAL_MODE: 'false'
+        run: |
+          bunx tsc --noEmit
+          # Build without base path for custom domain deployment
+          # GitHub Pages with custom domains serve from root, not from /<repo-name>/
+          bun run build
+          cp dist/index.html dist/404.html
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  # Deployment job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,41 @@
+name: "Label Validated PRs"
+on:
+  workflow_run:
+    workflows: ["QIP File Validation"]
+    types:
+      - completed
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR number
+        id: pr
+        run: |
+          echo "Fetching PR number from workflow run"
+          PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
+          if [ "$PR_DATA" != "null" ] && [ "$PR_DATA" != "[]" ]; then
+            PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+              echo "✅ Found PR #$PR_NUMBER"
+            else
+              echo "No PR number found"
+              echo "pr_number=" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No pull requests found"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Add automerge label
+        if: steps.pr.outputs.pr_number
+        uses: actions-ecosystem/action-add-labels@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ steps.pr.outputs.pr_number }}
+          labels: automerge 
