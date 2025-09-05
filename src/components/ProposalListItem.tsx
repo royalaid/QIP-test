@@ -6,6 +6,7 @@ import { QIPClient } from '../services/qipClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 import { CACHE_TIMES } from '../config/queryClient';
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 // Proposal list item component
 
 const statusColor:any = {
@@ -139,49 +140,38 @@ const ProposalListItem = (props: any) => {
     };
 
     return (
-        <div className="proposal-lists mb-15">
+        <div className="space-y-3">
             {proposals.map((proposal: any, index: number) => {
                 const data = getProposalData(proposal);
                 
                 return (
-                  <div
-                    key={index}
-                    className="border-y border-skin-border bg-skin-block-bg text-base md:rounded-xl md:border transition-colors mb-3"
-                  >
-                    <Link to={`/qips/${data.qip}`} className="cursor-pointer" onMouseEnter={() => handleMouseEnter(data.qip)}>
-                      <div className="leading-5 sm:leading-6">
-                        <div>
-                          <div className="block p-3 text-skin-text sm:p-4">
-                            <div>
-                              <div className="flex h-[26px] items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-sm text-muted-foreground font-medium">QIP-{data.qip}</span>
-                                  <div className="flex">
-                                    <button
-                                      id="headlessui-popover-button-15"
-                                      type="button"
-                                      aria-expanded="false"
-                                      data-headlessui-state=""
-                                    ></button>
-                                  </div>
-                                </div>
-                                <span
-                                  style={{ backgroundColor: statusColor[data.status] }}
-                                  className="bg-[#BB6BD9] State text-white p-[1px] px-[7px] rounded-[14px] font-normal"
-                                >
-                                  {data.status}
-                                </span>
-                              </div>
-                              <div className="relative flex mb-2 mt-4 break-words pr-[80px] leading-[44px]">
-                                <h3 className="inline pr-2 text-xl font-bold text-foreground">{data.title}</h3>
-                              </div>
-                              <div className="">{/* Add more elements here */}</div>
-                            </div>
-                          </div>
+                  <Card key={index} className="hover:shadow-lg transition-all duration-200 cursor-pointer">
+                    <Link to={`/qips/${data.qip}`} className="block" onMouseEnter={() => handleMouseEnter(data.qip)}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between mb-2">
+                          <CardDescription className="text-sm font-medium">
+                            QIP-{data.qip}
+                          </CardDescription>
+                          <span
+                            style={{ backgroundColor: statusColor[data.status] }}
+                            className="text-white text-xs px-2 py-1 rounded-full font-medium"
+                          >
+                            {data.status}
+                          </span>
                         </div>
-                      </div>
+                        <CardTitle className="text-xl">
+                          {data.title}
+                        </CardTitle>
+                      </CardHeader>
+                      {data.shortDescription && (
+                        <CardContent>
+                          <p className="text-muted-foreground text-sm line-clamp-2">
+                            {data.shortDescription}
+                          </p>
+                        </CardContent>
+                      )}
                     </Link>
-                  </div>
+                  </Card>
                 );
             })}
         </div>

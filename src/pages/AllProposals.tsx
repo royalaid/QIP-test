@@ -116,16 +116,16 @@ const AllProposals: React.FC = () => {
 
         <div className="space-y-8">
           {orderedGroups.map(({ status, qips, displayName }) => (
-            <div key={status} className="proposal-list-container">
-              <div className="shadow-s p-5 bg-card rounded-t-lg">
-                <h3 className="text-2xl font-semibold mb-3 flex items-center">
-                  {displayName}
-                  <span className="ml-2 text-sm text-gray-500">({qips.length})</span>
-                  {isFetching && (
-                    <div className="ml-2 animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                  )}
-                </h3>
-              </div>
+            <div key={status}>
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                {displayName}
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({qips.length})
+                </span>
+                {isFetching && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>
+                )}
+              </h2>
               <ProposalListItem proposals={qips} />
             </div>
           ))}
