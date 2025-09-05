@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useQIP } from '../hooks/useQIP'
 import { useUpdateQIPStatus } from '../hooks/useUpdateQIPStatus'
-import Layout from '../layout'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
 import { StatusUpdateComponent } from '../components/StatusUpdateComponent'
@@ -133,20 +132,20 @@ const QIPDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             <span className="ml-3">Loading QIP...</span>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
   if (error || !qipData) {
     return (
-      <Layout>
+      <>
         <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
@@ -156,7 +155,7 @@ const QIPDetail: React.FC = () => {
             </Link>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 

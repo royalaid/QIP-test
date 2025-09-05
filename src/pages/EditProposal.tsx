@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import Layout from '../layout'
 import { useQIP } from '../hooks/useQIP'
 import { ProposalEditor } from '../components/ProposalEditor'
 import { config } from '../config/env'
@@ -42,49 +41,42 @@ const EditProposal: React.FC = () => {
 
   if (!registryAddress) {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Registry not configured</p>
             <p>Please set VITE_QIP_REGISTRY_ADDRESS and reload.</p>
           </div>
-        </div>
-      </Layout>
+      </div>
     )
   }
 
   if (qipNumber <= 0) {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
           <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
             <p className="font-bold">Invalid QIP number</p>
             <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
           </div>
-        </div>
-      </Layout>
+      </div>
     )
   }
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             <span className="ml-3">Loading proposal...</span>
           </div>
-        </div>
-      </Layout>
+      </div>
     )
   }
 
   if (error || !existingQIP) {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
             <p>{(error as any)?.message || 'QIP not found'}</p>
@@ -92,14 +84,12 @@ const EditProposal: React.FC = () => {
               ← Back to all proposals
             </Link>
           </div>
-        </div>
-      </Layout>
+      </div>
     )
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8">
         <div className="mb-6">
           <Link to={`/qips/${qipNumber}`} className="text-primary hover:text-primary/80">
             ← Back to QIP-{qipNumber}
@@ -111,8 +101,7 @@ const EditProposal: React.FC = () => {
           rpcUrl={rpcUrl}
           existingQIP={existingQIP}
         />
-      </div>
-    </Layout>
+    </div>
   )
 }
 

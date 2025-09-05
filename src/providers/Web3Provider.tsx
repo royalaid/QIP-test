@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -7,6 +7,7 @@ import { mainnet } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 import { config, getChains, getDefaultChainId, localBaseFork } from "../config";
 import { createQueryClient, setupPersistentCache } from "../config/queryClient";
+import { useTheme } from "../providers/ThemeProvider";
 
 // Get chains from config
 const chains = getChains();
@@ -45,37 +46,8 @@ interface Web3ProviderProps {
 }
 
 export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
-  // Initialize with current theme
-  const getInitialTheme = (): "light" | "dark" => {
-    if (typeof window !== "undefined") {
-      return document.body.classList.contains("dark") ? "dark" : "light";
-    }
-    return "light";
-  };
-
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme());
-
-  // Watch for theme changes
-  useEffect(() => {
-    // Initial theme
-    const checkTheme = () => {
-      const isDark = document.body.classList.contains("dark");
-      const newTheme = isDark ? "dark" : "light";
-      console.log("🎨 ConnectKit theme update:", newTheme);
-      setTheme(newTheme);
-    };
-
-    checkTheme();
-
-    // Listen for theme changes via MutationObserver
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
+  // Get theme from context
+  const { theme } = useTheme();
 
   // Log configuration in development
   React.useEffect(() => {

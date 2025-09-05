@@ -2,7 +2,6 @@ import React, { useMemo, useEffect, useRef, useCallback } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
 import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
-import Layout from '../layout'
 import LocalModeBanner from '../components/LocalModeBanner'
 import { config } from '../config/env'
 
@@ -112,8 +111,7 @@ const AllProposalsPaginated: React.FC = () => {
     }))
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
           
@@ -187,8 +185,7 @@ const AllProposalsPaginated: React.FC = () => {
           </div>
         )}
 
-      </div>
-    </Layout>
+    </div>
   )
 }
 
