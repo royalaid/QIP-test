@@ -227,7 +227,8 @@ const QIPDetail: React.FC = () => {
 
           <div className="prose prose-lg dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {qipData.content}
+              {/* Fix reversed markdown link syntax (text)[url] -> [text](url) */}
+              {qipData.content?.replace(/\(([^)]+)\)\[([^\]]+)\]/g, '[$1]($2)')}
             </ReactMarkdown>
           </div>
 
