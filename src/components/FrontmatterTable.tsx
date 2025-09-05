@@ -11,8 +11,8 @@ interface Props {
 
 const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
     return (
-        <table className="border border-collapse bg-gray-50 min-w-full divide-y divide-gray-200">
-            <tbody className="bg-card divide-y divide-gray-200">
+        <table className="border border-collapse bg-muted/30 dark:bg-zinc-800/50 min-w-full divide-y divide-border">
+            <tbody className="bg-card divide-y divide-border">
                 <tr>
                     <th className="py-3 px-6 text-left font-bold">Author</th>
                     <td className="py-3 px-6">
@@ -90,7 +90,7 @@ const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
             </tbody>
 
             <tfoot>
-                <tr className="bg-gray-50">
+                <tr className="bg-muted/30 dark:bg-zinc-800/50">
                     
                 </tr>
             </tfoot>

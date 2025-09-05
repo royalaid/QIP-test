@@ -6,6 +6,7 @@ import { QIPClient, QIPStatus, type QIPContent } from '../services/qipClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
+import { GradientButton } from '@/components/gradient-button';
 
 interface ProposalEditorProps {
   registryAddress: Address;
@@ -294,7 +295,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="title" className="block text-sm font-medium text-foreground">
             Title *
           </label>
           <input
@@ -303,13 +304,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Improve QiDAO Collateral Framework"
           />
         </div>
 
         <div>
-          <label htmlFor="network" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="network" className="block text-sm font-medium text-foreground">
             Network *
           </label>
           <select
@@ -317,7 +318,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
             value={network}
             onChange={(e) => setNetwork(e.target.value)}
             required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
           >
             {NETWORKS.map(net => (
               <option key={net} value={net}>{net}</option>
@@ -326,7 +327,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         </div>
 
         <div>
-          <label htmlFor="implementor" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="implementor" className="block text-sm font-medium text-foreground">
             Implementor
           </label>
           <input
@@ -334,13 +335,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
             id="implementor"
             value={implementor}
             onChange={(e) => setImplementor(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Dev team, DAO, or None"
           />
         </div>
 
         <div>
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="content" className="block text-sm font-medium text-foreground">
             Proposal Content (Markdown) *
           </label>
           <div className="mt-1">
@@ -350,7 +351,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               onChange={(e) => setContent(e.target.value)}
               required
               rows={20}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono text-sm"
+              className="block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary font-mono text-sm dark:bg-zinc-800 dark:border-zinc-700"
               placeholder={`## Summary
 
 Brief overview of your proposal...
@@ -371,18 +372,19 @@ Implementation details...`}
         </div>
 
         <div className="flex space-x-4">
-          <button
+          <GradientButton
             type="submit"
             disabled={saving}
-            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+            variant="primary"
+            className="text-sm"
           >
             {saving ? 'Saving...' : existingQIP ? 'Update QIP' : 'Create QIP'}
-          </button>
+          </GradientButton>
 
           <button
             type="button"
             onClick={handlePreview}
-            className="inline-flex justify-center rounded-md border border-gray-300 bg-card py-2 px-4 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            className="inline-flex justify-center rounded-md border border-border bg-card py-2 px-4 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           >
             {preview ? 'Edit' : 'Preview'}
           </button>
@@ -392,7 +394,7 @@ Implementation details...`}
       {preview && (
         <div className="mt-8 border-t pt-8">
           <h3 className="text-xl font-bold mb-4">Preview</h3>
-          <div className="bg-gray-50 p-6 rounded-lg">
+          <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
             <h1 className="text-2xl font-bold mb-2">{title || 'Untitled'}</h1>
             <div className="text-sm text-muted-foreground mb-4">
               <span>Network: {network}</span> • 

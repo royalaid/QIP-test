@@ -45,8 +45,8 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       className={cn(
         "flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300",
         isDark 
-          ? "bg-zinc-950 border border-zinc-800" 
-          : "bg-white border border-zinc-200",
+          ? "bg-zinc-800 border border-zinc-700" 
+          : "bg-gray-100 border border-gray-300",
         className
       )}
       onClick={toggleTheme}
