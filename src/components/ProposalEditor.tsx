@@ -384,7 +384,7 @@ Implementation details...`}
           <button
             type="button"
             onClick={handlePreview}
-            className="inline-flex justify-center rounded-md border border-border bg-card py-2 px-4 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="flex items-center justify-center rounded-lg border border-border bg-card py-3 px-8 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           >
             {preview ? 'Edit' : 'Preview'}
           </button>
