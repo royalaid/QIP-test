@@ -20,17 +20,13 @@ const Navigation = () => {
   return (
     <nav className="navbar bg-background border-b border-border w-full fixed top-0 p-4 flex justify-between items-center z-50">
       <div className="flex items-center gap-6">
-        <div className="flex items-center">
-          <span>
-            <img src={logoIcon} alt="QIP Logo" />
-          </span>
-          <span className="mt-2">
-            <Link to="/" className="ml-2 text-xl font-bold">
-              Proposals
-            </Link>
-          </span>
+        <div className="flex items-center gap-2">
+          <img src={logoIcon} alt="QIP Logo" className="h-8 w-8" />
+          <Link to="/" className="text-xl font-bold">
+            Proposals
+          </Link>
         </div>
-        <Link to="/all-proposals" className="text-foreground hover:text-primary cursor-pointer">
+        <Link to="/all-proposals" className="text-foreground hover:text-primary">
           All Proposals
         </Link>
       </div>

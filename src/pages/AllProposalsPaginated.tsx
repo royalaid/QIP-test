@@ -119,21 +119,6 @@ const AllProposalsPaginated: React.FC = () => {
           
           {localMode && <LocalModeBanner />}
           
-          {/* Stats bar */}
-          {!isLoading && totalCount > 0 && (
-            <div className="bg-primary/5 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex justify-center items-center">
-                <div>
-                  <span className="text-sm text-muted-foreground">Loaded </span>
-                  <span className="font-semibold">{qips.length}</span>
-                  <span className="text-sm text-muted-foreground"> of </span>
-                  <span className="font-semibold">{totalCount}</span>
-                  <span className="text-sm text-muted-foreground"> proposals</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
           {isError && (
             <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading data</p>
@@ -202,30 +187,6 @@ const AllProposalsPaginated: React.FC = () => {
           </div>
         )}
 
-        {/* Refresh button for development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4">
-            <button
-              onClick={() => invalidate()}
-              className="bg-primary text-white px-4 py-2 rounded-full shadow-lg hover:bg-primary/90 flex items-center"
-              disabled={isLoading || isFetchingMore}
-            >
-              {isLoading || isFetchingMore ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </>
-              )}
-            </button>
-          </div>
-        )}
       </div>
     </Layout>
   )
