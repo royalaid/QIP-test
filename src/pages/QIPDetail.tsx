@@ -183,30 +183,33 @@ const QIPDetail: React.FC = () => {
             QIP-{qipData.qipNumber}: {qipData.title}
           </h1>
 
-          <div className="mb-6">
-            <div className="flex items-center gap-3">
-              <StatusUpdateComponent
-                qipNumber={BigInt(qipData.qipNumber)}
-                currentStatus={qipData.statusEnum || QIPStatus.Draft}
-                currentIpfsStatus={qipData.ipfsStatus}
-                isAuthor={isAuthor}
-                isEditor={isEditor}
-                onStatusUpdate={async (newStatus) => {
-                  await updateStatus(BigInt(qipData.qipNumber), newStatus)
-                  // Refresh the QIP data after update
-                  refetch()
-                }}
-              />
-              <StatusDiscrepancyIndicator
-                onChainStatus={qipData.status}
-                ipfsStatus={qipData.ipfsStatus}
-              />
-            </div>
-          </div>
-
           <div className="mb-8">
             <FrontmatterTable frontmatter={frontmatter} />
           </div>
+
+          {(isAuthor || isEditor) && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3">
+                <StatusUpdateComponent
+                  qipNumber={BigInt(qipData.qipNumber)}
+                  currentStatus={qipData.statusEnum || QIPStatus.Draft}
+                  currentIpfsStatus={qipData.ipfsStatus}
+                  isAuthor={isAuthor}
+                  isEditor={isEditor}
+                  onStatusUpdate={async (newStatus) => {
+                    await updateStatus(BigInt(qipData.qipNumber), newStatus)
+                    // Refresh the QIP data after update
+                    refetch()
+                  }}
+                  hideStatusPill={true}
+                />
+                <StatusDiscrepancyIndicator
+                  onChainStatus={qipData.status}
+                  ipfsStatus={qipData.ipfsStatus}
+                />
+              </div>
+            </div>
+          )}
 
           {qipData.ipfsUrl && (
             <div className="mb-4 text-sm text-muted-foreground">

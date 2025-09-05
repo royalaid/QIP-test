@@ -12,6 +12,7 @@ interface StatusUpdateComponentProps {
   isEditor: boolean;
   onStatusUpdate: (newStatus: QIPStatus) => Promise<void>;
   onSyncToIPFS?: () => Promise<void>;
+  hideStatusPill?: boolean;
 }
 
 // Status transition rules - defines valid transitions from each status
@@ -70,7 +71,8 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   isAuthor,
   isEditor,
   onStatusUpdate,
-  onSyncToIPFS
+  onSyncToIPFS,
+  hideStatusPill = false
 }) => {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -147,9 +149,11 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   return (
     <>
       <div className="inline-flex items-center gap-2">
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
-          {STATUS_LABELS[currentStatus]}
-        </span>
+        {!hideStatusPill && (
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
+            {STATUS_LABELS[currentStatus]}
+          </span>
+        )}
         
         {/* Status update dropdown */}
         <div className="relative inline-block">
