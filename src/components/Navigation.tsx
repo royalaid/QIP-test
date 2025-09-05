@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ConnectKitButton } from "connectkit";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { GradientButton } from "@/components/gradient-button";
 import logoIcon from "../images/icon-48x48.png";
 
 // Navigation component
 const Navigation = () => {
   const [isClient, setIsClient] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     console.log("🔍 Navigation Debug:");
@@ -29,6 +31,9 @@ const Navigation = () => {
         <Link to="/all-proposals" className="text-foreground hover:text-primary">
           All Proposals
         </Link>
+        <GradientButton variant="primary" onClick={() => navigate("/create-proposal")} className="text-sm py-2 px-6">
+          Create
+        </GradientButton>
       </div>
       <div className="flex items-center gap-4">
         <ThemeToggle />
