@@ -15,6 +15,10 @@ interface ProposalEditorProps {
     qipNumber: bigint;
     content: QIPContent;
   };
+  initialTitle?: string;
+  initialNetwork?: string;
+  initialContent?: string;
+  initialImplementor?: string;
 }
 
 const NETWORKS = ['Polygon', 'Ethereum', 'Base', 'Metis', 'Arbitrum', 'Optimism', 'BSC', 'Avalanche'];
@@ -22,7 +26,11 @@ const NETWORKS = ['Polygon', 'Ethereum', 'Base', 'Metis', 'Arbitrum', 'Optimism'
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({ 
   registryAddress, 
   rpcUrl,
-  existingQIP 
+  existingQIP,
+  initialTitle,
+  initialNetwork,
+  initialContent,
+  initialImplementor
 }) => {
   const { address, isConnected, chain, status } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -57,11 +65,11 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     }
   };
   
-  // Form state
-  const [title, setTitle] = useState(existingQIP?.content.title || '');
-  const [network, setNetwork] = useState(existingQIP?.content.network || 'Polygon');
-  const [content, setContent] = useState(existingQIP?.content.content || '');
-  const [implementor, setImplementor] = useState(existingQIP?.content.implementor || 'None');
+  // Form state - prioritize existingQIP over initial props
+  const [title, setTitle] = useState(existingQIP?.content.title || initialTitle || '');
+  const [network, setNetwork] = useState(existingQIP?.content.network || initialNetwork || 'Polygon');
+  const [content, setContent] = useState(existingQIP?.content.content || initialContent || '');
+  const [implementor, setImplementor] = useState(existingQIP?.content.implementor || initialImplementor || 'None');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
