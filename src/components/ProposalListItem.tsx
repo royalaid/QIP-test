@@ -155,7 +155,7 @@ const ProposalListItem = (props: any) => {
                             <div>
                               <div className="flex h-[26px] items-start justify-between">
                                 <div className="flex items-center gap-3">
-                                  <span className="text-sm text-gray-500 font-medium">QIP-{data.qip}</span>
+                                  <span className="text-sm text-muted-foreground font-medium">QIP-{data.qip}</span>
                                   <div className="flex">
                                     <button
                                       id="headlessui-popover-button-15"
@@ -173,7 +173,7 @@ const ProposalListItem = (props: any) => {
                                 </span>
                               </div>
                               <div className="relative flex mb-2 mt-4 break-words pr-[80px] leading-[44px]">
-                                <h3 className="inline pr-2 text-xl font-bold text-gray-900">{data.title}</h3>
+                                <h3 className="inline pr-2 text-xl font-bold text-foreground">{data.title}</h3>
                               </div>
                               <div className="">{/* Add more elements here */}</div>
                             </div>

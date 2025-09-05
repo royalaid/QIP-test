@@ -6,17 +6,19 @@
 .markdown-content h2 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
-    color: #333;
+    @apply text-foreground;
 }
 
 .markdown-content p {
     line-height: 1.6;
     margin-bottom: 1.25rem;
+    @apply text-foreground;
 }
 
 .markdown-content h3 {
     font-size: 1.5rem;
     margin-bottom: 1.25rem;
+    @apply text-foreground;
 }
 
 .markdown-content ol {
@@ -25,12 +27,13 @@
 }
 
 .markdown-content li {
-    margin-bottom: 0.5rem
+    margin-bottom: 0.5rem;
+    @apply text-foreground;
 }
 
 .markdown-content a {
-    color: #1f6feb;
-    font-style: bold;
+    @apply text-primary hover:text-primary/80;
+    font-weight: 500;
 }
 /* src/styles/global.css */
 /* Add your global styles here */
@@ -65,7 +68,7 @@
 
 @layer base {
     .content ol a {
-        @apply text-blue-900;
+        @apply text-primary;
     }
   :root {
         --background: 0 0% 100%;

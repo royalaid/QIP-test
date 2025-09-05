@@ -238,7 +238,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   if (!isConnected) {
     return (
-      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
         Please connect your wallet to create or edit QIPs
       </div>
     );
@@ -246,7 +246,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   
   if (!registryAddress) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
         Error: Registry address not configured. Please restart Gatsby to load environment variables.
       </div>
     );
@@ -254,7 +254,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   
   if (!ipfsService) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
         Error: IPFS provider not configured. Please check your environment configuration.
       </div>
     );
@@ -262,11 +262,11 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   
   if (isWrongChain) {
     return (
-      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
         <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
         <button 
           onClick={handleSwitchChain}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
         >
           Switch to Local Base Fork
         </button>
@@ -281,7 +281,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       </h2>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
@@ -382,7 +382,7 @@ Implementation details...`}
           <button
             type="button"
             onClick={handlePreview}
-            className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-card py-2 px-4 text-sm font-medium text-muted-foreground shadow-sm hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
             {preview ? 'Edit' : 'Preview'}
           </button>
@@ -394,13 +394,13 @@ Implementation details...`}
           <h3 className="text-xl font-bold mb-4">Preview</h3>
           <div className="bg-gray-50 p-6 rounded-lg">
             <h1 className="text-2xl font-bold mb-2">{title || 'Untitled'}</h1>
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-muted-foreground mb-4">
               <span>Network: {network}</span> • 
               <span> Author: {address}</span> • 
               <span> Status: Draft</span>
             </div>
             <div 
-              className="prose max-w-none"
+              className="prose dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ 
                 __html: content.replace(/\n/g, '<br />') 
               }} 

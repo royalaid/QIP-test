@@ -44,7 +44,7 @@ const EditProposal: React.FC = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Registry not configured</p>
             <p>Please set VITE_QIP_REGISTRY_ADDRESS and reload.</p>
           </div>
@@ -57,9 +57,9 @@ const EditProposal: React.FC = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
             <p className="font-bold">Invalid QIP number</p>
-            <Link to="/all-proposals" className="mt-2 inline-block text-blue-600 hover:text-blue-800">
+            <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
           </div>
@@ -85,10 +85,10 @@ const EditProposal: React.FC = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
             <p>{(error as any)?.message || 'QIP not found'}</p>
-            <Link to="/all-proposals" className="mt-2 inline-block text-blue-600 hover:text-blue-800">
+            <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
           </div>
@@ -101,7 +101,7 @@ const EditProposal: React.FC = () => {
     <Layout>
       <div className="container mx-auto py-8">
         <div className="mb-6">
-          <Link to={`/qips/${qipNumber}`} className="text-blue-600 hover:text-blue-800">
+          <Link to={`/qips/${qipNumber}`} className="text-primary hover:text-primary/80">
             ← Back to QIP-{qipNumber}
           </Link>
         </div>

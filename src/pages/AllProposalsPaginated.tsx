@@ -121,26 +121,26 @@ const AllProposalsPaginated: React.FC = () => {
           
           {/* Stats bar */}
           {!isLoading && totalCount > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="bg-primary/5 border border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex justify-center items-center">
                 <div>
-                  <span className="text-sm text-gray-600">Loaded </span>
+                  <span className="text-sm text-muted-foreground">Loaded </span>
                   <span className="font-semibold">{qips.length}</span>
-                  <span className="text-sm text-gray-600"> of </span>
+                  <span className="text-sm text-muted-foreground"> of </span>
                   <span className="font-semibold">{totalCount}</span>
-                  <span className="text-sm text-gray-600"> proposals</span>
+                  <span className="text-sm text-muted-foreground"> proposals</span>
                 </div>
               </div>
             </div>
           )}
           
           {isError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading data</p>
               <p className="text-sm">Please check your connection and try again.</p>
               <button 
                 onClick={() => invalidate()}
-                className="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
               </button>
@@ -155,7 +155,7 @@ const AllProposalsPaginated: React.FC = () => {
           )}
 
           {!isLoading && !isError && qips.length === 0 && (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
             </div>
@@ -165,7 +165,7 @@ const AllProposalsPaginated: React.FC = () => {
         <div className="space-y-8">
           {orderedGroups.map(({ status, qips, displayName }) => (
             <div key={status} className="proposal-list-container">
-              <div className="shadow-s p-5 bg-white rounded-t-lg">
+              <div className="shadow-s p-5 bg-card rounded-t-lg">
                 <h3 className="text-2xl font-semibold mb-3 flex items-center">
                   {displayName}
                   <span className="ml-2 text-sm text-gray-500">({qips.length})</span>
@@ -187,7 +187,7 @@ const AllProposalsPaginated: React.FC = () => {
             ) : (
               <button
                 onClick={loadMore}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Load More Proposals
               </button>
@@ -207,7 +207,7 @@ const AllProposalsPaginated: React.FC = () => {
           <div className="fixed bottom-4 right-4">
             <button
               onClick={() => invalidate()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 flex items-center"
+              className="bg-primary text-white px-4 py-2 rounded-full shadow-lg hover:bg-primary/90 flex items-center"
               disabled={isLoading || isFetchingMore}
             >
               {isLoading || isFetchingMore ? (

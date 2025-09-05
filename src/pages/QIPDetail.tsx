@@ -148,10 +148,10 @@ const QIPDetail: React.FC = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
             <p>{typeof error === 'string' ? error : error?.toString() || 'QIP not found'}</p>
-            <Link to="/all-proposals" className="mt-2 inline-block text-blue-600 hover:text-blue-800">
+            <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
           </div>
@@ -177,7 +177,7 @@ const QIPDetail: React.FC = () => {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <Link to="/all-proposals" className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
+          <Link to="/all-proposals" className="text-primary hover:text-primary/80 mb-4 inline-block">
             ← Back to all proposals
           </Link>
 
@@ -211,29 +211,29 @@ const QIPDetail: React.FC = () => {
           </div>
 
           {qipData.ipfsUrl && (
-            <div className="mb-4 text-sm text-gray-600">
+            <div className="mb-4 text-sm text-muted-foreground">
               <span className="font-semibold">IPFS:</span>{' '}
               <a 
                 href={qipData.ipfsUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800"
+                className="text-primary hover:text-primary/80"
               >
                 {qipData.ipfsUrl}
               </a>
             </div>
           )}
 
-          <div className="prose prose-lg max-w-none">
+          <div className="prose prose-lg dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {qipData.content}
             </ReactMarkdown>
           </div>
 
           {/* Version and edit info */}
-          <div className="mt-8 p-4 bg-gray-100 rounded">
+          <div className="mt-8 p-4 bg-muted rounded">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Version {qipData.version}
                 {qipData.version > 1 && ` • Updated ${qipData.version - 1} time${qipData.version > 2 ? 's' : ''}`}
               </p>
@@ -258,7 +258,7 @@ const QIPDetail: React.FC = () => {
               <h2 className="text-2xl font-bold mb-4">
                 Submit to Snapshot
                 {config.snapshotSpace !== 'qidao.eth' && (
-                  <span className="text-base font-normal text-blue-600 ml-2">
+                  <span className="text-base font-normal text-primary ml-2">
                     (Space: {config.snapshotSpace})
                   </span>
                 )}
@@ -277,13 +277,13 @@ const QIPDetail: React.FC = () => {
 
           {/* Show existing Snapshot proposal link */}
           {qipData.proposal && qipData.proposal !== 'None' && (
-            <div className="mt-8 p-4 bg-blue-50 rounded">
+            <div className="mt-8 p-4 bg-primary/5 rounded">
               <h3 className="font-bold mb-2">Snapshot Proposal</h3>
               <a 
                 href={qipData.proposal.startsWith('http') ? qipData.proposal : `https://snapshot.org/#/${qipData.proposal}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-primary hover:underline"
               >
                 View on Snapshot →
               </a>

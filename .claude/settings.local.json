@@ -32,7 +32,8 @@
       "WebFetch(domain:ai-docs.pinata.cloud)",
       "WebSearch",
       "Bash(git submodule:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:21st.dev)"
     ],
     "deny": []
   },

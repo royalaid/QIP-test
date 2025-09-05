@@ -12,7 +12,7 @@ interface Props {
 const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
     return (
         <table className="border border-collapse bg-gray-50 min-w-full divide-y divide-gray-200">
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-gray-200">
                 <tr>
                     <th className="py-3 px-6 text-left font-bold">Author</th>
                     <td className="py-3 px-6">

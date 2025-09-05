@@ -8,31 +8,20 @@ interface Props {
     children: React.ReactNode;
 }
 
-const toggleTheme = (e: React.MouseEvent<HTMLAnchorElement>) => {
-  e.preventDefault();
-  const element = document.body;
-  document.getElementById("theme-toggle-dark-icon")?.classList.toggle("hidden");
-  document.getElementById("theme-toggle-light-icon")?.classList.toggle("hidden");
-  const result = element.classList.toggle("dark");
-  localStorage.setItem("theme", result ? "dark" : "light");
-};
-
-const initTheme = () => {
-    const element = document.body;
-    if (element.classList.contains('dark')) {
-        document
-            .getElementById('theme-toggle-light-icon')
-            ?.classList.remove('hidden');
-    } else {
-        document
-            .getElementById('theme-toggle-dark-icon')
-            ?.classList.remove('hidden');
-    }
-};
-
 const Layout: React.FC<Props> = ({ children }) => {
+    // Theme initialization is now handled by ThemeToggle component
     useEffect(() => {
-        initTheme();
+        // Initialize theme on mount to prevent flash
+        const savedTheme = localStorage.getItem('theme');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const theme = savedTheme || systemTheme;
+        
+        // Apply theme immediately
+        if (theme === 'dark') {
+            document.body.classList.add('dark');
+        } else {
+            document.body.classList.remove('dark');
+        }
     }, []);
 
     return (

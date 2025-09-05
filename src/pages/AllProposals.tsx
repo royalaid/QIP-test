@@ -88,12 +88,12 @@ const AllProposals: React.FC = () => {
           </div>
           
           {blockchainError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading from API</p>
               <p className="text-sm">Please check your connection and try again.</p>
               <button 
                 onClick={() => refreshQIPs()}
-                className="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
               </button>
@@ -108,7 +108,7 @@ const AllProposals: React.FC = () => {
           )}
 
           {!blockchainLoading && !blockchainError && blockchainQIPs.length === 0 && (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
             </div>
@@ -118,7 +118,7 @@ const AllProposals: React.FC = () => {
         <div className="space-y-8">
           {orderedGroups.map(({ status, qips, displayName }) => (
             <div key={status} className="proposal-list-container">
-              <div className="shadow-s p-5 bg-white rounded-t-lg">
+              <div className="shadow-s p-5 bg-card rounded-t-lg">
                 <h3 className="text-2xl font-semibold mb-3 flex items-center">
                   {displayName}
                   <span className="ml-2 text-sm text-gray-500">({qips.length})</span>
@@ -137,7 +137,7 @@ const AllProposals: React.FC = () => {
           <div className="fixed bottom-4 right-4">
             <button
               onClick={() => invalidateQIPs()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 flex items-center"
+              className="bg-primary text-white px-4 py-2 rounded-full shadow-lg hover:bg-primary/90 flex items-center"
               disabled={isFetching}
             >
               {isFetching ? (

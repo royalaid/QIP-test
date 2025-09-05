@@ -53,14 +53,14 @@ const STATUS_LABELS: Record<QIPStatus, string> = {
 
 // Status colors for visual feedback
 const STATUS_COLORS: Record<QIPStatus, string> = {
-  [QIPStatus.Draft]: 'bg-gray-100 text-gray-800',
-  [QIPStatus.ReviewPending]: 'bg-yellow-100 text-yellow-800',
-  [QIPStatus.VotePending]: 'bg-blue-100 text-blue-800',
+  [QIPStatus.Draft]: 'bg-muted text-foreground',
+  [QIPStatus.ReviewPending]: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+  [QIPStatus.VotePending]: 'bg-primary/10 text-primary',
   [QIPStatus.Approved]: 'bg-green-100 text-green-800',
-  [QIPStatus.Rejected]: 'bg-red-100 text-red-800',
+  [QIPStatus.Rejected]: 'bg-destructive/10 text-destructive',
   [QIPStatus.Implemented]: 'bg-purple-100 text-purple-800',
   [QIPStatus.Superseded]: 'bg-orange-100 text-orange-800',
-  [QIPStatus.Withdrawn]: 'bg-gray-100 text-gray-600'
+  [QIPStatus.Withdrawn]: 'bg-muted text-muted-foreground'
 };
 
 export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
@@ -154,7 +154,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
         {/* Status update dropdown */}
         <div className="relative inline-block">
           <select
-            className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="appearance-none bg-card border border-gray-300 rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             onChange={(e) => {
               const newStatus = parseInt(e.target.value) as QIPStatus;
               if (!isNaN(newStatus)) {
@@ -200,7 +200,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
       {/* Confirmation Dialog */}
       {showConfirmDialog && selectedStatus !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-start mb-4">
               <div className="flex-shrink-0">
                 <FiAlertCircle className="h-6 w-6 text-yellow-500" />
@@ -218,7 +218,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
                   
                   {/* Show admin override notice when making non-standard transitions */}
                   {isEditor && !validTransitions.includes(selectedStatus) && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                    <div className="mt-3 p-3 bg-primary/5 rounded-md">
                       <p className="text-sm text-blue-800">
                         <strong>Administrative Override:</strong> This is not a standard workflow transition. 
                         As an editor/admin, you have permission to make any status change.
@@ -271,7 +271,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
               <button
                 onClick={cancelStatusUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-gray-300 rounded-md hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 <FiX className="inline mr-1" />
                 Cancel
@@ -279,7 +279,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
               <button
                 onClick={confirmStatusUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {isUpdating ? (
                   <>
