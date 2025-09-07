@@ -142,16 +142,16 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
           <p
             className={`mt-2 text-sm ${
               typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled"))
-                ? "text-red-600 font-medium"
+                ? "text-destructive font-medium"
                 : "text-green-600 font-medium"
             }`}
           >
             {status}
           </p>
         )}
-        {!isDefaultSpace && <p className="mt-1 text-xs text-blue-600">Submitting to space: {SNAPSHOT_SPACE}</p>}
+        {!isDefaultSpace && <p className="mt-1 text-xs text-primary">Submitting to space: {SNAPSHOT_SPACE}</p>}
         {signer && requiresTokenBalance && tokenBalance >= REQUIRED_BALANCE && (
-          <p className="mt-1 text-xs text-gray-600">Token balance: {tokenBalance.toLocaleString()} (✓ meets requirement)</p>
+          <p className="mt-1 text-xs text-muted-foreground">Token balance: {tokenBalance.toLocaleString()} (✓ meets requirement)</p>
         )}
       </div>
 
@@ -165,7 +165,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
             !isQipValid ||
             (requiresQipValidation && loadingProposals)
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
+              : "bg-primary hover:bg-primary/90"
           } text-white`}
           onClick={handleSubmit}
           disabled={
@@ -197,7 +197,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
         <p
           className={`text-center text-sm ${
             typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled"))
-              ? "text-red-600 font-medium"
+              ? "text-destructive font-medium"
               : "text-green-600 font-medium"
           }`}
         >

@@ -36,12 +36,12 @@ export const StatusDiscrepancyIndicator: React.FC<StatusDiscrepancyIndicatorProp
         </button>
         
         {showDetails && (
-          <div className="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-white rounded-lg shadow-lg border border-gray-200">
+          <div className="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 p-3 bg-card rounded-lg shadow-lg border border-gray-200">
             <div className="flex items-start gap-2">
               <FiInfo className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <div className="text-xs">
                 <p className="font-semibold mb-1">Status Discrepancy Detected</p>
-                <p className="text-gray-600 mb-2">
+                <p className="text-muted-foreground mb-2">
                   The on-chain status differs from the IPFS content:
                 </p>
                 <div className="space-y-1">
@@ -84,7 +84,7 @@ export const StatusDiscrepancyBadge: React.FC<{
       <div
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
       >
         <FiAlertTriangle className="h-3 w-3 mr-1" />
         Out of Sync

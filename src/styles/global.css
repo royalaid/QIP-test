@@ -6,17 +6,19 @@
 .markdown-content h2 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
-    color: #333;
+    @apply text-foreground;
 }
 
 .markdown-content p {
     line-height: 1.6;
     margin-bottom: 1.25rem;
+    @apply text-foreground;
 }
 
 .markdown-content h3 {
     font-size: 1.5rem;
     margin-bottom: 1.25rem;
+    @apply text-foreground;
 }
 
 .markdown-content ol {
@@ -25,12 +27,13 @@
 }
 
 .markdown-content li {
-    margin-bottom: 0.5rem
+    margin-bottom: 0.5rem;
+    @apply text-foreground;
 }
 
 .markdown-content a {
-    color: #1f6feb;
-    font-style: bold;
+    @apply text-primary hover:text-primary/80;
+    font-weight: 500;
 }
 /* src/styles/global.css */
 /* Add your global styles here */
@@ -65,8 +68,72 @@
 
 @layer base {
     .content ol a {
-        @apply text-blue-900;
+        @apply text-primary;
+    }
+  :root {
+        --background: 0 0% 100%;
+        --foreground: 0 0% 3.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 3.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 3.9%;
+        --primary: 0 0% 9%;
+        --primary-foreground: 0 0% 98%;
+        --secondary: 0 0% 96.1%;
+        --secondary-foreground: 0 0% 9%;
+        --muted: 0 0% 96.1%;
+        --muted-foreground: 0 0% 45.1%;
+        --accent: 0 0% 96.1%;
+        --accent-foreground: 0 0% 9%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 0 0% 89.8%;
+        --input: 0 0% 89.8%;
+        --ring: 0 0% 3.9%;
+        --chart-1: 12 76% 61%;
+        --chart-2: 173 58% 39%;
+        --chart-3: 197 37% 24%;
+        --chart-4: 43 74% 66%;
+        --chart-5: 27 87% 67%;
+        --radius: 0.5rem;
+    }
+  .dark {
+        --background: 0 0% 9%;
+        --foreground: 0 0% 88%;
+        --card: 0 0% 12%;
+        --card-foreground: 0 0% 88%;
+        --popover: 0 0% 12%;
+        --popover-foreground: 0 0% 88%;
+        --primary: 0 0% 88%;
+        --primary-foreground: 0 0% 15%;
+        --secondary: 0 0% 18%;
+        --secondary-foreground: 0 0% 88%;
+        --muted: 0 0% 18%;
+        --muted-foreground: 0 0% 60%;
+        --accent: 0 0% 20%;
+        --accent-foreground: 0 0% 88%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 88%;
+        --border: 0 0% 20%;
+        --input: 0 0% 18%;
+        --ring: 0 0% 70%;
+        --chart-1: 220 70% 50%;
+        --chart-2: 160 60% 45%;
+        --chart-3: 30 80% 55%;
+        --chart-4: 280 65% 60%;
+        --chart-5: 340 75% 55%;
     }
 }
 
 /* Add more custom styles for other elements as needed */
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+}

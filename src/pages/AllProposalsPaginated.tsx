@@ -2,7 +2,6 @@ import React, { useMemo, useEffect, useRef, useCallback } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
 import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
-import Layout from '../layout'
 import LocalModeBanner from '../components/LocalModeBanner'
 import { config } from '../config/env'
 
@@ -112,35 +111,19 @@ const AllProposalsPaginated: React.FC = () => {
     }))
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
           
           {localMode && <LocalModeBanner />}
           
-          {/* Stats bar */}
-          {!isLoading && totalCount > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex justify-center items-center">
-                <div>
-                  <span className="text-sm text-gray-600">Loaded </span>
-                  <span className="font-semibold">{qips.length}</span>
-                  <span className="text-sm text-gray-600"> of </span>
-                  <span className="font-semibold">{totalCount}</span>
-                  <span className="text-sm text-gray-600"> proposals</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
           {isError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading data</p>
               <p className="text-sm">Please check your connection and try again.</p>
               <button 
                 onClick={() => invalidate()}
-                className="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
               </button>
@@ -155,7 +138,7 @@ const AllProposalsPaginated: React.FC = () => {
           )}
 
           {!isLoading && !isError && qips.length === 0 && (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
             </div>
@@ -164,13 +147,13 @@ const AllProposalsPaginated: React.FC = () => {
 
         <div className="space-y-8">
           {orderedGroups.map(({ status, qips, displayName }) => (
-            <div key={status} className="proposal-list-container">
-              <div className="shadow-s p-5 bg-white rounded-t-lg">
-                <h3 className="text-2xl font-semibold mb-3 flex items-center">
-                  {displayName}
-                  <span className="ml-2 text-sm text-gray-500">({qips.length})</span>
-                </h3>
-              </div>
+            <div key={status}>
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                {displayName}
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({qips.length})
+                </span>
+              </h2>
               <ProposalListItem proposals={qips} />
             </div>
           ))}
@@ -187,7 +170,7 @@ const AllProposalsPaginated: React.FC = () => {
             ) : (
               <button
                 onClick={loadMore}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Load More Proposals
               </button>
@@ -202,32 +185,7 @@ const AllProposalsPaginated: React.FC = () => {
           </div>
         )}
 
-        {/* Refresh button for development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4">
-            <button
-              onClick={() => invalidate()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 flex items-center"
-              disabled={isLoading || isFetchingMore}
-            >
-              {isLoading || isFetchingMore ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-    </Layout>
+    </div>
   )
 }
 

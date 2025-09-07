@@ -107,7 +107,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading QIP-{qipNumber}...</p>
+              <p className="mt-4 text-muted-foreground">Loading QIP-{qipNumber}...</p>
             </div>
           </div>
         </div>
@@ -122,8 +122,8 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
         <div className="container max-w-full">
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading QIP</h1>
-              <p className="text-gray-600 mb-4">{error.message}</p>
+              <h1 className="text-2xl font-bold text-destructive mb-4">Error Loading QIP</h1>
+              <p className="text-muted-foreground mb-4">{error.message}</p>
               <button 
                 onClick={() => invalidateQIPs()}
                 className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
@@ -144,8 +144,8 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
         <div className="container max-w-full">
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">QIP Not Found</h1>
-              <p className="text-gray-600 mb-4">QIP-{qipNumber} does not exist or hasn't been created yet.</p>
+              <h1 className="text-4xl font-bold text-foreground mb-4">QIP Not Found</h1>
+              <p className="text-muted-foreground mb-4">QIP-{qipNumber} does not exist or hasn't been created yet.</p>
               <div className="space-x-4">
                 <Link 
                   to="/all-proposals"
@@ -214,7 +214,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
               </h1>
 
               {/* Status, Version and IPFS info */}
-              <div className="text-center text-sm text-gray-600 mb-4">
+              <div className="text-center text-sm text-muted-foreground mb-4">
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <StatusUpdateComponent
                     qipNumber={BigInt(qip.qipNumber)}
@@ -239,7 +239,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
                     href={`https://ipfs.io/ipfs/${qip.ipfsUrl.replace('ipfs://', '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline ml-2"
+                    className="text-primary hover:underline ml-2"
                   >
                     View on IPFS
                   </a>
@@ -259,7 +259,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
               </div>
 
               <div className="markdown-content mt-3 p-3 md:p-none">
-                <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />
               </div>
 
               {/* Show Snapshot submitter for eligible statuses to editors and authors */}
@@ -272,7 +272,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
                   <span className="text-2xl font-bold text-black">
                     Submit to Snapshot
                     {config.snapshotSpace !== 'qidao.eth' && (
-                      <span className="text-base font-normal text-blue-600 ml-2">
+                      <span className="text-base font-normal text-primary ml-2">
                         (Space: {config.snapshotSpace})
                       </span>
                     )}
@@ -292,13 +292,13 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
 
               {/* Show existing Snapshot proposal link */}
               {qip.proposal && qip.proposal !== 'None' && (
-                <div className="mt-6 p-4 bg-blue-50 rounded">
+                <div className="mt-6 p-4 bg-primary/5 rounded">
                   <h3 className="font-bold mb-2">Snapshot Proposal</h3>
                   <a 
                     href={qip.proposal.startsWith('http') ? qip.proposal : `https://snapshot.org/#/${qip.proposal}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-primary hover:underline"
                   >
                     View on Snapshot →
                   </a>

@@ -110,7 +110,7 @@ export const IPFSStatus: React.FC<IPFSStatusProps> = ({
               </div>
               
               {!isHealthy && (
-                <div className="mt-3 p-3 bg-white bg-opacity-50 rounded border">
+                <div className="mt-3 p-3 bg-card bg-opacity-50 rounded border">
                   <p className="font-medium text-sm mb-2">To start IPFS:</p>
                   <code className="block text-xs bg-black bg-opacity-10 p-2 rounded font-mono">
                     ipfs daemon

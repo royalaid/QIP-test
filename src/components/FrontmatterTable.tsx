@@ -1,9 +1,22 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { ProposalStatus } from './ProposalStatus'
 import { graphql } from 'gatsby';
 
 import Author from './Author';
+
+// Status color mapping
+const statusColor: any = {
+    Draft: '#757575',
+    Review: '#FFEB3B',
+    'Review Pending': '#FFEB3B',
+    Vote: '#FFEB3B',
+    'Vote Pending': '#FFEB3B',
+    Rejected: '#F44336',
+    Approved: '#4CAF50',
+    Implemented: '#4CAF50',
+    Superseded: '#9E9E9E',
+    Withdrawn: '#9E9E9E',
+};
 
 interface Props {
     frontmatter: any;
@@ -11,8 +24,8 @@ interface Props {
 
 const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
     return (
-        <table className="border border-collapse bg-gray-50 min-w-full divide-y divide-gray-200">
-            <tbody className="bg-white divide-y divide-gray-200">
+        <table className="border border-collapse bg-muted/30 dark:bg-zinc-800/50 min-w-full divide-y divide-border">
+            <tbody className="bg-card divide-y divide-border">
                 <tr>
                     <th className="py-3 px-6 text-left font-bold">Author</th>
                     <td className="py-3 px-6">
@@ -21,7 +34,14 @@ const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
                 </tr>
                 <tr>
                     <th className="py-3 px-6 text-left font-bold">Status</th>
-                    <td className="py-3 px-6">{frontmatter.status}</td>
+                    <td className="py-3 px-6">
+                        <span
+                            style={{ backgroundColor: statusColor[frontmatter.status] || '#757575' }}
+                            className="text-white text-xs px-3 py-1 rounded-full font-medium inline-block"
+                        >
+                            {frontmatter.status}
+                        </span>
+                    </td>
                 </tr>
                 {frontmatter.type && (
                     <tr>
@@ -51,16 +71,6 @@ const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
                         {frontmatter.release || 'TBD'}
                     </td>
                 </tr>
-                {frontmatter.proposal && (
-                    <tr>
-                        <th className="py-3 px-6 text-left font-bold">
-                            Proposal
-                        </th>
-                        <td className="py-3 px-6">
-                            <ProposalStatus url={frontmatter.proposal} />
-                        </td>
-                    </tr>
-                )}
                 {frontmatter.created && (
                     <tr>
                         <th className="py-3 px-6 text-left font-bold">
@@ -90,7 +100,7 @@ const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
             </tbody>
 
             <tfoot>
-                <tr className="bg-gray-50">
+                <tr className="bg-muted/30 dark:bg-zinc-800/50">
                     
                 </tr>
             </tfoot>

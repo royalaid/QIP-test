@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useQIP } from '../hooks/useQIP'
 import { useUpdateQIPStatus } from '../hooks/useUpdateQIPStatus'
-import Layout from '../layout'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
 import { StatusUpdateComponent } from '../components/StatusUpdateComponent'
@@ -133,30 +132,30 @@ const QIPDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             <span className="ml-3">Loading QIP...</span>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
   if (error || !qipData) {
     return (
-      <Layout>
+      <>
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
             <p>{typeof error === 'string' ? error : error?.toString() || 'QIP not found'}</p>
-            <Link to="/all-proposals" className="mt-2 inline-block text-blue-600 hover:text-blue-800">
+            <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
           </div>
         </div>
-      </Layout>
+      </>
     )
   }
 
@@ -174,10 +173,9 @@ const QIPDetail: React.FC = () => {
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <Link to="/all-proposals" className="text-blue-600 hover:text-blue-800 mb-4 inline-block">
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+          <Link to="/all-proposals" className="text-primary hover:text-primary/80 mb-4 inline-block">
             ← Back to all proposals
           </Link>
 
@@ -185,55 +183,59 @@ const QIPDetail: React.FC = () => {
             QIP-{qipData.qipNumber}: {qipData.title}
           </h1>
 
-          <div className="mb-6">
-            <div className="flex items-center gap-3">
-              <StatusUpdateComponent
-                qipNumber={BigInt(qipData.qipNumber)}
-                currentStatus={qipData.statusEnum || QIPStatus.Draft}
-                currentIpfsStatus={qipData.ipfsStatus}
-                isAuthor={isAuthor}
-                isEditor={isEditor}
-                onStatusUpdate={async (newStatus) => {
-                  await updateStatus(BigInt(qipData.qipNumber), newStatus)
-                  // Refresh the QIP data after update
-                  refetch()
-                }}
-              />
-              <StatusDiscrepancyIndicator
-                onChainStatus={qipData.status}
-                ipfsStatus={qipData.ipfsStatus}
-              />
-            </div>
-          </div>
-
           <div className="mb-8">
             <FrontmatterTable frontmatter={frontmatter} />
           </div>
 
+          {(isAuthor || isEditor) && (
+            <div className="mb-6">
+              <div className="flex items-center gap-3">
+                <StatusUpdateComponent
+                  qipNumber={BigInt(qipData.qipNumber)}
+                  currentStatus={qipData.statusEnum || QIPStatus.Draft}
+                  currentIpfsStatus={qipData.ipfsStatus}
+                  isAuthor={isAuthor}
+                  isEditor={isEditor}
+                  onStatusUpdate={async (newStatus) => {
+                    await updateStatus(BigInt(qipData.qipNumber), newStatus)
+                    // Refresh the QIP data after update
+                    refetch()
+                  }}
+                  hideStatusPill={true}
+                />
+                <StatusDiscrepancyIndicator
+                  onChainStatus={qipData.status}
+                  ipfsStatus={qipData.ipfsStatus}
+                />
+              </div>
+            </div>
+          )}
+
           {qipData.ipfsUrl && (
-            <div className="mb-4 text-sm text-gray-600">
+            <div className="mb-4 text-sm text-muted-foreground">
               <span className="font-semibold">IPFS:</span>{' '}
               <a 
                 href={qipData.ipfsUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800"
+                className="text-primary hover:text-primary/80"
               >
                 {qipData.ipfsUrl}
               </a>
             </div>
           )}
 
-          <div className="prose prose-lg max-w-none">
+          <div className="prose prose-lg dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {qipData.content}
+              {/* Fix reversed markdown link syntax (text)[url] -> [text](url) */}
+              {qipData.content?.replace(/\(([^)]+)\)\[([^\]]+)\]/g, '[$1]($2)')}
             </ReactMarkdown>
           </div>
 
           {/* Version and edit info */}
-          <div className="mt-8 p-4 bg-gray-100 rounded">
+          <div className="mt-8 p-4 bg-muted rounded">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Version {qipData.version}
                 {qipData.version > 1 && ` • Updated ${qipData.version - 1} time${qipData.version > 2 ? 's' : ''}`}
               </p>
@@ -258,7 +260,7 @@ const QIPDetail: React.FC = () => {
               <h2 className="text-2xl font-bold mb-4">
                 Submit to Snapshot
                 {config.snapshotSpace !== 'qidao.eth' && (
-                  <span className="text-base font-normal text-blue-600 ml-2">
+                  <span className="text-base font-normal text-primary ml-2">
                     (Space: {config.snapshotSpace})
                   </span>
                 )}
@@ -277,21 +279,20 @@ const QIPDetail: React.FC = () => {
 
           {/* Show existing Snapshot proposal link */}
           {qipData.proposal && qipData.proposal !== 'None' && (
-            <div className="mt-8 p-4 bg-blue-50 rounded">
+            <div className="mt-8 p-4 bg-primary/5 rounded">
               <h3 className="font-bold mb-2">Snapshot Proposal</h3>
               <a 
                 href={qipData.proposal.startsWith('http') ? qipData.proposal : `https://snapshot.org/#/${qipData.proposal}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-primary hover:underline"
               >
                 View on Snapshot →
               </a>
             </div>
           )}
-        </div>
       </div>
-    </Layout>
+    </div>
   )
 }
 

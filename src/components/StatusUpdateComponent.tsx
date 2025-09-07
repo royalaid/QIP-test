@@ -12,6 +12,7 @@ interface StatusUpdateComponentProps {
   isEditor: boolean;
   onStatusUpdate: (newStatus: QIPStatus) => Promise<void>;
   onSyncToIPFS?: () => Promise<void>;
+  hideStatusPill?: boolean;
 }
 
 // Status transition rules - defines valid transitions from each status
@@ -53,14 +54,14 @@ const STATUS_LABELS: Record<QIPStatus, string> = {
 
 // Status colors for visual feedback
 const STATUS_COLORS: Record<QIPStatus, string> = {
-  [QIPStatus.Draft]: 'bg-gray-100 text-gray-800',
-  [QIPStatus.ReviewPending]: 'bg-yellow-100 text-yellow-800',
-  [QIPStatus.VotePending]: 'bg-blue-100 text-blue-800',
+  [QIPStatus.Draft]: 'bg-muted text-foreground',
+  [QIPStatus.ReviewPending]: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+  [QIPStatus.VotePending]: 'bg-primary/10 text-primary',
   [QIPStatus.Approved]: 'bg-green-100 text-green-800',
-  [QIPStatus.Rejected]: 'bg-red-100 text-red-800',
+  [QIPStatus.Rejected]: 'bg-destructive/10 text-destructive',
   [QIPStatus.Implemented]: 'bg-purple-100 text-purple-800',
   [QIPStatus.Superseded]: 'bg-orange-100 text-orange-800',
-  [QIPStatus.Withdrawn]: 'bg-gray-100 text-gray-600'
+  [QIPStatus.Withdrawn]: 'bg-muted text-muted-foreground'
 };
 
 export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
@@ -70,7 +71,8 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   isAuthor,
   isEditor,
   onStatusUpdate,
-  onSyncToIPFS
+  onSyncToIPFS,
+  hideStatusPill = false
 }) => {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -147,14 +149,16 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   return (
     <>
       <div className="inline-flex items-center gap-2">
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
-          {STATUS_LABELS[currentStatus]}
-        </span>
+        {!hideStatusPill && (
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
+            {STATUS_LABELS[currentStatus]}
+          </span>
+        )}
         
         {/* Status update dropdown */}
         <div className="relative inline-block">
           <select
-            className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="appearance-none bg-background dark:bg-zinc-800 text-foreground border border-border rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             onChange={(e) => {
               const newStatus = parseInt(e.target.value) as QIPStatus;
               if (!isNaN(newStatus)) {
@@ -189,7 +193,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
               </>
             )}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
               <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
             </svg>
@@ -200,7 +204,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
       {/* Confirmation Dialog */}
       {showConfirmDialog && selectedStatus !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-start mb-4">
               <div className="flex-shrink-0">
                 <FiAlertCircle className="h-6 w-6 text-yellow-500" />
@@ -218,7 +222,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
                   
                   {/* Show admin override notice when making non-standard transitions */}
                   {isEditor && !validTransitions.includes(selectedStatus) && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                    <div className="mt-3 p-3 bg-primary/5 rounded-md">
                       <p className="text-sm text-blue-800">
                         <strong>Administrative Override:</strong> This is not a standard workflow transition. 
                         As an editor/admin, you have permission to make any status change.
@@ -271,7 +275,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
               <button
                 onClick={cancelStatusUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-gray-300 rounded-md hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 <FiX className="inline mr-1" />
                 Cancel
@@ -279,7 +283,7 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
               <button
                 onClick={confirmStatusUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {isUpdating ? (
                   <>

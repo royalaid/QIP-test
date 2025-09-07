@@ -1,5 +1,4 @@
 import React from 'react'
-import Layout from '../layout'
 import Templates from '../components/Templates'
 
 const TemplatesPage: React.FC = () => {
@@ -30,18 +29,16 @@ const TemplatesPage: React.FC = () => {
   }
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-8">QIP Templates</h1>
-        <div className="prose prose-lg max-w-none mb-8">
+        <div className="prose prose-lg dark:prose-invert max-w-none mb-8">
           <p>
             Use these templates as a starting point for your QIP. Each template provides
             a structured format for different types of proposals.
           </p>
         </div>
         <Templates templates={templateData} />
-      </div>
-    </Layout>
+    </div>
   )
 }
 

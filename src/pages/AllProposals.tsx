@@ -2,7 +2,6 @@ import React, { useMemo } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
 import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
-import Layout from '../layout'
 import LocalModeBanner from '../components/LocalModeBanner'
 import { config } from '../config/env'
 
@@ -73,7 +72,7 @@ const AllProposals: React.FC = () => {
     }))
 
   return (
-    <Layout>
+    <>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
@@ -88,12 +87,12 @@ const AllProposals: React.FC = () => {
           </div>
           
           {blockchainError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading from API</p>
               <p className="text-sm">Please check your connection and try again.</p>
               <button 
                 onClick={() => refreshQIPs()}
-                className="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
               </button>
@@ -108,7 +107,7 @@ const AllProposals: React.FC = () => {
           )}
 
           {!blockchainLoading && !blockchainError && blockchainQIPs.length === 0 && (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
             </div>
@@ -117,16 +116,16 @@ const AllProposals: React.FC = () => {
 
         <div className="space-y-8">
           {orderedGroups.map(({ status, qips, displayName }) => (
-            <div key={status} className="proposal-list-container">
-              <div className="shadow-s p-5 bg-white rounded-t-lg">
-                <h3 className="text-2xl font-semibold mb-3 flex items-center">
-                  {displayName}
-                  <span className="ml-2 text-sm text-gray-500">({qips.length})</span>
-                  {isFetching && (
-                    <div className="ml-2 animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                  )}
-                </h3>
-              </div>
+            <div key={status}>
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                {displayName}
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({qips.length})
+                </span>
+                {isFetching && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>
+                )}
+              </h2>
               <ProposalListItem proposals={qips} />
             </div>
           ))}
@@ -137,7 +136,7 @@ const AllProposals: React.FC = () => {
           <div className="fixed bottom-4 right-4">
             <button
               onClick={() => invalidateQIPs()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 flex items-center"
+              className="bg-primary text-white px-4 py-2 rounded-full shadow-lg hover:bg-primary/90 flex items-center"
               disabled={isFetching}
             >
               {isFetching ? (
@@ -157,7 +156,7 @@ const AllProposals: React.FC = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   )
 }
 
