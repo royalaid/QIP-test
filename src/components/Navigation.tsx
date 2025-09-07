@@ -1,8 +1,10 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ConnectKitButton } from "connectkit";
+
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { GradientButton } from "@/components/gradient-button";
+
 import logoIcon from "../images/icon-48x48.png";
 
 // Navigation component
@@ -11,6 +13,7 @@ const Navigation = () => {
   const location = useLocation();
 
   return (
+
     <nav className="navbar bg-background border-b border-border w-full fixed top-0 p-4 flex justify-between items-center z-50">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
