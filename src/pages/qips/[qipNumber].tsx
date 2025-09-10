@@ -4,14 +4,14 @@ import FrontmatterTable from "../../components/FrontmatterTable";
 import SnapshotSubmitter from "../../components/SnapshotSubmitter";
 import { StatusUpdateComponent } from "../../components/StatusUpdateComponent";
 import { StatusDiscrepancyIndicator } from "../../components/StatusDiscrepancyIndicator";
-import { useAccount } from 'wagmi';
-import { Link } from 'gatsby';
-import { useQIPsFromAPI } from '../../hooks/useQIPsFromAPI';
-import { useUpdateQIPStatus } from '../../hooks/useUpdateQIPStatus';
-import { config } from '../../config';
-import { ethers } from 'ethers';
-import QIPRegistryABI from '../../config/abis/QIPRegistry.json';
-import { QIPStatus } from '../../services/qipClient';
+import { useAccount } from "wagmi";
+import { Link } from "react-router-dom";
+import { useQIPsFromAPI } from "../../hooks/useQIPsFromAPI";
+import { useUpdateQIPStatus } from "../../hooks/useUpdateQIPStatus";
+import { config } from "../../config";
+import { ethers } from "ethers";
+import QIPRegistryABI from "../../config/abis/QIPRegistry.json";
+import { QIPStatus } from "../../services/qipClient";
 
 interface Props {
   params?: {
@@ -24,9 +24,13 @@ interface Props {
 
 const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
   // Extract QIP number from URL path
-  const pathname = location?.pathname || '';
+  const pathname = location?.pathname || "";
   const match = pathname.match(/\/qips\/QIP-(\d+)/);
-  const qipNumber = match ? parseInt(match[1]) : (params ? parseInt(params.qipNumber.replace('QIP-', '')) : 0);
+  const qipNumber = match
+    ? parseInt(match[1])
+    : params
+      ? parseInt(params.qipNumber.replace("QIP-", ""))
+      : 0;
   const { address } = useAccount();
   const [isClient, setIsClient] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -34,20 +38,20 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
   const [isAuthor, setIsAuthor] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
   const { updateStatus } = useUpdateQIPStatus();
-  
+
   // Use the API hook to fetch QIP data (24x faster)
-  const { 
-    qips: blockchainQIPs, 
-    isLoading, 
-    isError, 
-    error, 
-    invalidateQIPs 
+  const {
+    qips: blockchainQIPs,
+    isLoading,
+    isError,
+    error,
+    invalidateQIPs,
   } = useQIPsFromAPI({
     apiUrl: config.maiApiUrl,
     contentFor: [qipNumber], // Fetch content for this specific QIP
-    enabled: true
+    enabled: true,
   });
-  
+
   const qip = blockchainQIPs.find((q: any) => q.qipNumber === qipNumber);
 
   useEffect(() => {
@@ -65,29 +69,41 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
       // Check if user is author
       const authorCheck = qip.author.toLowerCase() === address.toLowerCase();
       setIsAuthor(authorCheck);
-      
+
       // Check if user has editor or admin role
       let editorCheck = false;
       try {
-        const provider = new ethers.providers.JsonRpcProvider(config.baseRpcUrl);
-        const contract = new ethers.Contract(config.qipRegistryAddress, QIPRegistryABI, provider);
-        
+        const provider = new ethers.providers.JsonRpcProvider(
+          config.baseRpcUrl,
+        );
+        const contract = new ethers.Contract(
+          config.qipRegistryAddress,
+          QIPRegistryABI,
+          provider,
+        );
+
         // Check for editor role
         const editorRole = await contract.EDITOR_ROLE();
         const hasEditorRole = await contract.hasRole(editorRole, address);
-        
+
         // Check for admin role (DEFAULT_ADMIN_ROLE is always 0x00 in OpenZeppelin AccessControl)
         // This is the standard admin role that has permission to grant/revoke other roles
-        const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
-        const hasAdminRole = await contract.hasRole(DEFAULT_ADMIN_ROLE, address);
-        
+        const DEFAULT_ADMIN_ROLE =
+          "0x0000000000000000000000000000000000000000000000000000000000000000";
+        const hasAdminRole = await contract.hasRole(
+          DEFAULT_ADMIN_ROLE,
+          address,
+        );
+
         editorCheck = hasEditorRole || hasAdminRole;
-        
+
         if (editorCheck) {
-          console.log(`User ${address} has ${hasAdminRole ? 'admin' : 'editor'} role`);
+          console.log(
+            `User ${address} has ${hasAdminRole ? "admin" : "editor"} role`,
+          );
         }
       } catch (error) {
-        console.error('Error checking roles:', error);
+        console.error("Error checking roles:", error);
       }
       setIsEditor(editorCheck);
 
@@ -107,7 +123,9 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Loading QIP-{qipNumber}...</p>
+              <p className="mt-4 text-muted-foreground">
+                Loading QIP-{qipNumber}...
+              </p>
             </div>
           </div>
         </div>
@@ -122,9 +140,11 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
         <div className="container max-w-full">
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-destructive mb-4">Error Loading QIP</h1>
+              <h1 className="text-2xl font-bold text-destructive mb-4">
+                Error Loading QIP
+              </h1>
               <p className="text-muted-foreground mb-4">{error.message}</p>
-              <button 
+              <button
                 onClick={() => invalidateQIPs()}
                 className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
               >
@@ -144,16 +164,20 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
         <div className="container max-w-full">
           <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-center">
             <div className="text-center">
-              <h1 className="text-4xl font-bold text-foreground mb-4">QIP Not Found</h1>
-              <p className="text-muted-foreground mb-4">QIP-{qipNumber} does not exist or hasn't been created yet.</p>
+              <h1 className="text-4xl font-bold text-foreground mb-4">
+                QIP Not Found
+              </h1>
+              <p className="text-muted-foreground mb-4">
+                QIP-{qipNumber} does not exist or hasn't been created yet.
+              </p>
               <div className="space-x-4">
-                <Link 
+                <Link
                   to="/all-proposals"
                   className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
                 >
                   View All QIPs
                 </Link>
-                <Link 
+                <Link
                   to="/create-proposal"
                   className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                 >
@@ -173,40 +197,47 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
     title: qip.title,
     author: qip.author,
     network: qip.network,
-    type: '', // Not stored on-chain
+    type: "", // Not stored on-chain
     proposal: qip.proposal,
     implementor: qip.implementor,
-    release: '', // Not stored on-chain
+    release: "", // Not stored on-chain
     created: qip.created,
-    updated: '', // Use version instead
-    status: qip.status
+    updated: "", // Use version instead
+    status: qip.status,
   };
 
   // Convert markdown to HTML (basic conversion)
   const htmlContent = qip.content
-    .split('\n\n')
+    .split("\n\n")
     .map((paragraph: string) => {
-      if (paragraph.startsWith('## ')) {
+      if (paragraph.startsWith("## ")) {
         return `<h2>${paragraph.slice(3)}</h2>`;
-      } else if (paragraph.startsWith('### ')) {
+      } else if (paragraph.startsWith("### ")) {
         return `<h3>${paragraph.slice(4)}</h3>`;
-      } else if (paragraph.startsWith('- ')) {
-        const items = paragraph.split('\n').filter((line: string) => line.startsWith('- '));
-        return `<ul>${items.map((item: string) => `<li>${item.slice(2)}</li>`).join('')}</ul>`;
-      } else if (paragraph.startsWith('* ')) {
-        const items = paragraph.split('\n').filter((line: string) => line.startsWith('* '));
-        return `<ul>${items.map((item: string) => `<li>${item.slice(2)}</li>`).join('')}</ul>`;
+      } else if (paragraph.startsWith("- ")) {
+        const items = paragraph
+          .split("\n")
+          .filter((line: string) => line.startsWith("- "));
+        return `<ul>${items.map((item: string) => `<li>${item.slice(2)}</li>`).join("")}</ul>`;
+      } else if (paragraph.startsWith("* ")) {
+        const items = paragraph
+          .split("\n")
+          .filter((line: string) => line.startsWith("* "));
+        return `<ul>${items.map((item: string) => `<li>${item.slice(2)}</li>`).join("")}</ul>`;
       } else {
         return `<p>${paragraph}</p>`;
       }
     })
-    .join('\n');
+    .join("\n");
 
   return (
     <Layout>
       <div className="container max-w-full">
         <div className="content mt-30 overflow-y-auto h-screen flex justify-center items-start">
-          <div id="content-center" className="relative w-full pl-0 lg:w-3/4 lg:pl-5 mt-20">
+          <div
+            id="content-center"
+            className="relative w-full pl-0 lg:w-3/4 lg:pl-5 mt-20"
+          >
             <div className="">
               {/* Add large title at the top */}
               <h1 className="text-3xl md:text-4xl font-bold text-center mb-6 pt-10">
@@ -234,17 +265,17 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
                   />
                 </div>
                 <div>
-                  Version {qip.version} • 
-                  <a 
-                    href={`https://ipfs.io/ipfs/${qip.ipfsUrl.replace('ipfs://', '')}`}
+                  Version {qip.version} •
+                  <a
+                    href={`https://ipfs.io/ipfs/${qip.ipfsUrl.replace("ipfs://", "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline ml-2"
                   >
                     View on IPFS
                   </a>
-                  {canEdit && qip.status === 'Draft' && (
-                    <Link 
+                  {canEdit && qip.status === "Draft" && (
+                    <Link
                       to={`/edit-proposal?qip=${qip.qipNumber}`}
                       className="ml-4 text-indigo-600 hover:underline"
                     >
@@ -259,43 +290,54 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
               </div>
 
               <div className="markdown-content mt-3 p-3 md:p-none">
-                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: htmlContent }}
+                />
               </div>
 
               {/* Show Snapshot submitter for eligible statuses to editors and authors */}
               {/* Also show for recently approved QIPs that don't have a proposal yet */}
-              {canSubmitSnapshot && 
-               ((qip.status === 'Review' || qip.status === 'Vote' || 
-                (qip.status === 'Approved' && (!qip.proposal || qip.proposal === 'None'))) && 
-                (!qip.proposal || qip.proposal === 'None')) && (
-                <div className="flex flex-col w-full gap-y-3 items-left pb-10">
-                  <span className="text-2xl font-bold text-black">
-                    Submit to Snapshot
-                    {config.snapshotSpace !== 'qidao.eth' && (
-                      <span className="text-base font-normal text-primary ml-2">
-                        (Space: {config.snapshotSpace})
-                      </span>
-                    )}
-                  </span>
+              {canSubmitSnapshot &&
+                (qip.status === "Review" ||
+                  qip.status === "Vote" ||
+                  (qip.status === "Approved" &&
+                    (!qip.proposal || qip.proposal === "None"))) &&
+                (!qip.proposal || qip.proposal === "None") && (
+                  <div className="flex flex-col w-full gap-y-3 items-left pb-10">
+                    <span className="text-2xl font-bold text-black">
+                      Submit to Snapshot
+                      {config.snapshotSpace !== "qidao.eth" && (
+                        <span className="text-base font-normal text-primary ml-2">
+                          (Space: {config.snapshotSpace})
+                        </span>
+                      )}
+                    </span>
 
-                  {isClient ? (
-                    <SnapshotSubmitter 
-                      frontmatter={frontmatter} 
-                      html={htmlContent} 
-                      rawMarkdown={qip.content} 
-                    />
-                  ) : (
-                    <div className="text-center p-4">Loading interactive module...</div>
-                  )}
-                </div>
-              )}
+                    {isClient ? (
+                      <SnapshotSubmitter
+                        frontmatter={frontmatter}
+                        html={htmlContent}
+                        rawMarkdown={qip.content}
+                      />
+                    ) : (
+                      <div className="text-center p-4">
+                        Loading interactive module...
+                      </div>
+                    )}
+                  </div>
+                )}
 
               {/* Show existing Snapshot proposal link */}
-              {qip.proposal && qip.proposal !== 'None' && (
+              {qip.proposal && qip.proposal !== "None" && (
                 <div className="mt-6 p-4 bg-primary/5 rounded">
                   <h3 className="font-bold mb-2">Snapshot Proposal</h3>
-                  <a 
-                    href={qip.proposal.startsWith('http') ? qip.proposal : `https://snapshot.org/#/${qip.proposal}`}
+                  <a
+                    href={
+                      qip.proposal.startsWith("http")
+                        ? qip.proposal
+                        : `https://snapshot.org/#/${qip.proposal}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"

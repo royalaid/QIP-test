@@ -35,7 +35,6 @@
       "Bash(npx tsc:*)",
       "WebFetch(domain:21st.dev)"
     ],
-    "deny": []
-  },
-  "outputStyle": "Explanatory"
+    "deny": ["Bash(rm-rf:*)"]
+  }
 }
