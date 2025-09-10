@@ -13,6 +13,7 @@ import CreateProposal from './pages/CreateProposal'
 import QIPDetail from './pages/QIPDetail'
 import TemplatesPage from './pages/TemplatesPage'
 import EditProposal from "./pages/EditProposal";
+import Debug from './pages/Debug';
 
 function App() {
   // Get the base path for React Router
@@ -31,6 +32,7 @@ function App() {
               <Route path="/create-proposal" element={<CreateProposal />} />
               <Route path="/edit-proposal" element={<EditProposal />} />
               <Route path="/templates" element={<TemplatesPage />} />
+              <Route path="/debug" element={<Debug />} />
             </Routes>
           </Layout>
         </Router>
