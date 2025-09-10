@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ConnectKitButton } from "connectkit";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { GradientButton } from "@/components/gradient-button";
+import { Button } from "@/components/ui/button";
 
 import logoIcon from "../images/icon-48x48.png";
 
@@ -26,9 +26,9 @@ const Navigation = () => {
           All Proposals
         </Link>
         {location.pathname !== "/create-proposal" && (
-          <GradientButton variant="primary" onClick={() => navigate("/create-proposal")} className="text-sm py-2 px-6">
+          <Button variant="gradient-primary" onClick={() => navigate("/create-proposal")} size="sm">
             Create
-          </GradientButton>
+          </Button>
         )}
       </div>
       <div className="flex items-center gap-4">

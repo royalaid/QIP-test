@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { ABIParser, type ParsedFunction, type TransactionData } from '../utils/abiParser';
-import { GradientButton } from './gradient-button';
-import { X, AlertCircle, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { AlertCircle, Check } from 'lucide-react';
+import { FunctionSelector } from './FunctionSelector';
 
 interface TransactionFormatterProps {
   isOpen: boolean;
@@ -184,139 +197,103 @@ export const TransactionFormatter: React.FC<TransactionFormatterProps> = ({
     onClose();
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-background p-6 shadow-xl">
-        <button
-          onClick={handleClose}
-          className="absolute right-4 top-4 rounded-lg p-2 text-muted-foreground hover:bg-muted/50"
-        >
-          <X size={20} />
-        </button>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {editingTransaction ? 'Edit Transaction' : 'Add Transaction'}
+          </DialogTitle>
+          <DialogDescription>
+            Configure an on-chain transaction to be included with this proposal.
+          </DialogDescription>
+        </DialogHeader>
 
-        <h2 className="mb-6 text-2xl font-bold">
-          {editingTransaction ? 'Edit Transaction' : 'Add Transaction'}
-        </h2>
-
-        <div className="space-y-6">
+        <div className="space-y-6 mt-4">
           {/* Chain Selection */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Chain
-            </label>
-            <select
-              value={chain}
-              onChange={(e) => setChain(e.target.value)}
-              className="w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700 p-2"
-            >
-              {networks.map(network => (
-                <option key={network} value={network}>{network}</option>
-              ))}
-            </select>
+          <div className="space-y-2">
+            <Label htmlFor="chain">Chain</Label>
+            <Select value={chain} onValueChange={setChain}>
+              <SelectTrigger id="chain">
+                <SelectValue placeholder="Select a chain" />
+              </SelectTrigger>
+              <SelectContent>
+                {networks.map(network => (
+                  <SelectItem key={network} value={network}>{network}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Contract Address */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Contract Address
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="contractAddress">Contract Address</Label>
+            <Input
+              id="contractAddress"
               type="text"
               value={contractAddress}
               onChange={(e) => setContractAddress(e.target.value)}
               placeholder="0x..."
-              className="w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700 p-2"
             />
             {contractAddress && !/^0x[a-fA-F0-9]{40}$/.test(contractAddress) && (
-              <p className="mt-1 text-sm text-destructive">Invalid address format</p>
+              <p className="text-sm text-destructive">Invalid address format</p>
             )}
           </div>
 
           {/* ABI Input */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Contract ABI
-            </label>
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="abi">Contract ABI</Label>
+            <Textarea
+              id="abi"
               value={abiInput}
               onChange={(e) => setAbiInput(e.target.value)}
               placeholder='Paste contract ABI JSON here, e.g., [{"type":"function","name":"transfer","inputs":[...],"outputs":[...]}]'
               rows={6}
-              className="w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary font-mono text-sm dark:bg-zinc-800 dark:border-zinc-700 p-2"
+              className="font-mono text-sm"
             />
             {parseError && (
-              <p className="mt-1 text-sm text-destructive flex items-center gap-1">
-                <AlertCircle size={14} />
-                {parseError}
-              </p>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{parseError}</AlertDescription>
+              </Alert>
             )}
-            <button
+            <Button
               onClick={() => handleParseABI()}
-              className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
+              variant="secondary"
             >
               Parse ABI
-            </button>
+            </Button>
           </div>
 
           {/* Function Selection */}
           {parsedFunctions.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Select Function
-              </label>
-              <div className="space-y-2">
-                {parsedFunctions.map((func, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleFunctionSelect(func)}
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                      selectedFunction?.name === func.name
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="font-mono text-sm font-semibold">{func.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {func.inputs.length === 0
-                        ? 'No parameters'
-                        : `Parameters: ${func.inputs.map(i => `${i.name || 'param'}: ${i.type}`).join(', ')}`}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      State: {func.stateMutability}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <FunctionSelector
+              functions={parsedFunctions}
+              selectedFunction={selectedFunction}
+              onSelect={handleFunctionSelect}
+            />
           )}
 
           {/* Function Arguments */}
           {selectedFunction && selectedFunction.inputs.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Function Arguments
-              </label>
+            <div className="space-y-2">
+              <Label>Function Arguments</Label>
               <div className="space-y-3">
                 {selectedFunction.inputs.map((input, index) => (
-                  <div key={index}>
-                    <label className="block text-sm text-muted-foreground mb-1">
+                  <div key={index} className="space-y-2">
+                    <Label htmlFor={`arg_${index}`}>
                       {input.name || `Parameter ${index + 1}`} ({input.type})
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id={`arg_${index}`}
                       type="text"
                       value={functionArgs[`arg_${index}`] || ''}
                       onChange={(e) => handleArgChange(index, e.target.value, input.type)}
                       placeholder={ABIParser.getTypeDescription(input.type)}
-                      className={`w-full rounded-md border ${
-                        errors[`arg_${index}`] ? 'border-destructive' : 'border-border'
-                      } bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700 p-2`}
+                      className={errors[`arg_${index}`] ? 'border-destructive' : ''}
                     />
                     {errors[`arg_${index}`] && (
-                      <p className="mt-1 text-sm text-destructive flex items-center gap-1">
+                      <p className="text-sm text-destructive flex items-center gap-1">
                         <AlertCircle size={14} />
                         {errors[`arg_${index}`]}
                       </p>
@@ -329,14 +306,12 @@ export const TransactionFormatter: React.FC<TransactionFormatterProps> = ({
 
           {/* Transaction Preview */}
           {formattedTransaction && (
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Transaction Preview
-              </label>
+            <div className="space-y-2">
+              <Label>Transaction Preview</Label>
               <div className="rounded-lg bg-muted/30 p-4">
                 <code className="break-all font-mono text-sm">{formattedTransaction}</code>
               </div>
-              <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <Check size={16} />
                 Transaction format valid
               </div>
@@ -345,23 +320,22 @@ export const TransactionFormatter: React.FC<TransactionFormatterProps> = ({
 
           {/* Actions */}
           <div className="flex justify-end gap-4">
-            <button
+            <Button
               onClick={handleClose}
-              className="rounded-lg border border-border bg-card px-6 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted/50"
+              variant="outline"
             >
               Cancel
-            </button>
-            <GradientButton
+            </Button>
+            <Button
               onClick={handleSubmit}
               disabled={!formattedTransaction || Object.keys(errors).length > 0}
-              variant="primary"
-              className="text-sm"
+              variant="gradient-primary"
             >
               {editingTransaction ? 'Update Transaction' : 'Add Transaction'}
-            </GradientButton>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

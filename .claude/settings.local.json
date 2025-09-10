@@ -33,8 +33,13 @@
       "WebSearch",
       "Bash(git submodule:*)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:21st.dev)"
+      "WebFetch(domain:21st.dev)",
+      "Bash(git add:*)",
+      "Bash(pgrep:*)",
+      "Read(//private/tmp/**)"
     ],
-    "deny": ["Bash(rm-rf:*)"]
+    "deny": [
+      "Bash(rm-rf:*)"
+    ]
   }
 }

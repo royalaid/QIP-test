@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { ProposalEditor } from '../components/ProposalEditor'
 import { config } from '../config'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { GradientButton } from '@/components/gradient-button'
+import { Button } from '@/components/ui/button'
 import { templates, Template } from '../data/templates'
 
 const CreateProposal: React.FC = () => {
@@ -42,13 +42,13 @@ const CreateProposal: React.FC = () => {
                   <CardDescription>{template.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <GradientButton 
-                    variant="primary" 
+                  <Button 
+                    variant="gradient-primary" 
                     className="w-full"
                     onClick={() => handleTemplateSelect(template)}
                   >
                     Use This Template
-                  </GradientButton>
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -61,13 +61,13 @@ const CreateProposal: React.FC = () => {
                 <CardDescription>Create a proposal without a template</CardDescription>
               </CardHeader>
               <CardContent>
-                <GradientButton 
-                  variant="muted" 
+                <Button 
+                  variant="gradient-muted" 
                   className="w-full"
                   onClick={handleStartFromScratch}
                 >
                   Start Fresh
-                </GradientButton>
+                </Button>
               </CardContent>
             </Card>
           </div>

@@ -1,5 +1,9 @@
 import React from 'react';
 import { ABIParser } from '../utils/abiParser';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { ExternalLink, Copy, CheckCircle } from 'lucide-react';
 
 interface TransactionDisplayProps {
@@ -46,46 +50,55 @@ export const TransactionDisplay: React.FC<TransactionDisplayProps> = ({ transact
             const explorerUrl = getChainExplorerUrl(tx.chain, tx.contractAddress);
 
             return (
-              <div
-                key={index}
-                className="rounded-lg border border-border bg-card p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Transaction #{index + 1}
-                  </span>
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                    {tx.chain}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
+              <Card key={index}>
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Contract:</span>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm font-mono">{tx.contractAddress}</code>
-                      {explorerUrl && (
-                        <a
-                          href={explorerUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:text-primary/80"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
+                    <CardTitle className="text-base">
+                      Transaction #{index + 1}
+                    </CardTitle>
+                    <Badge variant="secondary">
+                      {tx.chain}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Contract Address */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Contract:</span>
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm font-mono">{tx.contractAddress}</code>
+                        {explorerUrl && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            asChild
+                          >
+                            <a
+                              href={explorerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
+                  {/* Function Name */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Function:</span>
                     <code className="text-sm font-mono font-semibold">{tx.functionName}</code>
                   </div>
 
+                  {/* Arguments */}
                   {tx.args.length > 0 && (
-                    <div>
+                    <div className="space-y-2">
                       <span className="text-sm text-muted-foreground">Arguments:</span>
-                      <div className="mt-1 space-y-1">
+                      <div className="space-y-1">
                         {tx.args.map((arg, argIndex) => (
                           <div key={argIndex} className="rounded bg-muted/30 p-2">
                             <code className="text-xs font-mono break-all">
@@ -96,66 +109,80 @@ export const TransactionDisplay: React.FC<TransactionDisplayProps> = ({ transact
                       </div>
                     </div>
                   )}
-                </div>
 
-                <div className="border-t border-border pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Full Transaction String:</span>
-                    <button
-                      onClick={() => handleCopy(txString, index)}
-                      className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-muted/50"
-                    >
-                      {copiedIndex === index ? (
-                        <>
-                          <CheckCircle size={12} className="text-green-500" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={12} />
-                          Copy
-                        </>
-                      )}
-                    </button>
+                  <Separator />
+
+                  {/* Full Transaction String */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Full Transaction String:</span>
+                      <Button
+                        onClick={() => handleCopy(txString, index)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-7"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <CheckCircle size={12} className="mr-1 text-green-500" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} className="mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="rounded bg-muted/30 p-2">
+                      <code className="text-xs font-mono break-all">{txString}</code>
+                    </div>
                   </div>
-                  <div className="mt-1 rounded bg-muted/30 p-2">
-                    <code className="text-xs font-mono break-all">{txString}</code>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             );
           } catch (error) {
             // If parsing fails, show raw transaction string
             return (
-              <div
-                key={index}
-                className="rounded-lg border border-border bg-card p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">
+              <Card key={index}>
+                <CardHeader>
+                  <CardTitle className="text-base">
                     Transaction #{index + 1}
-                  </span>
-                  <button
-                    onClick={() => handleCopy(txString, index)}
-                    className="flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-muted/50"
-                  >
-                    {copiedIndex === index ? (
-                      <>
-                        <CheckCircle size={12} className="text-green-500" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={12} />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="rounded bg-muted/30 p-2">
-                  <code className="text-xs font-mono break-all">{txString}</code>
-                </div>
-              </div>
+                  </CardTitle>
+                  <CardDescription>
+                    Unable to parse transaction format
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Raw Transaction String:</span>
+                      <Button
+                        onClick={() => handleCopy(txString, index)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-7"
+                      >
+                        {copiedIndex === index ? (
+                          <>
+                            <CheckCircle size={12} className="mr-1 text-green-500" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} className="mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="rounded bg-muted/30 p-2">
+                      <code className="text-xs font-mono break-all">{txString}</code>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           }
         })}

@@ -6,7 +6,12 @@ import { QIPClient, QIPStatus, type QIPContent } from '../services/qipClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
-import { GradientButton } from '@/components/gradient-button';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TransactionFormatter } from './TransactionFormatter';
 import { type TransactionData, ABIParser } from '../utils/abiParser';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
@@ -274,39 +279,47 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   if (!isConnected) {
     return (
-      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
-        Please connect your wallet to create or edit QIPs
-      </div>
+      <Alert className="border-yellow-400 bg-yellow-500/10">
+        <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+          Please connect your wallet to create or edit QIPs
+        </AlertDescription>
+      </Alert>
     );
   }
   
   if (!registryAddress) {
     return (
-      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
-        Error: Registry address not configured. Please restart Gatsby to load environment variables.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Error: Registry address not configured. Please restart Gatsby to load environment variables.
+        </AlertDescription>
+      </Alert>
     );
   }
   
   if (!ipfsService) {
     return (
-      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
-        Error: IPFS provider not configured. Please check your environment configuration.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>
+          Error: IPFS provider not configured. Please check your environment configuration.
+        </AlertDescription>
+      </Alert>
     );
   }
   
   if (isWrongChain) {
     return (
-      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
-        <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
-        <button 
-          onClick={handleSwitchChain}
-          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
-        >
-          Switch to Local Base Fork
-        </button>
-      </div>
+      <Alert className="border-yellow-400 bg-yellow-500/10">
+        <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+          <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
+          <Button 
+            onClick={handleSwitchChain}
+            variant="default"
+          >
+            Switch to Local Base Fork
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -317,77 +330,73 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       </h2>
 
       {error && (
-        <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          {success}
-        </div>
+        <Alert className="mb-4 border-green-400 bg-green-100 text-green-700">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <Label htmlFor="title">
             Title *
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Improve QiDAO Collateral Framework"
           />
         </div>
 
-        <div>
-          <label htmlFor="network" className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <Label htmlFor="network">
             Network *
-          </label>
-          <select
-            id="network"
-            value={network}
-            onChange={(e) => setNetwork(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
-          >
-            {NETWORKS.map(net => (
-              <option key={net} value={net}>{net}</option>
-            ))}
-          </select>
+          </Label>
+          <Select value={network} onValueChange={setNetwork} required>
+            <SelectTrigger id="network">
+              <SelectValue placeholder="Select a network" />
+            </SelectTrigger>
+            <SelectContent>
+              {NETWORKS.map(net => (
+                <SelectItem key={net} value={net}>{net}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div>
-          <label htmlFor="implementor" className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <Label htmlFor="implementor">
             Implementor
-          </label>
-          <input
+          </Label>
+          <Input
             type="text"
             id="implementor"
             value={implementor}
             onChange={(e) => setImplementor(e.target.value)}
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Dev team, DAO, or None"
           />
         </div>
 
-        <div>
-          <label htmlFor="content" className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <Label htmlFor="content">
             Proposal Content (Markdown) *
-          </label>
-          <div className="mt-1">
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              required
-              rows={20}
-              className="block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary font-mono text-sm dark:bg-zinc-800 dark:border-zinc-700"
-              placeholder={`## Summary
+          </Label>
+          <Textarea
+            id="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            required
+            rows={20}
+            className="font-mono text-sm"
+            placeholder={`## Summary
 
 Brief overview of your proposal...
 
@@ -402,27 +411,27 @@ Why this proposal is needed...
 ## Technical Specification
 
 Implementation details...`}
-            />
-          </div>
+          />
         </div>
 
         {/* Transactions Section */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-foreground">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>
               Transactions
-            </label>
-            <button
+            </Label>
+            <Button
               type="button"
               onClick={() => {
                 setEditingTransactionIndex(null);
                 setShowTransactionModal(true);
               }}
-              className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary hover:bg-primary/20"
+              variant="outline"
+              size="sm"
             >
               <Plus size={16} />
               Add Transaction
-            </button>
+            </Button>
           </div>
           
           {transactions.length > 0 ? (
@@ -435,20 +444,24 @@ Implementation details...`}
                     </code>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => handleEditTransaction(index)}
-                      className="rounded p-1 hover:bg-muted/50"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
                     >
                       <Edit2 size={16} className="text-muted-foreground" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => handleDeleteTransaction(index)}
-                      className="rounded p-1 hover:bg-muted/50"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
                     >
                       <Trash2 size={16} className="text-destructive" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -461,22 +474,23 @@ Implementation details...`}
         </div>
 
         <div className="flex space-x-4">
-          <GradientButton
+          <Button
             type="submit"
             disabled={saving}
-            variant="primary"
-            className="text-sm"
+            variant="gradient-primary"
+            size="lg"
           >
             {saving ? 'Saving...' : existingQIP ? 'Update QIP' : 'Create QIP'}
-          </GradientButton>
+          </Button>
 
-          <button
+          <Button
             type="button"
             onClick={handlePreview}
-            className="flex items-center justify-center rounded-lg border border-border bg-card py-3 px-8 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            variant="outline"
+            size="lg"
           >
             {preview ? 'Edit' : 'Preview'}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -496,6 +510,20 @@ Implementation details...`}
                 __html: content.replace(/\n/g, '<br />') 
               }} 
             />
+            
+            {/* Show transactions in preview */}
+            {transactions.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-border">
+                <h2 className="text-xl font-bold mb-4">Transactions</h2>
+                <ol className="list-decimal list-inside space-y-2">
+                  {transactions.map((tx, index) => (
+                    <li key={index} className="font-mono text-sm break-all">
+                      {ABIParser.formatTransaction(tx)}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
         </div>
       )}

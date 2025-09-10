@@ -697,12 +697,13 @@ export class IPFSService {
    * Uses keccak256 hash of the QIP content
    */
   calculateContentHash(qipContent: QIPContent): Hash {
-    // Calculate content hash including title, author, timestamp, and content to ensure uniqueness
+    // Calculate content hash including title, author, timestamp, content, and transactions to ensure uniqueness
     const uniqueContent = JSON.stringify({
       title: qipContent.title,
       author: qipContent.author,
       timestamp: Date.now(),
       content: qipContent.content,
+      transactions: qipContent.transactions || []
     });
     return keccak256(toBytes(uniqueContent));
   }
