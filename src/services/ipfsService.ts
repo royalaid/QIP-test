@@ -743,7 +743,7 @@ export class IPFSService {
    * Format QIP content with YAML frontmatter
    */
   public formatQIPContent(qipData: QIPContent): string {
-    return `---
+    let formatted = `---
 qip: ${qipData.qip}
 title: ${qipData.title}
 network: ${qipData.network}
@@ -756,6 +756,16 @@ created: ${qipData.created}
 ---
 
 ${qipData.content}`;
+
+    // Append transactions if they exist
+    if (qipData.transactions && qipData.transactions.length > 0) {
+      formatted += '\n\n## Transactions\n\n';
+      qipData.transactions.forEach((tx, index) => {
+        formatted += `${index + 1}. ${tx}\n`;
+      });
+    }
+
+    return formatted;
   }
 
   /**

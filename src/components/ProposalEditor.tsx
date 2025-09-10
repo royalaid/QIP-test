@@ -7,6 +7,9 @@ import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
 import { GradientButton } from '@/components/gradient-button';
+import { TransactionFormatter } from './TransactionFormatter';
+import { type TransactionData, ABIParser } from '../utils/abiParser';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface ProposalEditorProps {
   registryAddress: Address;
@@ -74,6 +77,9 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
   
   // Services
   const [qipClient, setQipClient] = useState<QIPClient | null>(null);
@@ -147,6 +153,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           proposal: "None",
           created: new Date().toISOString().split("T")[0],
           content,
+          transactions: transactions.length > 0 ? transactions.map(tx => ABIParser.formatTransaction(tx)) : undefined
         };
 
         // Format the full content for IPFS
@@ -243,6 +250,26 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   const handlePreview = () => {
     setPreview(!preview);
+  };
+
+  const handleAddTransaction = (transaction: TransactionData) => {
+    if (editingTransactionIndex !== null) {
+      const updated = [...transactions];
+      updated[editingTransactionIndex] = transaction;
+      setTransactions(updated);
+      setEditingTransactionIndex(null);
+    } else {
+      setTransactions([...transactions, transaction]);
+    }
+  };
+
+  const handleEditTransaction = (index: number) => {
+    setEditingTransactionIndex(index);
+    setShowTransactionModal(true);
+  };
+
+  const handleDeleteTransaction = (index: number) => {
+    setTransactions(transactions.filter((_, i) => i !== index));
   };
 
   if (!isConnected) {
@@ -379,6 +406,60 @@ Implementation details...`}
           </div>
         </div>
 
+        {/* Transactions Section */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-foreground">
+              Transactions
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTransactionIndex(null);
+                setShowTransactionModal(true);
+              }}
+              className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary hover:bg-primary/20"
+            >
+              <Plus size={16} />
+              Add Transaction
+            </button>
+          </div>
+          
+          {transactions.length > 0 ? (
+            <div className="space-y-2 mb-4">
+              {transactions.map((tx, index) => (
+                <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+                  <div className="flex-1">
+                    <code className="text-sm font-mono break-all">
+                      {ABIParser.formatTransaction(tx)}
+                    </code>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      type="button"
+                      onClick={() => handleEditTransaction(index)}
+                      className="rounded p-1 hover:bg-muted/50"
+                    >
+                      <Edit2 size={16} className="text-muted-foreground" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTransaction(index)}
+                      className="rounded p-1 hover:bg-muted/50"
+                    >
+                      <Trash2 size={16} className="text-destructive" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-4">
+              No transactions added. Click "Add Transaction" to include on-chain transactions with this proposal.
+            </p>
+          )}
+        </div>
+
         <div className="flex space-x-4">
           <GradientButton
             type="submit"
@@ -418,6 +499,18 @@ Implementation details...`}
           </div>
         </div>
       )}
+
+      {/* Transaction Formatter Modal */}
+      <TransactionFormatter
+        isOpen={showTransactionModal}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setEditingTransactionIndex(null);
+        }}
+        onAdd={handleAddTransaction}
+        networks={NETWORKS}
+        editingTransaction={editingTransactionIndex !== null ? transactions[editingTransactionIndex] : undefined}
+      />
     </div>
   );
 };

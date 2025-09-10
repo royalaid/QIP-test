@@ -4,6 +4,7 @@ import FrontmatterTable from "../../components/FrontmatterTable";
 import SnapshotSubmitter from "../../components/SnapshotSubmitter";
 import { StatusUpdateComponent } from "../../components/StatusUpdateComponent";
 import { StatusDiscrepancyIndicator } from "../../components/StatusDiscrepancyIndicator";
+import { TransactionDisplay } from "../../components/TransactionDisplay";
 import { useAccount } from "wagmi";
 import { Link } from "react-router-dom";
 import { useQIPsFromAPI } from "../../hooks/useQIPsFromAPI";
@@ -53,6 +54,35 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
   });
 
   const qip = blockchainQIPs.find((q: any) => q.qipNumber === qipNumber);
+
+  // Extract transactions from content if present
+  const extractTransactions = (content: string): string[] => {
+    const transactions: string[] = [];
+    const lines = content.split('\n');
+    let inTransactionSection = false;
+    
+    for (const line of lines) {
+      if (line.startsWith('## Transactions')) {
+        inTransactionSection = true;
+        continue;
+      }
+      
+      if (inTransactionSection) {
+        // Stop if we hit another section
+        if (line.startsWith('##') && !line.startsWith('## Transactions')) {
+          break;
+        }
+        
+        // Look for numbered transaction lines
+        const match = line.match(/^\d+\.\s+(.+)$/);
+        if (match) {
+          transactions.push(match[1].trim());
+        }
+      }
+    }
+    
+    return transactions;
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -295,6 +325,16 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
                   dangerouslySetInnerHTML={{ __html: htmlContent }}
                 />
               </div>
+
+              {/* Display transactions if present */}
+              {qip.content && (() => {
+                const transactions = extractTransactions(qip.content);
+                return transactions.length > 0 ? (
+                  <div className="mt-6 p-3 md:p-none">
+                    <TransactionDisplay transactions={transactions} />
+                  </div>
+                ) : null;
+              })()}
 
               {/* Show Snapshot submitter for eligible statuses to editors and authors */}
               {/* Also show for recently approved QIPs that don't have a proposal yet */}

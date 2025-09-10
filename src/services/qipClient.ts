@@ -142,6 +142,7 @@ export interface QIPContent {
   proposal: string;
   created: string;
   content: string; // Full markdown content
+  transactions?: string[]; // Optional array of formatted transaction strings
 }
 
 export interface QIP {
@@ -410,7 +411,7 @@ export class QIPClient {
    */
   formatQIPContent(qipData: QIPContent): string {
     // Create YAML frontmatter
-    const frontmatter = `---
+    let frontmatter = `---
 qip: ${qipData.qip}
 title: ${qipData.title}
 network: ${qipData.network}
@@ -423,6 +424,14 @@ created: ${qipData.created}
 ---
 
 ${qipData.content}`;
+
+    // Append transactions if they exist
+    if (qipData.transactions && qipData.transactions.length > 0) {
+      frontmatter += '\n\n## Transactions\n\n';
+      qipData.transactions.forEach((tx, index) => {
+        frontmatter += `${index + 1}. ${tx}\n`;
+      });
+    }
     
     return frontmatter;
   }
