@@ -56,7 +56,18 @@ const ProposalListItem = (props: any) => {
                     queryKey: cacheKey,
                     queryFn: async () => {
                         const qipClient = new QIPClient(registryAddress, config.baseRpcUrl, false);
-                        const qip = await qipClient.getQIP(BigInt(qipNumber));
+                        
+                        let qip;
+                        try {
+                            qip = await qipClient.getQIP(BigInt(qipNumber));
+                        } catch (error: any) {
+                            // Handle non-existent QIPs gracefully
+                            if (error?.message?.includes('returned no data') || error?.message?.includes('0x')) {
+                                console.debug(`[ProposalListItem] QIP ${qipNumber} does not exist in contract`);
+                                return null;
+                            }
+                            throw error;
+                        }
                         
                         if (!qip || qip.qipNumber === 0n) return null;
                         

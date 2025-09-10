@@ -580,6 +580,17 @@ if [ "$LOCAL_IPFS_AVAILABLE" = true ]; then
     export VITE_LOCAL_IPFS_API="http://localhost:5001"
     export VITE_LOCAL_IPFS_GATEWAY="http://localhost:8080"
 fi
+# Run Vite with environment variables
+# Force local mode for this script
+# Clear multiple RPCs to ensure only local Anvil is used
+unset VITE_BASE_RPC_URLS
+VITE_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS \
+VITE_BASE_RPC_URL="http://localhost:8545" \
+VITE_USE_LOCAL_IPFS=true \
+VITE_USE_MAI_API=false \
+VITE_LOCAL_MODE=true \
+VITE_LOCAL_IPFS_API="http://localhost:5001" \
+VITE_LOCAL_IPFS_GATEWAY="http://localhost:8080" \
 bun run dev &
 VITE_PID=$!
 echo "Vite PID: $VITE_PID"

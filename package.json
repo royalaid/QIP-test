@@ -21,6 +21,8 @@
     "migrate:production": "./scripts/migrate-with-keystore.sh",
     "dev:local": "./scripts/start-local-dev.sh",
     "dev:local:migrate": "./scripts/start-local-dev.sh --migrate",
+    "dev:pure-local": "./scripts/start-pure-local.sh",
+    "dev:local-api": "./scripts/start-local-with-api.sh",
     "dev:mai": "./scripts/with-mai-api.sh",
     "develop": "vite",
     "start": "vite",

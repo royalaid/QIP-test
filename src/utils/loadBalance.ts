@@ -48,19 +48,31 @@ export const BASE_RPC_ENDPOINTS = [
  * Get RPC endpoints from environment or use defaults
  */
 export function getRPCEndpoints(): string[] {
-  // Check if user has configured custom endpoints
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BASE_RPC_URLS) {
+  // Check local mode FIRST - this takes priority over everything
+  const isLocalMode = typeof import.meta !== 'undefined' 
+    ? import.meta.env?.VITE_LOCAL_MODE === 'true' || import.meta.env?.VITE_LOCAL_MODE === true
+    : false;
+    
+  // Check for single RPC URL
+  const singleUrl = typeof import.meta !== 'undefined' 
+    ? import.meta.env?.VITE_BASE_RPC_URL 
+    : undefined;
+    
+  // In local mode or when URL is localhost, ONLY use that single URL
+  if (singleUrl && (isLocalMode || singleUrl.includes('localhost') || singleUrl.includes('127.0.0.1'))) {
+    console.log('[getRPCEndpoints] Local mode detected, using only:', singleUrl);
+    return [singleUrl];
+  }
+  
+  // Check if user has configured custom endpoints (only if not in local mode)
+  if (!isLocalMode && typeof import.meta !== 'undefined' && import.meta.env?.VITE_BASE_RPC_URLS) {
     const urls = import.meta.env.VITE_BASE_RPC_URLS;
     if (typeof urls === 'string') {
       return urls.split(',').map(url => url.trim()).filter(Boolean);
     }
   }
-  
-  // Check for single RPC URL and add it to the list
-  const singleUrl = typeof import.meta !== 'undefined' 
-    ? import.meta.env?.VITE_BASE_RPC_URL 
-    : undefined;
     
+  // If we have a single URL (non-local), add it to the list for redundancy
   if (singleUrl && !BASE_RPC_ENDPOINTS.includes(singleUrl)) {
     return [singleUrl, ...BASE_RPC_ENDPOINTS];
   }

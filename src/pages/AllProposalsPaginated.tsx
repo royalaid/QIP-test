@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useRef, useCallback } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
-import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
+import { useQIPData } from '../hooks/useQIPData'
 import LocalModeBanner from '../components/LocalModeBanner'
 import { config } from '../config/env'
 
@@ -26,13 +26,12 @@ const AllProposalsPaginated: React.FC = () => {
 
   // Use API directly - it's fast enough that we don't need pagination
   const {
-    qips,
+    blockchainQIPs: qips,
     isLoading,
     isError,
     invalidateQIPs: invalidate,
     isFetching: isFetchingMore
-  } = useQIPsFromAPI({
-    apiUrl: config.maiApiUrl,
+  } = useQIPData({
     enabled: true
   })
   

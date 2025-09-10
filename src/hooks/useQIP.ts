@@ -86,12 +86,22 @@ export function useQIP({
           qip = cachedBlockchain;
         } else {
           console.log(`[useQIP] 🌐 Fetching blockchain data for QIP-${qipNumber}`);
-          qip = await qipClient.getQIP(BigInt(qipNumber));
-          
-          // Cache the blockchain data
-          queryClient.setQueryData(queryKeys.qipBlockchain(qipNumber, registryAddress), qip, {
-            updatedAt: Date.now(),
-          });
+          try {
+            qip = await qipClient.getQIP(BigInt(qipNumber));
+            
+            // Cache the blockchain data
+            queryClient.setQueryData(queryKeys.qipBlockchain(qipNumber, registryAddress), qip, {
+              updatedAt: Date.now(),
+            });
+          } catch (error: any) {
+            // Handle the case where QIP doesn't exist in the contract
+            if (error?.message?.includes('returned no data') || error?.message?.includes('0x')) {
+              console.log(`[useQIP] QIP-${qipNumber} does not exist in contract (returned 0x)`);
+              return null;
+            }
+            // Re-throw other errors
+            throw error;
+          }
         }
         
         // Check if QIP exists

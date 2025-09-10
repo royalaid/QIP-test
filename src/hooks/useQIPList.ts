@@ -41,6 +41,8 @@ export function useQIPList({
     queryKey: ['qips', 'list', registryAddress, { status, author, network }],
     queryFn: async () => {
       console.log('[useQIPList] Starting fetch with filters:', { status, author, network });
+      console.log('[useQIPList] Registry address:', registryAddress);
+      console.log('[useQIPList] Config RPC URL:', config.baseRpcUrl);
       
       const qips: QIPData[] = [];
       
@@ -49,10 +51,16 @@ export function useQIPList({
       try {
         const nextQipNumber = await qipClient.getNextQIPNumber();
         maxQipNumber = nextQipNumber - 1n; // The last QIP is nextQIPNumber - 1
-        console.log('[useQIPList] Registry range: QIP 209 to', maxQipNumber.toString());
+        console.log('[useQIPList] Next QIP number:', nextQipNumber.toString(), 'Max QIP:', maxQipNumber.toString());
       } catch (error) {
         console.warn('[useQIPList] Failed to get nextQIPNumber, falling back to hardcoded range');
         maxQipNumber = 248n; // Fallback to known range if contract call fails
+      }
+
+      // Check if the contract is empty (nextQIPNumber is 209, meaning no QIPs exist)
+      if (maxQipNumber < 209n) {
+        console.log('[useQIPList] No QIPs in registry (contract is empty)');
+        return [];
       }
 
       // Create array of QIP numbers to fetch (starting from 209, the first QIP in registry)

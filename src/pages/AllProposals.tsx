@@ -1,97 +1,93 @@
 import React, { useMemo } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
-import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
-import LocalModeBanner from '../components/LocalModeBanner'
-import { config } from '../config/env'
+import { useQIPData } from "../hooks/useQIPData";
+import LocalModeBanner from "../components/LocalModeBanner";
+import { config } from "../config/env";
 
 // Map blockchain status strings to display strings
 const statusDisplayMap: Record<string, string> = {
-  'Draft': 'Draft',
-  'Review': 'Review Pending',
-  'Vote': 'Vote Pending',
-  'Approved': 'Approved',
-  'Rejected': 'Rejected',
-  'Implemented': 'Implemented',
-  'Superseded': 'Deprecated',
-  'Withdrawn': 'Deprecated'
-}
+  Draft: "Draft",
+  Review: "Review Pending",
+  Vote: "Vote Pending",
+  Approved: "Approved",
+  Rejected: "Rejected",
+  Implemented: "Implemented",
+  Superseded: "Deprecated",
+  Withdrawn: "Deprecated",
+};
 
 // Status order for display
-const statusOrder = ['Draft', 'Review', 'Vote', 'Approved', 'Implemented', 'Rejected', 'Withdrawn']
+const statusOrder = ["Draft", "Review", "Vote", "Approved", "Implemented", "Rejected", "Withdrawn"];
 
 const AllProposals: React.FC = () => {
   // Configuration
-  const localMode = config.localMode
+  const localMode = config.localMode;
 
   // Always use API for fetching QIPs (24x faster)
-  const { 
-    qips: blockchainQIPs, 
-    isLoading: blockchainLoading, 
+  const {
+    blockchainQIPs,
+    isLoading: blockchainLoading,
     isError: blockchainError,
     invalidateQIPs,
     isFetching,
-    refreshQIPs
-  } = useQIPsFromAPI({
-    apiUrl: config.maiApiUrl,
+  } = useQIPData({
     pollingInterval: 30000, // 30 seconds
-    enabled: true
-  })
+    enabled: true,
+  });
 
   // Group QIPs by status
   const groupedQIPs = useMemo(() => {
-    const groups: Record<string, any[]> = {}
-    
-    blockchainQIPs.forEach(qip => {
-      const status = qip.status
+    const groups: Record<string, any[]> = {};
+
+    blockchainQIPs.forEach((qip) => {
+      const status = qip.status;
       if (!groups[status]) {
-        groups[status] = []
+        groups[status] = [];
       }
       // Just pass the QIP as-is since ProposalListItem handles blockchain QIPs directly
       groups[status].push({
         ...qip,
-        id: `api-${qip.qipNumber}`
-      })
-    })
+        id: `api-${qip.qipNumber}`,
+      });
+    });
 
     // Sort QIPs within each group by number (descending)
-    Object.keys(groups).forEach(status => {
-      groups[status] = sortBy(p => -p.qipNumber, groups[status])
-    })
+    Object.keys(groups).forEach((status) => {
+      groups[status] = sortBy((p) => -p.qipNumber, groups[status]);
+    });
 
-    return groups
-  }, [blockchainQIPs])
+    return groups;
+  }, [blockchainQIPs]);
 
   // Get ordered status groups
   const orderedGroups = statusOrder
-    .filter(status => groupedQIPs[status] && groupedQIPs[status].length > 0)
-    .map(status => ({
+    .filter((status) => groupedQIPs[status] && groupedQIPs[status].length > 0)
+    .map((status) => ({
       status,
       qips: groupedQIPs[status],
-      displayName: statusDisplayMap[status] || status
-    }))
+      displayName: statusDisplayMap[status] || status,
+    }));
 
   return (
     <>
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
-          
+
           {localMode && <LocalModeBanner />}
-          
+
           {/* API Mode Indicator - Always shown since we're always using API */}
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
-              ⚡ Using Mai API for faster QIP loading (24x performance improvement)
-            </p>
+            <p className="text-sm text-green-800">⚡ Using Mai API for faster QIP loading (24x performance improvement)</p>
           </div>
-          
+
           {blockchainError && (
             <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading from API</p>
               <p className="text-sm">Please check your connection and try again.</p>
-              <button 
-                onClick={() => refreshQIPs()}
+              <button
+                onClick={() => invalidateQIPs()}
                 className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
@@ -119,12 +115,8 @@ const AllProposals: React.FC = () => {
             <div key={status}>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 {displayName}
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({qips.length})
-                </span>
-                {isFetching && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>
-                )}
+                <span className="text-sm font-normal text-muted-foreground">({qips.length})</span>
+                {isFetching && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>}
               </h2>
               <ProposalListItem proposals={qips} />
             </div>
@@ -132,7 +124,7 @@ const AllProposals: React.FC = () => {
         </div>
 
         {/* Refresh button for development */}
-        {process.env.NODE_ENV === 'development' && (
+        {process.env.NODE_ENV === "development" && (
           <div className="fixed bottom-4 right-4">
             <button
               onClick={() => invalidateQIPs()}
@@ -147,7 +139,12 @@ const AllProposals: React.FC = () => {
               ) : (
                 <>
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   Refresh
                 </>
@@ -157,7 +154,7 @@ const AllProposals: React.FC = () => {
         )}
       </div>
     </>
-  )
-}
+  );
+};
 
 export default AllProposals

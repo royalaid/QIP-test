@@ -39,6 +39,7 @@ const getBoolEnvVar = (key: string, defaultValue = false): boolean => {
 export const config = {
   // Blockchain Configuration
   qipRegistryAddress: getEnvVar("VITE_QIP_REGISTRY_ADDRESS") as `0x${string}`,
+  registryAddress: getEnvVar("VITE_QIP_REGISTRY_ADDRESS") as `0x${string}`, // Add alias for compatibility
   baseRpcUrl: getEnvVar("VITE_BASE_RPC_URL", "http://localhost:8545"),
   walletConnectProjectId: getEnvVar("VITE_WALLETCONNECT_PROJECT_ID"),
 

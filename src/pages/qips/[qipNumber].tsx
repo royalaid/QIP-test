@@ -7,7 +7,7 @@ import { StatusDiscrepancyIndicator } from "../../components/StatusDiscrepancyIn
 import { TransactionDisplay } from "../../components/TransactionDisplay";
 import { useAccount } from "wagmi";
 import { Link } from "react-router-dom";
-import { useQIPsFromAPI } from "../../hooks/useQIPsFromAPI";
+import { useQIPData } from "../../hooks/useQIPData";
 import { useUpdateQIPStatus } from "../../hooks/useUpdateQIPStatus";
 import { config } from "../../config";
 import { ethers } from "ethers";
@@ -42,18 +42,20 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
 
   // Use the API hook to fetch QIP data (24x faster)
   const {
-    qips: blockchainQIPs,
+    blockchainQIPs,
     isLoading,
     isError,
     error,
     invalidateQIPs,
-  } = useQIPsFromAPI({
-    apiUrl: config.maiApiUrl,
-    contentFor: [qipNumber], // Fetch content for this specific QIP
+    getQIP,
+  } = useQIPData({
     enabled: true,
   });
 
-  const qip = blockchainQIPs.find((q: any) => q.qipNumber === qipNumber);
+  // Fetch specific QIP with content
+  const { data: qipWithContent } = getQIP(qipNumber);
+
+  const qip = qipWithContent || blockchainQIPs.find((q: any) => q.qipNumber === qipNumber);
 
   // Extract transactions from content if present
   const extractTransactions = (content: string): string[] => {

@@ -6,6 +6,7 @@ import { IPFSService } from '../services/ipfsService';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 import { useQIPsFromAPI } from './useQIPsFromAPI';
+import { useQIPList } from './useQIPList';
 
 export interface QIPData {
   qipNumber: number;
@@ -43,31 +44,86 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     enabled = true,
   } = options;
 
-  // Always use the API for better performance
+  // Use API only if explicitly enabled
+  // In local mode, never use API
+  const shouldUseAPI = config.localMode ? false : (config.useMaiApi && config.maiApiUrl);
+  
+  console.log('[useQIPData] Config:', {
+    useMaiApi: config.useMaiApi,
+    maiApiUrl: config.maiApiUrl,
+    localMode: config.localMode,
+    shouldUseAPI,
+    registryAddress: registryAddress || config.registryAddress
+  });
+  
+  // API result (only used when shouldUseAPI is true)
   const apiResult = useQIPsFromAPI({
     apiUrl: config.maiApiUrl,
-    enabled,
+    enabled: enabled && Boolean(shouldUseAPI),
     pollingInterval,
     includeContent: false, // Don't fetch content by default for performance
   });
 
-  return {
-    // Map API result to expected interface
-    blockchainQIPs: apiResult.qips,
-    isLoading: apiResult.isLoading,
-    isError: apiResult.isError,
-    error: apiResult.error,
+  // Blockchain result (only used when shouldUseAPI is false)
+  const blockchainResult = useQIPList({
+    registryAddress: registryAddress || config.registryAddress as `0x${string}`,
+    enabled: enabled && !shouldUseAPI,
+    pollingInterval,
+  });
+  
+  console.log('[useQIPData] Blockchain result enabled:', enabled && !shouldUseAPI);
+  console.log('[useQIPData] Registry being used:', registryAddress || config.registryAddress);
 
-    // Methods
-    getQIP: apiResult.getQIP,
-    invalidateQIPs: apiResult.invalidateQIPs,
-    prefetchQIP: apiResult.prefetchQIP,
+  // Choose which data source to use based on configuration
+  if (shouldUseAPI) {
+    return {
+      // Map API result to expected interface
+      blockchainQIPs: apiResult.qips,
+      isLoading: apiResult.isLoading,
+      isError: apiResult.isError,
+      error: apiResult.error,
 
-    // Status
-    isFetching: apiResult.isFetching,
-    isStale: apiResult.isStale,
-    dataUpdatedAt: apiResult.dataUpdatedAt,
-  };
+      // Methods
+      getQIP: apiResult.getQIP,
+      invalidateQIPs: apiResult.invalidateQIPs,
+      prefetchQIP: apiResult.prefetchQIP,
+
+      // Status
+      isFetching: apiResult.isFetching,
+      isStale: apiResult.isStale,
+      dataUpdatedAt: apiResult.dataUpdatedAt,
+    };
+  } else {
+    // Use blockchain data
+    return {
+      // Map blockchain result to expected interface
+      blockchainQIPs: blockchainResult.data || [],
+      isLoading: blockchainResult.isLoading,
+      isError: blockchainResult.isError,
+      error: blockchainResult.error,
+
+      // Methods (some need to be stubbed for blockchain mode)
+      getQIP: (qipNumber: number) => {
+        // Return a hook that finds the QIP from the list
+        return {
+          data: blockchainResult.data?.find(q => q.qipNumber === qipNumber) || null,
+          isLoading: blockchainResult.isLoading,
+          isError: blockchainResult.isError,
+          error: blockchainResult.error,
+        };
+      },
+      invalidateQIPs: () => blockchainResult.refetch(),
+      prefetchQIP: async (qipNumber: number) => {
+        // No-op for blockchain mode as we fetch all at once
+        console.log(`[useQIPData] Prefetch not needed in blockchain mode for QIP ${qipNumber}`);
+      },
+
+      // Status
+      isFetching: blockchainResult.isFetching,
+      isStale: blockchainResult.isStale,
+      dataUpdatedAt: blockchainResult.dataUpdatedAt,
+    };
+  }
 }
 
 /**

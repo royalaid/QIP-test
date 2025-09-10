@@ -57,20 +57,15 @@ export function getIPFSProvider(): IPFSProvider {
     );
   }
   
+  // Only use Mai API if explicitly enabled
   if (config.useMaiApi && config.ipfsApiUrl) {
     console.log('🌐 Using Mai API for IPFS uploads:', config.ipfsApiUrl);
     console.log(`📡 Using ${gateways.length} IPFS gateways for load balancing`);
     return new MaiAPIProvider(config.ipfsApiUrl);
   }
   
-  // Fallback: If Mai API URL is configured, use it even without explicit flag
-  if (config.ipfsApiUrl) {
-    console.log('🌐 Using Mai API for IPFS uploads (fallback):', config.ipfsApiUrl);
-    console.log(`📡 Using ${gateways.length} IPFS gateways for load balancing`);
-    return new MaiAPIProvider(config.ipfsApiUrl);
-  }
-  
-  throw new Error('No IPFS provider configured. Please set up Mai API, local IPFS, or Pinata.');
+  // No fallback to Mai API - require explicit configuration
+  throw new Error('No IPFS provider configured. Please set up local IPFS (VITE_USE_LOCAL_IPFS=true) or Mai API (VITE_USE_MAI_API=true with VITE_IPFS_API_URL).');
 }
 
 /**
