@@ -761,9 +761,27 @@ ${qipData.content}`;
     // Append transactions if they exist
     if (qipData.transactions && qipData.transactions.length > 0) {
       formatted += '\n\n## Transactions\n\n';
-      qipData.transactions.forEach((tx, index) => {
-        formatted += `${index + 1}. ${tx}\n`;
-      });
+      formatted += '```json\n';
+      
+      // Convert all transactions to proper JSON format
+      const jsonTransactions = qipData.transactions.map(tx => {
+        if (typeof tx === 'string') {
+          // Try to parse if it's already JSON
+          try {
+            return JSON.parse(tx);
+          } catch {
+            // Legacy format or plain string, skip for now
+            return null;
+          }
+        } else if (typeof tx === 'object') {
+          return tx;
+        }
+        return null;
+      }).filter(tx => tx !== null);
+      
+      // Format as JSON array
+      formatted += JSON.stringify(jsonTransactions, null, 2);
+      formatted += '\n```\n';
     }
 
     return formatted;

@@ -36,7 +36,9 @@
       "WebFetch(domain:21st.dev)",
       "Bash(git add:*)",
       "Bash(pgrep:*)",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(sed:*)",
+      "Bash(xxd:*)"
     ],
     "deny": [
       "Bash(rm-rf:*)"

@@ -515,13 +515,22 @@ Implementation details...`}
             {transactions.length > 0 && (
               <div className="mt-8 pt-6 border-t border-border">
                 <h2 className="text-xl font-bold mb-4">Transactions</h2>
-                <ol className="list-decimal list-inside space-y-2">
-                  {transactions.map((tx, index) => (
-                    <li key={index} className="font-mono text-sm break-all">
-                      {ABIParser.formatTransaction(tx)}
-                    </li>
-                  ))}
-                </ol>
+                <pre className="bg-muted/50 p-4 rounded-lg overflow-x-auto">
+                  <code className="text-sm font-mono">
+                    {JSON.stringify(
+                      transactions.map(tx => {
+                        const formatted = ABIParser.formatTransaction(tx);
+                        try {
+                          return JSON.parse(formatted);
+                        } catch {
+                          return formatted;
+                        }
+                      }),
+                      null,
+                      2
+                    )}
+                  </code>
+                </pre>
               </div>
             )}
           </div>

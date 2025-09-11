@@ -181,9 +181,45 @@ export class ABIParser {
   }
 
   /**
-   * Format transaction data as a string
+   * Format transaction data as a JSON string for structured storage
    */
   static formatTransaction(data: TransactionData): string {
+    // Map chain names to chain IDs
+    const chainIdMap: Record<string, number> = {
+      'Ethereum': 1,
+      'Polygon': 137,
+      'Base': 8453,
+      'Arbitrum': 42161,
+      'Optimism': 10,
+      'BSC': 56,
+      'Binance': 56, // Alias
+      'Avalanche': 43114,
+      'Metis': 1088,
+      // Add more as needed
+    };
+    
+    // Get chain ID, fallback to chain name if not found
+    const chainId = chainIdMap[data.chain] || data.chain;
+    
+    // Create a structured transaction object
+    const transaction = {
+      chainId: chainId,
+      to: data.contractAddress,
+      function: data.functionName,
+      args: data.args,
+      value: "0", // Default to 0, can be extended later
+      // Additional fields can be added here in the future:
+      // gasLimit: 100000,
+      // description: "Transaction description"
+    };
+    
+    return JSON.stringify(transaction, null, 2);
+  }
+
+  /**
+   * Format transaction data in legacy format (for backward compatibility)
+   */
+  static formatTransactionLegacy(data: TransactionData): string {
     const argsString = data.args.map(arg => {
       if (typeof arg === 'object') {
         return JSON.stringify(arg);
@@ -196,8 +232,43 @@ export class ABIParser {
 
   /**
    * Parse a formatted transaction string back to TransactionData
+   * Supports both new JSON format and legacy colon-separated format
    */
   static parseTransaction(transactionString: string): Omit<TransactionData, 'abi'> {
+    // Map chain IDs back to chain names
+    const chainNameMap: Record<number, string> = {
+      1: 'Ethereum',
+      137: 'Polygon',
+      8453: 'Base',
+      42161: 'Arbitrum',
+      10: 'Optimism',
+      56: 'BSC',
+      43114: 'Avalanche',
+      1088: 'Metis',
+    };
+    
+    // First, try to parse as JSON (new format)
+    try {
+      const parsed = JSON.parse(transactionString);
+      if ((parsed.chainId || parsed.chain) && (parsed.to || parsed.address || parsed.contractAddress) && parsed.function) {
+        // Convert chainId to chain name if needed
+        let chain = parsed.chain;
+        if (parsed.chainId && typeof parsed.chainId === 'number') {
+          chain = chainNameMap[parsed.chainId] || `Chain ${parsed.chainId}`;
+        }
+        
+        return {
+          chain: chain,
+          contractAddress: parsed.to || parsed.address || parsed.contractAddress,
+          functionName: parsed.function || parsed.functionName,
+          args: parsed.args || []
+        };
+      }
+    } catch {
+      // Not JSON, try legacy format
+    }
+    
+    // Fall back to legacy format parsing
     const match = transactionString.match(/^([^:]+):([^:]+):([^:]+):\[(.*)\]$/);
     
     if (!match) {

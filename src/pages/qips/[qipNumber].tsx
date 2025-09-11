@@ -13,6 +13,7 @@ import { config } from "../../config";
 import { ethers } from "ethers";
 import QIPRegistryABI from "../../config/abis/QIPRegistry.json";
 import { QIPStatus } from "../../services/qipClient";
+import { getIPFSGatewayUrl } from "../../utils/ipfsGateway";
 
 interface Props {
   params?: {
@@ -299,7 +300,7 @@ const DynamicQIPPage: React.FC<Props> = ({ params, location }) => {
                 <div>
                   Version {qip.version} •
                   <a
-                    href={`https://ipfs.io/ipfs/${qip.ipfsUrl.replace("ipfs://", "")}`}
+                    href={getIPFSGatewayUrl(qip.ipfsUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline ml-2"

@@ -10,6 +10,7 @@ import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndic
 import QIPRegistryABI from '../config/abis/QIPRegistry.json'
 import { QIPStatus, QIPClient } from '../services/qipClient'
 import { useMemo } from 'react'
+import { getIPFSGatewayUrl } from '../utils/ipfsGateway'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -215,7 +216,7 @@ const QIPDetail: React.FC = () => {
             <div className="mb-4 text-sm text-muted-foreground">
               <span className="font-semibold">IPFS:</span>{' '}
               <a 
-                href={qipData.ipfsUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} 
+                href={getIPFSGatewayUrl(qipData.ipfsUrl)} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-primary hover:text-primary/80"
