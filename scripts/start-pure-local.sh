@@ -20,7 +20,6 @@ echo ""
 # Override ALL environment variables to force local mode
 export VITE_USE_LOCAL_IPFS=true
 export VITE_USE_MAI_API=false
-export VITE_USE_MAI_API_FOR_QIPS=false
 export VITE_LOCAL_MODE=true
 
 # Clear any API URLs to prevent fallback
@@ -38,12 +37,10 @@ unset VITE_BASE_RPC_URLS  # Remove multiple RPC URLs
 # Clear any Mai API configuration
 unset VITE_MAI_API_URL
 unset VITE_USE_MAI_API
-unset VITE_USE_MAI_API_FOR_QIPS
 
 echo -e "${GREEN}Environment variables set for pure local mode:${NC}"
 echo "  VITE_USE_LOCAL_IPFS=true"
 echo "  VITE_USE_MAI_API=false"
-echo "  VITE_USE_MAI_API_FOR_QIPS=false"
 echo "  VITE_LOCAL_MODE=true"
 echo "  VITE_LOCAL_IPFS_API=http://localhost:5001"
 echo "  VITE_LOCAL_IPFS_GATEWAY=http://localhost:8080"
