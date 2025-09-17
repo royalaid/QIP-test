@@ -2,26 +2,40 @@ import React from "react";
 import { format } from "date-fns";
 
 import Author from "./Author";
+import InlineStatusEditor from "./InlineStatusEditor";
+import { QIPStatus } from "../services/qipClient";
 
 // Status color mapping
 const statusColor: any = {
   Draft: "#757575",
-  Review: "#FFEB3B",
-  "Review Pending": "#FFEB3B",
-  Vote: "#FFEB3B",
-  "Vote Pending": "#FFEB3B",
-  Rejected: "#F44336",
-  Approved: "#4CAF50",
-  Implemented: "#4CAF50",
-  Superseded: "#9E9E9E",
-  Withdrawn: "#9E9E9E",
+  "Ready for Snapshot": "#FFEB3B",
+  "Posted to Snapshot": "#4CAF50",
 };
 
 interface Props {
   frontmatter: any;
+  // Optional editing props
+  qipNumber?: number;
+  statusEnum?: QIPStatus;
+  isAuthor?: boolean;
+  isEditor?: boolean;
+  onStatusUpdate?: () => void;
+  registryAddress?: `0x${string}`;
+  rpcUrl?: string;
+  enableStatusEdit?: boolean;
 }
 
-const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
+const FrontmatterTable: React.FC<Props> = ({
+  frontmatter,
+  qipNumber,
+  statusEnum,
+  isAuthor = false,
+  isEditor = false,
+  onStatusUpdate,
+  registryAddress,
+  rpcUrl,
+  enableStatusEdit = false
+}) => {
   return (
     <table className="border border-collapse bg-muted/30 dark:bg-zinc-800/50 min-w-full divide-y divide-border">
       <tbody className="bg-card divide-y divide-border">
@@ -34,14 +48,27 @@ const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
         <tr>
           <th className="py-3 px-6 text-left font-bold">Status</th>
           <td className="py-3 px-6">
-            <span
-              style={{
-                backgroundColor: statusColor[frontmatter.status] || "#757575",
-              }}
-              className="text-white text-xs px-3 py-1 rounded-full font-medium inline-block"
-            >
-              {frontmatter.status}
-            </span>
+            {enableStatusEdit && qipNumber && registryAddress ? (
+              <InlineStatusEditor
+                qipNumber={qipNumber}
+                currentStatus={frontmatter.status}
+                currentStatusEnum={statusEnum}
+                isAuthor={isAuthor}
+                isEditor={isEditor}
+                onStatusUpdate={onStatusUpdate}
+                registryAddress={registryAddress}
+                rpcUrl={rpcUrl}
+              />
+            ) : (
+              <span
+                style={{
+                  backgroundColor: statusColor[frontmatter.status] || "#757575",
+                }}
+                className="text-white text-xs px-3 py-1 rounded-full font-medium inline-block"
+              >
+                {frontmatter.status}
+              </span>
+            )}
           </td>
         </tr>
         {frontmatter.type && (

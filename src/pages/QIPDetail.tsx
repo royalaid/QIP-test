@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useQIP } from '../hooks/useQIP'
-import { useUpdateQIPStatus } from '../hooks/useUpdateQIPStatus'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
-import { StatusUpdateComponent } from '../components/StatusUpdateComponent'
 import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndicator'
 import QIPRegistryABI from '../config/abis/QIPRegistry.json'
 import { QIPStatus, QIPClient } from '../services/qipClient'
@@ -29,7 +27,6 @@ const QIPDetail: React.FC = () => {
   
   // Cache for role checks to avoid repeated contract calls
   const [roleCache] = useState<Map<string, boolean>>(new Map())
-  const { updateStatus } = useUpdateQIPStatus()
   const queryClient = useQueryClient()
 
   // Extract number from QIP-XXX format
@@ -212,63 +209,52 @@ const QIPDetail: React.FC = () => {
           </h1>
 
           <div className="mb-8">
-            <FrontmatterTable frontmatter={frontmatter} />
+            <FrontmatterTable
+              frontmatter={frontmatter}
+              qipNumber={qipData.qipNumber}
+              statusEnum={qipData.statusEnum}
+              isAuthor={isAuthor}
+              isEditor={isEditor}
+              registryAddress={registryAddress}
+              rpcUrl={rpcUrl}
+              enableStatusEdit={true}
+              onStatusUpdate={async () => {
+                console.log('[QIPDetail] Status update triggered from FrontmatterTable')
+
+                // Give the blockchain a moment to fully sync
+                await new Promise(resolve => setTimeout(resolve, 1000))
+
+                // Remove ALL related queries to ensure clean state
+                queryClient.removeQueries({
+                  queryKey: ["qip", parseInt(qipNumberParsed)],
+                  exact: false
+                })
+
+                // Also remove blockchain-specific cache
+                queryClient.removeQueries({
+                  queryKey: ["qip-blockchain", parseInt(qipNumberParsed)],
+                  exact: false
+                })
+
+                // IMPORTANT: Invalidate the QIP list cache so the main page updates
+                queryClient.invalidateQueries({
+                  queryKey: ["qips", "list", registryAddress]
+                })
+
+                console.log('[QIPDetail] Cache cleared, refetching...')
+
+                // Force a fresh fetch
+                await refetch()
+              }}
+            />
           </div>
 
-          {(isAuthor || isEditor) && (
+          {qipData.status !== qipData.ipfsStatus && (
             <div className="mb-6">
-              <div className="flex items-center gap-3">
-                <StatusUpdateComponent
-                  qipNumber={BigInt(qipData.qipNumber)}
-                  currentStatus={qipData.statusEnum || QIPStatus.Draft}
-                  currentIpfsStatus={qipData.ipfsStatus}
-                  isAuthor={isAuthor}
-                  isEditor={isEditor}
-                  onStatusUpdate={async (newStatus) => {
-                    console.log('[QIPDetail] Starting status update to:', newStatus)
-
-                    // Update status on blockchain (this waits for confirmation)
-                    const txHash = await updateStatus(BigInt(qipData.qipNumber), newStatus)
-                    console.log('[QIPDetail] Transaction confirmed:', txHash)
-
-                    // Give the blockchain a moment to fully sync
-                    await new Promise(resolve => setTimeout(resolve, 1000))
-
-                    // Invalidate the exact query key
-                    const queryKey = ["qip", parseInt(qipNumberParsed), registryAddress]
-                    console.log("[QIPDetail] Invalidating cache with key:", queryKey)
-
-                    // Remove ALL related queries to ensure clean state
-                    queryClient.removeQueries({
-                      queryKey: ["qip", parseInt(qipNumberParsed)],
-                      exact: false // Remove all queries starting with this pattern
-                    })
-
-                    // Also remove blockchain-specific cache
-                    queryClient.removeQueries({
-                      queryKey: ["qip-blockchain", parseInt(qipNumberParsed)],
-                      exact: false
-                    })
-
-                    // IMPORTANT: Invalidate the QIP list cache so the main page updates
-                    queryClient.invalidateQueries({
-                      queryKey: ["qips", "list", registryAddress]
-                    })
-                    console.log('[QIPDetail] Invalidated QIP list cache')
-
-                    console.log('[QIPDetail] Cache cleared, refetching...')
-
-                    // Force a fresh fetch
-                    const result = await refetch()
-                    console.log('[QIPDetail] Refetch complete:', result.status)
-                  }}
-                  hideStatusPill={true}
-                />
-                <StatusDiscrepancyIndicator
-                  onChainStatus={qipData.status}
-                  ipfsStatus={qipData.ipfsStatus}
-                />
-              </div>
+              <StatusDiscrepancyIndicator
+                onChainStatus={qipData.status}
+                ipfsStatus={qipData.ipfsStatus}
+              />
             </div>
           )}
 
