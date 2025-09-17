@@ -361,7 +361,18 @@ const QIPDetail: React.FC = () => {
           <div className="mt-8 p-4 bg-primary/5 rounded">
             <h3 className="font-bold mb-2">Snapshot Proposal</h3>
             <a
-              href={qipData.proposal.startsWith("http") ? qipData.proposal : `https://snapshot.org/#/${qipData.proposal}`}
+              href={(() => {
+                if (qipData.proposal.startsWith("http")) {
+                  return qipData.proposal;
+                }
+                // If it's just a proposal ID (0x...), construct the full URL with the space
+                const space = config.snapshotSpace || 'qidao.eth';
+                if (qipData.proposal.startsWith("0x")) {
+                  return `https://snapshot.org/#/${space}/proposal/${qipData.proposal}`;
+                }
+                // Fallback for other formats
+                return `https://snapshot.org/#/${qipData.proposal}`;
+              })()}
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"

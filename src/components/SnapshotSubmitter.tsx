@@ -32,6 +32,15 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   isAuthor = false,
   isEditor = false
 }) => {
+  // Log component initialization
+  console.log("[SnapshotSubmitter] Component initialized with props:", {
+    qipNumber: frontmatter?.qip,
+    hasOnStatusUpdate: !!onStatusUpdate,
+    registryAddress,
+    isAuthor,
+    isEditor,
+    rpcUrl,
+  });
   const signer = useEthersSigner();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<React.ReactNode>(null);
@@ -43,6 +52,24 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
   // Wallet client for blockchain transactions
   const { data: walletClient } = useWalletClient();
+
+  // Debug state changes - run after component mounts
+  useEffect(() => {
+    // Skip initial mount to avoid initialization issues
+    const timer = setTimeout(() => {
+      console.log("[SnapshotSubmitter] State Debug:", {
+        proposalId,
+        proposalUrl,
+        showStatusUpdatePrompt,
+        isUpdatingStatus,
+        hasWalletClient: !!walletClient,
+        registryAddress,
+        isAuthor,
+        isEditor,
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [proposalId, proposalUrl, showStatusUpdatePrompt, isUpdatingStatus, walletClient, registryAddress, isAuthor, isEditor]);
 
   const SNAPSHOT_SPACE = config.snapshotSpace;
   const isDefaultSpace = SNAPSHOT_SPACE === "qidao.eth";
@@ -60,13 +87,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
     if (frontmatter.network) frontmatterInfo.push(`**Network:** ${frontmatter.network}`);
     if (frontmatter.author) frontmatterInfo.push(`**Author:** ${frontmatter.author}`);
     if (frontmatter.implementor) frontmatterInfo.push(`**Implementor:** ${frontmatter.implementor}`);
-    if (frontmatter['implementation-date']) frontmatterInfo.push(`**Implementation Date:** ${frontmatter['implementation-date']}`);
+    if (frontmatter["implementation-date"]) frontmatterInfo.push(`**Implementation Date:** ${frontmatter["implementation-date"]}`);
     if (frontmatter.created) frontmatterInfo.push(`**Created:** ${frontmatter.created}`);
 
     // Combine frontmatter info with content
-    return frontmatterInfo.length > 0
-      ? `${frontmatterInfo.join('\n')}\n\n${content}`
-      : content;
+    return frontmatterInfo.length > 0 ? `${frontmatterInfo.join("\n")}\n\n${content}` : content;
   };
 
   const { data: proposals, isLoading: loadingProposals } = useQuery({
@@ -145,15 +170,35 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         timestamp: now, // Add explicit timestamp
       };
 
+      console.log("[SnapshotSubmitter] Creating proposal with options:", proposalOptions);
       const receipt = await createProposal(signer, "https://hub.snapshot.org", proposalOptions);
+      console.log("[SnapshotSubmitter] Proposal creation receipt:", receipt);
+
       if (receipt && (receipt as any).id) {
-        const proposalId = (receipt as any).id;
-        const proposalUrl = `https://snapshot.org/#/${space}/proposal/${proposalId}`;
+        const newProposalId = (receipt as any).id;
+        console.log("[SnapshotSubmitter] Extracted proposal ID:", newProposalId);
+
+        const proposalUrl = `https://snapshot.org/#/${space}/proposal/${newProposalId}`;
+        console.log("[SnapshotSubmitter] Generated proposal URL:", proposalUrl);
+
+        console.log("[SnapshotSubmitter] Setting state - proposalUrl:", proposalUrl);
         setProposalUrl(proposalUrl);
-        setProposalId(proposalId);
+
+        console.log("[SnapshotSubmitter] Setting state - proposalId:", newProposalId);
+        setProposalId(newProposalId);
+
+        console.log("[SnapshotSubmitter] State after setting:", {
+          newProposalId,
+          proposalUrl,
+          registryAddress,
+          isAuthor,
+          isEditor,
+          shouldShowPrompt: !!(registryAddress && (isAuthor || isEditor)),
+        });
 
         // Show success message and prompt for status update if user has permissions
         if (registryAddress && (isAuthor || isEditor)) {
+          console.log("[SnapshotSubmitter] User has permissions, showing status update prompt");
           setShowStatusUpdatePrompt(true);
           setStatus(
             <div className="flex items-center gap-2 text-sm">
@@ -203,87 +248,112 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   };
 
   const handleStatusUpdate = async () => {
-    console.log('[SnapshotSubmitter] handleStatusUpdate called - initial checks:', {
-      registryAddress: !!registryAddress,
+    console.log("[SnapshotSubmitter] handleStatusUpdate called - full state:", {
+      registryAddress,
       walletClient: !!walletClient,
-      proposalId: !!proposalId,
-      registryAddressValue: registryAddress,
-      proposalIdValue: proposalId
+      proposalId,
+      proposalIdType: typeof proposalId,
+      proposalIdLength: proposalId?.length,
+      proposalUrl,
+      showStatusUpdatePrompt,
+      isUpdatingStatus,
     });
 
     if (!registryAddress || !walletClient || !proposalId) {
-      console.log('[SnapshotSubmitter] Early return - missing required data:', {
-        registryAddress: !!registryAddress,
-        walletClient: !!walletClient,
-        proposalId: !!proposalId
+      console.error("[SnapshotSubmitter] Cannot update status - missing required data:", {
+        registryAddress: registryAddress || "MISSING",
+        walletClient: walletClient ? "present" : "MISSING",
+        proposalId: proposalId || "MISSING",
+        proposalIdState: proposalId,
       });
+
+      // Show user-friendly error
+      if (!proposalId) {
+        setStatus(
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>Error: No proposal ID found. Please create the proposal first.</span>
+          </div>
+        );
+      } else if (!walletClient) {
+        setStatus(
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>Error: Wallet not connected. Please connect your wallet.</span>
+          </div>
+        );
+      } else if (!registryAddress) {
+        setStatus(
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>Error: Registry address not configured.</span>
+          </div>
+        );
+      }
       return;
     }
 
-    console.log('[SnapshotSubmitter] Starting linkSnapshotProposal:', {
+    console.log("[SnapshotSubmitter] Starting linkSnapshotProposal:", {
       registryAddress,
       qipNumber: frontmatter.qip,
       proposalId,
       walletConnected: !!walletClient,
-      args: [BigInt(frontmatter.qip), proposalId]
+      args: [BigInt(frontmatter.qip), proposalId],
     });
 
     setIsUpdatingStatus(true);
     try {
-      console.log('[SnapshotSubmitter] About to call writeContract with:', {
-        address: registryAddress,
-        functionName: 'linkSnapshotProposal',
-        args: [BigInt(frontmatter.qip), proposalId],
-        abi: 'QIPRegistryABI (length: ' + QIPRegistryABI.length + ')'
-      });
-
-      // Use linkSnapshotProposal which automatically updates status AND sets the proposal ID
       const hash = await walletClient.writeContract({
         address: registryAddress,
         abi: QIPRegistryABI,
-        functionName: 'linkSnapshotProposal',
+        functionName: "linkSnapshotProposal",
         args: [BigInt(frontmatter.qip), proposalId],
       });
-
-      console.log('[SnapshotSubmitter] Successfully linked Snapshot proposal:', {
-        transactionHash: hash,
-        qipNumber: frontmatter.qip,
-        proposalId,
-        hashType: typeof hash,
-        hashValue: hash
-      });
-
       setShowStatusUpdatePrompt(false);
 
       // Trigger the parent's refresh callback
       if (onStatusUpdate) {
-        console.log('[SnapshotSubmitter] Waiting 2 seconds before calling onStatusUpdate callback');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for blockchain sync
-        console.log('[SnapshotSubmitter] Calling onStatusUpdate callback');
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for blockchain sync
         onStatusUpdate();
-      } else {
-        console.log('[SnapshotSubmitter] No onStatusUpdate callback provided');
       }
-    } catch (error) {
-      console.error('[SnapshotSubmitter] Failed to link Snapshot proposal:', {
+    } catch (error: any) {
+      console.error("[SnapshotSubmitter] Failed to link Snapshot proposal:", {
         error,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
         errorType: typeof error,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
+        currentState: {
+          registryAddress,
+          proposalId,
+          qipNumber: frontmatter.qip,
+        },
       });
+
+      // Provide more specific error messages
+      let errorMessage = "Unknown error";
+      if (error?.message?.includes("out of gas") || error?.message?.includes("OutOfGas")) {
+        errorMessage =
+          "Transaction ran out of gas. In local development, make sure you are using an Anvil test account with sufficient ETH.";
+      } else if (error?.message?.includes("user rejected") || error?.code === 4001) {
+        errorMessage = "Transaction cancelled by user";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
       setStatus(
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4" />
-          <span>Failed to link Snapshot proposal: {error instanceof Error ? error.message : 'Unknown error'}</span>
+          <span>Failed to link Snapshot proposal: {errorMessage}</span>
         </div>
       );
     } finally {
-      console.log('[SnapshotSubmitter] handleStatusUpdate completed, setting isUpdatingStatus to false');
+      console.log("[SnapshotSubmitter] handleStatusUpdate completed, setting isUpdatingStatus to false");
       setIsUpdatingStatus(false);
     }
   };
 
   const dismissStatusPrompt = () => {
+    console.log("[SnapshotSubmitter] Dismissing status update prompt");
     setShowStatusUpdatePrompt(false);
   };
 
@@ -292,15 +362,9 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2">
           Submit to Snapshot
-          {!isDefaultSpace && (
-            <span className="text-base font-normal text-primary">
-              ({SNAPSHOT_SPACE})
-            </span>
-          )}
+          {!isDefaultSpace && <span className="text-base font-normal text-primary">({SNAPSHOT_SPACE})</span>}
         </CardTitle>
-        <CardDescription>
-          Create a governance proposal on Snapshot for community voting
-        </CardDescription>
+        <CardDescription>Create a governance proposal on Snapshot for community voting</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -319,9 +383,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               ) : (
                 <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
               )}
-              <div className="flex-1">
-                {status}
-              </div>
+              <div className="flex-1">{status}</div>
             </div>
           </div>
         )}
@@ -381,23 +443,17 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1 space-y-3">
                 <div>
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                    Link Snapshot Proposal?
-                  </h4>
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">Link Snapshot Proposal?</h4>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Your proposal has been successfully submitted to Snapshot. Would you like to link
-                    this Snapshot proposal to the QIP and update the status to "Posted to Snapshot"?
+                    Your proposal has been successfully submitted to Snapshot. Would you like to link this Snapshot proposal to the QIP and
+                    update the status to "Posted to Snapshot"?
                   </p>
-                  {proposalId && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">
-                      Proposal ID: {proposalId}
-                    </p>
-                  )}
+                  {proposalId && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">Proposal ID: {proposalId}</p>}
                 </div>
                 <div className="flex gap-2">
                   <Button
                     onClick={() => {
-                      console.log('[SnapshotSubmitter] Link Proposal button clicked');
+                      console.log("[SnapshotSubmitter] Link Proposal button clicked");
                       handleStatusUpdate();
                     }}
                     disabled={isUpdatingStatus}
@@ -406,11 +462,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
                   >
                     {isUpdatingStatus ? "Linking..." : "Link Proposal"}
                   </Button>
-                  <Button
-                    onClick={dismissStatusPrompt}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={dismissStatusPrompt} variant="outline" size="sm">
                     Skip
                   </Button>
                 </div>
