@@ -94,17 +94,13 @@ const FrontmatterTable: React.FC<Props> = ({
         {frontmatter.created && (
           <tr>
             <th className="py-3 px-6 text-left font-bold">Created</th>
-            <td className="py-3 px-6">
-              {format(new Date(frontmatter.created), "yyyy-MM-dd")}
-            </td>
+            <td className="py-3 px-6">{format(new Date(frontmatter.created), "yyyy-MM-dd")}</td>
           </tr>
         )}
         {frontmatter.updated && (
           <tr>
             <th className="py-3 px-6 text-left font-bold">Updated</th>
-            <td className="py-3 px-6">
-              {format(new Date(frontmatter.created), "yyyy-MM-dd")}
-            </td>
+            <td className="py-3 px-6">{format(new Date(frontmatter.created), "yyyy-MM-dd")}</td>
           </tr>
         )}
       </tbody>

@@ -374,12 +374,23 @@ ${qipData.content}`;
       args: [qipNumber],
     })) as any;
 
-    // Status is now stored as uint8 (0, 1, 2) not as bytes32 hash
-    const statusValue = result[8] as number;
+    // Status may come as bytes32 hash or uint8 depending on contract version
+    const statusValue = result[8];
     console.log(`[QIPClient] QIP ${qipNumber} status value from blockchain:`, statusValue);
 
-    // Directly use the numeric status value as the enum
-    const status = statusValue as QIPStatus;
+    // Convert status to enum
+    let status: QIPStatus;
+    if (typeof statusValue === "string" && statusValue.startsWith("0x")) {
+      // It's a bytes32 hash, convert to enum
+      status = this.convertStatusHashToEnum(statusValue);
+    } else if (typeof statusValue === "number") {
+      // It's already a number
+      status = statusValue as QIPStatus;
+    } else {
+      // Fallback to Draft
+      console.warn(`[QIPClient] Unknown status format for QIP ${qipNumber}:`, statusValue);
+      status = QIPStatus.Draft;
+    }
     console.log(`[QIPClient] QIP ${qipNumber} status enum:`, status, QIPStatus[status]);
 
     return {

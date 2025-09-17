@@ -161,8 +161,18 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           transactions: transactions.length > 0 ? transactions.map(tx => ABIParser.formatTransaction(tx)) : undefined
         };
 
+        console.log("📝 QIP Content being saved:", {
+          ...qipContent,
+          transactionCount: transactions.length,
+          hasTransactions: !!qipContent.transactions,
+          transactions: qipContent.transactions
+        });
+
         // Format the full content for IPFS
         const fullContent = ipfsService.formatQIPContent(qipContent);
+
+        console.log("📄 Formatted content preview (first 500 chars):", fullContent.substring(0, 500));
+        console.log("📄 Full content includes transactions section:", fullContent.includes("## Transactions"));
         
         // Step 1: Pre-calculate IPFS CID without uploading
         console.log("🔮 Calculating IPFS CID...");
@@ -250,7 +260,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         console.log("✅ Saving state set to false");
       }
     },
-    [qipClient, ipfsService, address, walletClient, title, network, content, implementor, existingQIP]
+    [qipClient, ipfsService, address, walletClient, title, network, content, implementor, existingQIP, transactions]
   );
 
   const handlePreview = () => {
