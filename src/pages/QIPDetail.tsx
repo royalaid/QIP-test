@@ -297,12 +297,10 @@ const QIPDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Snapshot submission for eligible statuses - visible to editors and authors */}
-          {/* Also show for recently approved QIPs that don't have a proposal yet */}
-          {canSubmitSnapshot && 
-           ((qipData.status === 'Review' || qipData.status === 'Vote' || 
-            (qipData.status === 'Approved' && (!qipData.proposal || qipData.proposal === 'None'))) && 
-            (!qipData.proposal || qipData.proposal === 'None')) && (
+          {/* Snapshot submission for QIPs ready for snapshot submission */}
+          {canSubmitSnapshot &&
+           qipData.status === 'Ready for Snapshot' &&
+           (!qipData.proposal || qipData.proposal === 'None') && (
             <div className="mt-8 border-t pt-8">
               <h2 className="text-2xl font-bold mb-4">
                 Submit to Snapshot

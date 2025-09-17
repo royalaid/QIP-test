@@ -25,9 +25,22 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
   const requiresTokenBalance = isDefaultSpace;
   const requiresQipValidation = isDefaultSpace;
 
-  const cleanMarkdown = (rawMarkdown: string) => {
+  const formatProposalBody = (rawMarkdown: string, frontmatter: any) => {
     // Remove frontmatter from the beginning of the markdown
-    return rawMarkdown.replace(/^---[\s\S]*?---\n?/, "").trim();
+    const content = rawMarkdown.replace(/^---[\s\S]*?---\n?/, "").trim();
+
+    // Add frontmatter information to the proposal body
+    const frontmatterInfo = [];
+    if (frontmatter.network) frontmatterInfo.push(`**Network:** ${frontmatter.network}`);
+    if (frontmatter.author) frontmatterInfo.push(`**Author:** ${frontmatter.author}`);
+    if (frontmatter.implementor) frontmatterInfo.push(`**Implementor:** ${frontmatter.implementor}`);
+    if (frontmatter['implementation-date']) frontmatterInfo.push(`**Implementation Date:** ${frontmatter['implementation-date']}`);
+    if (frontmatter.created) frontmatterInfo.push(`**Created:** ${frontmatter.created}`);
+
+    // Combine frontmatter info with content
+    return frontmatterInfo.length > 0
+      ? `${frontmatterInfo.join('\n')}\n\n${content}`
+      : content;
   };
 
   const { data: proposals, isLoading: loadingProposals } = useQuery({
@@ -95,7 +108,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
         space,
         type: "basic",
         title: `QIP${frontmatter.qip}: ${frontmatter.title}`,
-        body: cleanMarkdown(rawMarkdown),
+        body: formatProposalBody(rawMarkdown, frontmatter),
         choices: ["For", "Against", "Abstain"],
         start: now + startOffset,
         end: now + endOffset,
