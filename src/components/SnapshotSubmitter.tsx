@@ -5,6 +5,9 @@ import { Proposal } from "@snapshot-labs/snapshot.js/dist/src/sign/types";
 import { ethers } from "ethers";
 import { useQuery } from "@tanstack/react-query";
 import { config } from "../config";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 
 interface SnapshotSubmitterProps {
   frontmatter: any;
@@ -124,12 +127,18 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
         const proposalId = (receipt as any).id;
         const proposalUrl = `https://snapshot.org/#/${space}/proposal/${proposalId}`;
         setStatus(
-          <span>
-            Proposal created successfully!
-            <a href={proposalUrl} target="_blank" rel="noopener noreferrer" className="ml-2 underline hover:no-underline">
-              View proposal →
+          <div className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <span>Proposal created successfully!</span>
+            <a
+              href={proposalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline"
+            >
+              View proposal <ExternalLink className="h-3 w-3" />
             </a>
-          </span>
+          </div>
         );
       } else {
         setStatus(`Proposal created: ${JSON.stringify(receipt)}`);
@@ -149,75 +158,93 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({ frontmatter, html
   };
 
   return (
-    <>
-      <div className="mb-6 flex flex-col items-center">
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader className="text-center">
+        <CardTitle className="flex items-center justify-center gap-2">
+          Submit to Snapshot
+          {!isDefaultSpace && (
+            <span className="text-base font-normal text-primary">
+              ({SNAPSHOT_SPACE})
+            </span>
+          )}
+        </CardTitle>
+        <CardDescription>
+          Create a governance proposal on Snapshot for community voting
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Status Messages */}
         {status && (
-          <p
-            className={`mt-2 text-sm ${
+          <div
+            className={`p-4 rounded-lg border ${
               typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled"))
-                ? "text-destructive font-medium"
-                : "text-green-600 font-medium"
+                ? "bg-destructive/10 border-destructive/20 text-destructive"
+                : "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-400"
             }`}
           >
-            {status}
-          </p>
+            <div className="flex items-start gap-2">
+              {typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled")) ? (
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="flex-1">
+                {status}
+              </div>
+            </div>
+          </div>
         )}
-        {!isDefaultSpace && <p className="mt-1 text-xs text-primary">Submitting to space: {SNAPSHOT_SPACE}</p>}
-        {signer && requiresTokenBalance && tokenBalance >= REQUIRED_BALANCE && (
-          <p className="mt-1 text-xs text-muted-foreground">Token balance: {tokenBalance.toLocaleString()} (✓ meets requirement)</p>
-        )}
-      </div>
 
-      <div className="flex justify-center sm:m-0 m-3">
-        <button
-          className={`m-auto w-fit px-6 py-3 rounded-lg font-medium transition-colors ${
-            !signer ||
-            (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) ||
-            loading ||
-            (requiresTokenBalance && checkingBalance) ||
-            !isQipValid ||
-            (requiresQipValidation && loadingProposals)
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-primary hover:bg-primary/90"
-          } text-white`}
-          onClick={handleSubmit}
-          disabled={
-            !signer ||
-            (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) ||
-            loading ||
-            (requiresTokenBalance && checkingBalance) ||
-            !isQipValid ||
-            (requiresQipValidation && loadingProposals)
-          }
-        >
-          {loading
-            ? "Submitting..."
-            : (requiresTokenBalance && checkingBalance) || (requiresQipValidation && loadingProposals)
-            ? "Checking prerequisites..."
-            : !signer
-            ? "Connect Wallet"
-            : requiresQipValidation && !isQipValid
-            ? `Invalid QIP Number (currently ${frontmatter.qip}, next is ${highestQip === null ? "..." : highestQip + 1})`
-            : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
-            ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
-            : !isDefaultSpace
-            ? `Submit to ${SNAPSHOT_SPACE}`
-            : "Submit to Snapshot"}
-        </button>
-      </div>
+        {/* Prerequisites Info */}
+        <div className="space-y-2">
+          {signer && requiresTokenBalance && tokenBalance >= REQUIRED_BALANCE && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span>Token balance: {tokenBalance.toLocaleString()} (meets requirement)</span>
+            </div>
+          )}
 
-      {status && (
-        <p
-          className={`text-center text-sm ${
-            typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled"))
-              ? "text-destructive font-medium"
-              : "text-green-600 font-medium"
-          }`}
-        >
-          {status}
-        </p>
-      )}
-    </>
+          {requiresQipValidation && isQipValid && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span>QIP number validation passed</span>
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-4">
+          <Button
+            onClick={handleSubmit}
+            disabled={
+              !signer ||
+              (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) ||
+              loading ||
+              (requiresTokenBalance && checkingBalance) ||
+              !isQipValid ||
+              (requiresQipValidation && loadingProposals)
+            }
+            className="w-full"
+            size="lg"
+          >
+            {loading
+              ? "Submitting..."
+              : (requiresTokenBalance && checkingBalance) || (requiresQipValidation && loadingProposals)
+              ? "Checking prerequisites..."
+              : !signer
+              ? "Connect Wallet"
+              : requiresQipValidation && !isQipValid
+              ? `Invalid QIP Number (currently ${frontmatter.qip}, next is ${highestQip === null ? "..." : highestQip + 1})`
+              : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
+              ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
+              : !isDefaultSpace
+              ? `Submit to ${SNAPSHOT_SPACE}`
+              : "Submit to Snapshot"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
