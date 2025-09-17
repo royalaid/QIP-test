@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {AccessControl} from "@openzeppelin/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/utils/Pausable.sol";
+import "./EditableEnumLib.sol";
 
 /**
  * @title QIPRegistry
@@ -10,17 +11,24 @@ import {Pausable} from "@openzeppelin/utils/Pausable.sol";
  * @dev Manages QIP metadata, versioning, and status transitions
  */
 contract QIPRegistry is AccessControl, Pausable {
+    using EditableEnumLib for EditableEnumLib.Data;
+
     bytes32 public constant EDITOR_ROLE = keccak256("EDITOR_ROLE");
+
+    // Pre-hashed identifiers for the three canonical statuses
+    bytes32 internal constant STATUS_DRAFT = keccak256("Draft");
+    bytes32 internal constant STATUS_READY_SNAPSHOT = keccak256("Ready for Snapshot");
+    bytes32 internal constant STATUS_POSTED_SNAPSHOT = keccak256("Posted to Snapshot");
     struct QIP {
         uint256 qipNumber;
         address author;
         string title;
-        string network;
+        string chain;
         bytes32 contentHash;    // keccak256 of the full proposal content
         string ipfsUrl;         // IPFS CID in format: ipfs://Qm...
         uint256 createdAt;
         uint256 lastUpdated;
-        QIPStatus status;
+        bytes32 status;         // Status as bytes32 using EditableEnum
         string implementor;
         uint256 implementationDate;
         string snapshotProposalId;
@@ -34,23 +42,15 @@ contract QIPRegistry is AccessControl, Pausable {
         string changeNote;
     }
 
-    enum QIPStatus {
-        Draft,
-        ReviewPending,
-        VotePending,
-        Approved,
-        Rejected,
-        Implemented,
-        Superseded,
-        Withdrawn
-    }
-
     mapping(uint256 => QIP) public qips;
     mapping(uint256 => mapping(uint256 => QIPVersion)) public qipVersions;
     mapping(uint256 => uint256) public qipVersionCount;
     mapping(bytes32 => uint256) public contentHashToQIP;
     mapping(address => uint256[]) private authorQIPs;
-    
+
+    // Editable status system
+    EditableEnumLib.Data private _statuses;
+
     uint256 public nextQIPNumber;
     // No persistent governance address; rely on roles
     bool public migrationMode = true;
@@ -74,13 +74,28 @@ contract QIPRegistry is AccessControl, Pausable {
 
     event QIPStatusChanged(
         uint256 indexed qipNumber,
-        QIPStatus oldStatus,
-        QIPStatus newStatus
+        bytes32 oldStatus,
+        bytes32 newStatus
+    );
+
+    event StatusAdded(
+        bytes32 indexed statusId,
+        uint256 index
+    );
+
+    event StatusRemoved(
+        bytes32 indexed statusId,
+        uint256 formerIndex
     );
 
     event SnapshotProposalLinked(
         uint256 indexed qipNumber,
         string snapshotProposalId
+    );
+
+    event MigrationWarning(
+        uint256 indexed qipNumber,
+        string warning
     );
 
     modifier onlyAuthorOrEditor(uint256 _qipNumber) {
@@ -98,23 +113,33 @@ contract QIPRegistry is AccessControl, Pausable {
 
         _grantRole(DEFAULT_ADMIN_ROLE, _initialAdmin);
         _grantRole(EDITOR_ROLE, _initialAdmin);
+
+        // Initialize the 3 core statuses
+        _initializeStatus("Draft");               // 0
+        _initializeStatus("Ready for Snapshot");  // 1
+        _initializeStatus("Posted to Snapshot");  // 2
+    }
+
+    function _initializeStatus(string memory statusName) private {
+        bytes32 statusId = keccak256(bytes(statusName));
+        _statuses.add(statusId);
     }
 
     /**
      * @dev Create a new QIP
      * @param _title QIP title
-     * @param _network Target network (Polygon, Ethereum, Base, etc.)
+     * @param _chain Target network (Polygon, Ethereum, Base, etc.)
      * @param _contentHash keccak256 hash of the full proposal content
      * @param _ipfsUrl IPFS URL where content is stored
      */
     function createQIP(
         string memory _title,
-        string memory _network,
+        string memory _chain,
         bytes32 _contentHash,
         string memory _ipfsUrl
     ) external whenNotPaused returns (uint256) {
         require(bytes(_title).length > 0, "Title required");
-        require(bytes(_network).length > 0, "Network required");
+        require(bytes(_chain).length > 0, "Chain required");
         require(_contentHash != bytes32(0), "Invalid content hash");
         require(bytes(_ipfsUrl).length > 0, "IPFS URL required");
         require(contentHashToQIP[_contentHash] == 0, "Content already exists");
@@ -130,12 +155,12 @@ contract QIPRegistry is AccessControl, Pausable {
             qipNumber: qipNumber,
             author: msg.sender,
             title: _title,
-            network: _network,
+            chain: _chain,
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
             createdAt: block.timestamp,
             lastUpdated: block.timestamp,
-            status: QIPStatus.Draft,
+            status: STATUS_DRAFT,
             implementor: "None",
             implementationDate: 0,
             snapshotProposalId: "",
@@ -158,7 +183,7 @@ contract QIPRegistry is AccessControl, Pausable {
             qipNumber,
             msg.sender,
             _title,
-            _network,
+            _chain,
             _contentHash,
             _ipfsUrl
         );
@@ -193,8 +218,8 @@ contract QIPRegistry is AccessControl, Pausable {
         QIP storage qip = qips[_qipNumber];
         require(qip.qipNumber > 0, "QIP does not exist");
         require(
-            qip.status == QIPStatus.Draft || qip.status == QIPStatus.ReviewPending,
-            "Cannot update after voting"
+            qip.status == STATUS_DRAFT || qip.status == STATUS_READY_SNAPSHOT,
+            "Cannot update after posting to Snapshot"
         );
         require(bytes(qip.snapshotProposalId).length == 0, "Already submitted to Snapshot");
         require(_newContentHash != bytes32(0), "Invalid content hash");
@@ -230,20 +255,23 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Update QIP status
+     * @dev Update QIP status using status string
      */
-    function updateStatus(uint256 _qipNumber, QIPStatus _newStatus)
+    function updateStatus(uint256 _qipNumber, string memory _newStatus)
         external
         onlyRole(EDITOR_ROLE)
     {
         QIP storage qip = qips[_qipNumber];
         require(qip.qipNumber > 0, "QIP does not exist");
-        
-        QIPStatus oldStatus = qip.status;
-        qip.status = _newStatus;
+
+        bytes32 newStatusId = keccak256(bytes(_newStatus));
+        require(_statuses.exists(newStatusId), "Invalid status");
+
+        bytes32 oldStatus = qip.status;
+        qip.status = newStatusId;
         qip.lastUpdated = block.timestamp;
-        
-        emit QIPStatusChanged(_qipNumber, oldStatus, _newStatus);
+
+        emit QIPStatusChanged(_qipNumber, oldStatus, newStatusId);
     }
 
     /**
@@ -266,12 +294,15 @@ contract QIPRegistry is AccessControl, Pausable {
             "Invalid snapshot ID: placeholder value"
         );
         
+        // Require status to be "Ready for Snapshot"
+        require(qip.status == STATUS_READY_SNAPSHOT, "QIP must be Ready for Snapshot");
+
         qip.snapshotProposalId = _snapshotProposalId;
-        qip.status = QIPStatus.VotePending;
+        qip.status = STATUS_POSTED_SNAPSHOT;
         qip.lastUpdated = block.timestamp;
-        
+
         emit SnapshotProposalLinked(_qipNumber, _snapshotProposalId);
-        emit QIPStatusChanged(_qipNumber, qip.status, QIPStatus.VotePending);
+        emit QIPStatusChanged(_qipNumber, STATUS_READY_SNAPSHOT, STATUS_POSTED_SNAPSHOT);
     }
 
     /**
@@ -295,11 +326,11 @@ contract QIPRegistry is AccessControl, Pausable {
             "Can only clear placeholder values"
         );
         
-        // Clear the snapshot ID and reset status to Draft if it was VotePending
+        // Clear the snapshot ID and reset status to Ready for Snapshot if it was Posted
         qip.snapshotProposalId = "";
-        if (qip.status == QIPStatus.VotePending) {
-            qip.status = QIPStatus.Draft;
-            emit QIPStatusChanged(_qipNumber, QIPStatus.VotePending, QIPStatus.Draft);
+        if (qip.status == STATUS_POSTED_SNAPSHOT) {
+            qip.status = STATUS_READY_SNAPSHOT;
+            emit QIPStatusChanged(_qipNumber, STATUS_POSTED_SNAPSHOT, STATUS_READY_SNAPSHOT);
         }
         qip.lastUpdated = block.timestamp;
         
@@ -359,28 +390,48 @@ contract QIPRegistry is AccessControl, Pausable {
         uint256 _qipNumber,
         address _author,
         string memory _title,
-        string memory _network,
+        string memory _chain,
         bytes32 _contentHash,
         string memory _ipfsUrl,
         uint256 _createdAt,
-        QIPStatus _status,
+        string memory _status,
         string memory _implementor,
         uint256 _implementationDate,
         string memory _snapshotProposalId
     ) external onlyRole(EDITOR_ROLE) {
         require(migrationMode, "Migration mode disabled");
         require(qips[_qipNumber].qipNumber == 0, "QIP already exists");
-        
+
+        // Validate status/proposal consistency
+        bytes32 statusId = keccak256(bytes(_status));
+        bool hasProposal = bytes(_snapshotProposalId).length > 0;
+
+        // If there's a valid snapshot proposal, status should be "Posted to Snapshot"
+        if (hasProposal && statusId != STATUS_POSTED_SNAPSHOT) {
+            // Log warning but continue - historical data may have inconsistencies
+            emit MigrationWarning(
+                _qipNumber,
+                "Status/proposal mismatch - has proposal but not 'Posted to Snapshot' status"
+            );
+            // Force status to "Posted to Snapshot" when proposal exists
+            statusId = STATUS_POSTED_SNAPSHOT;
+        }
+
+        // Ensure the status exists (add if needed during migration)
+        if (!_statuses.exists(statusId)) {
+            _statuses.add(statusId);
+        }
+
         qips[_qipNumber] = QIP({
             qipNumber: _qipNumber,
             author: _author,
             title: _title,
-            network: _network,
+            chain: _chain,
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
             createdAt: _createdAt,
             lastUpdated: _createdAt,
-            status: _status,
+            status: statusId,
             implementor: _implementor,
             implementationDate: _implementationDate,
             snapshotProposalId: _snapshotProposalId,
@@ -453,28 +504,91 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Get active QIPs by status
+     * @dev Get active QIPs by status string
      */
-    function getQIPsByStatus(QIPStatus _status) external view returns (uint256[] memory) {
+    function getQIPsByStatus(string memory _status) external view returns (uint256[] memory) {
+        bytes32 statusId = keccak256(bytes(_status));
         uint256 count = 0;
-        
+
         // First count matching QIPs
         for (uint256 i = 1; i < nextQIPNumber; i++) {
-            if (qips[i].qipNumber > 0 && qips[i].status == _status) {
+            if (qips[i].qipNumber > 0 && qips[i].status == statusId) {
                 count++;
             }
         }
-        
+
         // Then populate array
         uint256[] memory result = new uint256[](count);
         uint256 index = 0;
-        
+
         for (uint256 i = 1; i < nextQIPNumber; i++) {
-            if (qips[i].qipNumber > 0 && qips[i].status == _status) {
+            if (qips[i].qipNumber > 0 && qips[i].status == statusId) {
                 result[index++] = i;
             }
         }
-        
+
         return result;
     }
+
+    /**
+     * @dev Add a new status (editor only)
+     */
+    function addStatus(string memory _statusName)
+        external
+        onlyRole(EDITOR_ROLE)
+        returns (uint256)
+    {
+        bytes32 statusId = keccak256(bytes(_statusName));
+        uint256 idx = _statuses.add(statusId);
+        emit StatusAdded(statusId, idx);
+        return idx;
+    }
+
+    /**
+     * @dev Remove a status (editor only)
+     */
+    function removeStatus(string memory _statusName) external onlyRole(EDITOR_ROLE) {
+        bytes32 statusId = keccak256(bytes(_statusName));
+        uint256 idx = _statuses.remove(statusId);
+        emit StatusRemoved(statusId, idx);
+    }
+
+    /**
+     * @dev Get count of statuses
+     */
+    function statusCount() external view returns (uint256) {
+        return _statuses.length();
+    }
+
+    /**
+     * @dev Get status at index
+     */
+    function statusAt(uint256 index) external view returns (bytes32) {
+        return _statuses.at(index);
+    }
+
+    /**
+     * @dev Check if status exists
+     */
+    function statusExists(string memory _statusName)
+        external
+        view
+        returns (bool)
+    {
+        return _statuses.exists(keccak256(bytes(_statusName)));
+    }
+
+    /**
+     * @dev Get status index
+     */
+    function statusIndexOf(string memory _statusName)
+        external
+        view
+        returns (uint256)
+    {
+        return _statuses.indexOf(keccak256(bytes(_statusName)));
+    }
+
+    // Migration reporting functions removed to reduce contract size
+    // These can be implemented off-chain or in a separate contract if needed
 }

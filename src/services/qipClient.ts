@@ -77,6 +77,57 @@ const QIP_REGISTRY_ABI = [
     stateMutability: "view"
   },
   {
+    inputs: [],
+    name: "getActiveStatuses",
+    outputs: [
+      { name: "ids", type: "uint8[]" },
+      { name: "names", type: "string[]" }
+    ],
+    type: "function",
+    stateMutability: "view"
+  },
+  {
+    inputs: [{ name: "_statusId", type: "uint8" }],
+    name: "getStatusName",
+    outputs: [{ name: "", type: "string" }],
+    type: "function",
+    stateMutability: "view"
+  },
+  {
+    inputs: [{ name: "_statusId", type: "uint8" }],
+    name: "isStatusActive",
+    outputs: [{ name: "", type: "bool" }],
+    type: "function",
+    stateMutability: "view"
+  },
+  {
+    inputs: [{ name: "_statusName", type: "string" }],
+    name: "addStatus",
+    outputs: [],
+    type: "function",
+    stateMutability: "nonpayable"
+  },
+  {
+    inputs: [
+      { name: "_statusId", type: "uint8" },
+      { name: "_newName", type: "string" }
+    ],
+    name: "updateStatusName",
+    outputs: [],
+    type: "function",
+    stateMutability: "nonpayable"
+  },
+  {
+    inputs: [
+      { name: "_statusId", type: "uint8" },
+      { name: "_active", type: "bool" }
+    ],
+    name: "setStatusActive",
+    outputs: [],
+    type: "function",
+    stateMutability: "nonpayable"
+  },
+  {
     inputs: [{ name: "_author", type: "address" }],
     name: "getQIPsByAuthor",
     outputs: [{ name: "", type: "uint256[]" }],
@@ -120,16 +171,27 @@ const QIP_REGISTRY_ABI = [
   }
 ] as const;
 
+// Status enum for backward compatibility
 export enum QIPStatus {
   Draft = 0,
-  ReviewPending = 1,
-  VotePending = 2,
-  Approved = 3,
-  Rejected = 4,
-  Implemented = 5,
-  Superseded = 6,
-  Withdrawn = 7
+  ReadyForSnapshot = 1,
+  PostedToSnapshot = 2,
+  // Legacy mappings for backward compatibility
+  ReviewPending = 1, // Maps to ReadyForSnapshot
+  VotePending = 2, // Maps to PostedToSnapshot
+  Approved = 2, // Maps to PostedToSnapshot
+  Rejected = 0, // Maps to Draft
+  Implemented = 2, // Maps to PostedToSnapshot
+  Superseded = 2, // Maps to PostedToSnapshot
+  Withdrawn = 0 // Maps to Draft
 }
+
+// Default status IDs (initialized in contract constructor)
+export const DEFAULT_STATUSES = {
+  Draft: 0,
+  ReadyForSnapshot: 1,
+  PostedToSnapshot: 2
+} as const;
 
 export interface QIPContent {
   qip: number;
@@ -164,6 +226,7 @@ export interface QIP {
 export class QIPClient {
   private publicClient: PublicClient;
   private contractAddress: Address;
+  private statusNamesCache: Map<number, string> | null = null;
 
   constructor(
     contractAddress: Address,
@@ -600,15 +663,11 @@ ${qipData.content}`;
    * Get all QIPs by status using multicall for efficiency
    */
   async getAllQIPsByStatusBatch(): Promise<Map<QIPStatus, bigint[]>> {
+    // Only use the 3 actual statuses from the contract
     const statuses: QIPStatus[] = [
       QIPStatus.Draft,
-      QIPStatus.ReviewPending,
-      QIPStatus.VotePending,
-      QIPStatus.Approved,
-      QIPStatus.Rejected,
-      QIPStatus.Implemented,
-      QIPStatus.Superseded,
-      QIPStatus.Withdrawn,
+      QIPStatus.ReadyForSnapshot,
+      QIPStatus.PostedToSnapshot,
     ];
 
     // Split status queries into smaller batches to avoid gas limits
@@ -735,21 +794,39 @@ ${qipData.content}`;
   }
 
   /**
-   * Get status string from enum
+   * Fetch active statuses from contract
+   */
+  async fetchActiveStatuses(): Promise<{ ids: number[], names: string[] }> {
+    const result = await this.publicClient.readContract({
+      address: this.contractAddress,
+      abi: QIP_REGISTRY_ABI,
+      functionName: 'getActiveStatuses'
+    }) as readonly [readonly number[], readonly string[]];
+
+    // Update cache
+    this.statusNamesCache = new Map();
+    const [ids, names] = result;
+    for (let i = 0; i < ids.length; i++) {
+      this.statusNamesCache.set(Number(ids[i]), names[i]);
+    }
+
+    return {
+      ids: ids.map(Number),
+      names: [...names]
+    };
+  }
+
+  /**
+   * Get status string from ID (synchronous - uses predefined mappings)
    */
   getStatusString(status: QIPStatus): string {
-    const statusMap = {
-      [QIPStatus.Draft]: 'Draft',
-      [QIPStatus.ReviewPending]: 'Review',
-      [QIPStatus.VotePending]: 'Vote',
-      [QIPStatus.Approved]: 'Approved',
-      [QIPStatus.Rejected]: 'Rejected',
-      [QIPStatus.Implemented]: 'Implemented',
-      [QIPStatus.Superseded]: 'Superseded',
-      [QIPStatus.Withdrawn]: 'Withdrawn'
+    const statusMap: Record<number, string> = {
+      [QIPStatus.Draft]: "Draft",
+      [QIPStatus.ReadyForSnapshot]: "Ready for Snapshot",
+      [QIPStatus.PostedToSnapshot]: "Posted to Snapshot"
     };
-    
-    return statusMap[status] || 'Unknown';
+
+    return statusMap[status] || "Unknown";
   }
 
   /**
@@ -833,4 +910,5 @@ ${qipData.content}`;
 
     return await walletClient.writeContract(request);
   }
+
 }

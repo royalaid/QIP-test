@@ -150,39 +150,37 @@ export class MaiAPIClient {
   }
 
   /**
-   * Convert Mai API status string to QIPStatus enum
+   * Convert Mai API status string to status ID
    */
-  static statusStringToEnum(status: string): QIPStatus {
-    const statusMap: Record<string, QIPStatus> = {
-      'Draft': QIPStatus.Draft,
-      'ReviewPending': QIPStatus.ReviewPending,
-      'VotePending': QIPStatus.VotePending,
-      'Approved': QIPStatus.Approved,
-      'Rejected': QIPStatus.Rejected,
-      'Implemented': QIPStatus.Implemented,
-      'Superseded': QIPStatus.Superseded,
-      'Withdrawn': QIPStatus.Withdrawn,
+  static statusStringToId(status: string): QIPStatus {
+    // Map old status strings to new 3-status system
+    const statusMap: Record<string, number> = {
+      'Draft': 0,
+      'ReviewPending': 1, // Maps to Ready for Snapshot
+      'Review': 1, // Maps to Ready for Snapshot
+      'VotePending': 2, // Maps to Posted to Snapshot
+      'Vote': 2, // Maps to Posted to Snapshot
+      'Approved': 2, // Historical - maps to Posted
+      'Rejected': 2, // Historical - maps to Posted
+      'Implemented': 2, // Historical - maps to Posted
+      'Superseded': 2, // Historical - maps to Posted
+      'Withdrawn': 2, // Historical - maps to Posted
     };
 
-    return statusMap[status] ?? QIPStatus.Draft;
+    return statusMap[status] ?? 2; // Default to Posted for historical
   }
 
   /**
-   * Convert QIPStatus enum to display string
+   * Convert status ID to display string (fallback when contract not available)
    */
-  static statusEnumToDisplay(status: QIPStatus): string {
-    const statusMap = {
-      [QIPStatus.Draft]: 'Draft',
-      [QIPStatus.ReviewPending]: 'Review',
-      [QIPStatus.VotePending]: 'Vote',
-      [QIPStatus.Approved]: 'Approved',
-      [QIPStatus.Rejected]: 'Rejected',
-      [QIPStatus.Implemented]: 'Implemented',
-      [QIPStatus.Superseded]: 'Superseded',
-      [QIPStatus.Withdrawn]: 'Withdrawn',
+  static statusIdToDisplay(status: QIPStatus): string {
+    const statusMap: Record<number, string> = {
+      0: 'Draft',
+      1: 'Ready for Snapshot',
+      2: 'Posted to Snapshot'
     };
 
-    return statusMap[status] || 'Unknown';
+    return statusMap[status] || `Status ${status}`;
   }
 
   /**
@@ -228,7 +226,7 @@ export class MaiAPIClient {
       qipNumber: apiQip.qipNumber,
       title: apiQip.title,
       network: apiQip.network,
-      status: MaiAPIClient.statusEnumToDisplay(apiQip.statusCode as QIPStatus),
+      status: MaiAPIClient.statusIdToDisplay(apiQip.statusCode as QIPStatus),
       statusEnum: apiQip.statusCode as QIPStatus,
       author: authorDisplay,
       authorAddress: apiQip.author, // Keep original address for reference

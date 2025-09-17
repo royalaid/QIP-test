@@ -48,7 +48,7 @@ contract QIPRegistryTest is Test {
             string memory returnedNetwork,
             bytes32 returnedHash,
             string memory returnedUrl,,,
-            QIPRegistry.QIPStatus status,,,,
+            bytes32 status,,,,
             uint256 version
         ) = registry.qips(qipNumber);
         
@@ -58,7 +58,7 @@ contract QIPRegistryTest is Test {
         assertEq(returnedNetwork, network);
         assertEq(returnedHash, contentHash);
         assertEq(returnedUrl, ipfsUrl);
-        assertEq(uint(status), uint(QIPRegistry.QIPStatus.Draft));
+        assertEq(status, keccak256(bytes("Draft")));
         assertEq(version, 1);
         
         vm.stopPrank();
@@ -108,7 +108,7 @@ contract QIPRegistryTest is Test {
 
         // Bob (editor) can update status
         vm.startPrank(bob);
-        registry.updateStatus(qipNumber, QIPRegistry.QIPStatus.ReviewPending);
+        registry.updateStatus(qipNumber, "Ready for Snapshot");
         vm.stopPrank();
 
         // Charlie (non-editor) cannot update status
@@ -120,7 +120,7 @@ contract QIPRegistryTest is Test {
                 registry.EDITOR_ROLE()
             )
         );
-        registry.updateStatus(qipNumber, QIPRegistry.QIPStatus.Approved);
+        registry.updateStatus(qipNumber, "Posted to Snapshot");
         vm.stopPrank();
     }
     
@@ -140,23 +140,23 @@ contract QIPRegistryTest is Test {
             keccak256("historical content"),
             "ipfs://historical",
             1640995200, // Jan 1, 2022
-            QIPRegistry.QIPStatus.Implemented,
+            "Posted to Snapshot", // Use one of the 3 main statuses
             "Dev Team",
             1641600000, // Jan 8, 2022
             "snapshot-proposal-id"
         );
-        
+
         // Verify migration
         (
             uint256 num,
             address author,
             , , , , , ,
-            QIPRegistry.QIPStatus status,
+            bytes32 status,
             , , ,
         ) = registry.qips(existingQipNumber);
         assertEq(num, existingQipNumber);
         assertEq(author, bob);
-        assertEq(uint(status), uint(QIPRegistry.QIPStatus.Implemented));
+        assertEq(status, keccak256(bytes("Posted to Snapshot")));
         
         vm.stopPrank();
     }
@@ -171,17 +171,23 @@ contract QIPRegistryTest is Test {
             "ipfs://test"
         );
         
-        // Link snapshot proposal
+        // First update to Ready for Snapshot status
+        vm.stopPrank();
+        registry.setEditor(alice, true);
+        vm.startPrank(alice);
+        registry.updateStatus(qipNumber, "Ready for Snapshot");
+
+        // Now link snapshot proposal
         string memory snapshotId = "0x1234567890abcdef";
         registry.linkSnapshotProposal(qipNumber, snapshotId);
         
         // Verify status changed and snapshot linked
-        (,,,,,,,, QIPRegistry.QIPStatus status,,, string memory linkedId,) = registry.qips(qipNumber);
-        assertEq(uint(status), uint(QIPRegistry.QIPStatus.VotePending));
+        (,,,,,,,, bytes32 status,,, string memory linkedId,) = registry.qips(qipNumber);
+        assertEq(status, keccak256(bytes("Posted to Snapshot")));
         assertEq(linkedId, snapshotId);
         
         // Cannot update after snapshot submission
-        vm.expectRevert("Cannot update after voting");
+        vm.expectRevert("Cannot update after posting to Snapshot");
         registry.updateQIP(qipNumber, "New Title", keccak256("new"), "ipfs://new", "Should fail");
         
         vm.stopPrank();
@@ -204,19 +210,19 @@ contract QIPRegistryTest is Test {
         vm.stopPrank();
         // Editor moves status to ReviewPending
         vm.prank(bob);
-        registry.updateStatus(qipNumber, QIPRegistry.QIPStatus.ReviewPending);
+        registry.updateStatus(qipNumber, "Ready for Snapshot");
         
         // Editor moves status to VotePending
         vm.prank(bob);
-        registry.updateStatus(qipNumber, QIPRegistry.QIPStatus.VotePending);
+        registry.updateStatus(qipNumber, "Posted to Snapshot");
         
         // Status should now be VotePending
         (
             , , , , , , , ,
-            QIPRegistry.QIPStatus status,
+            bytes32 status,
             , , ,
         ) = registry.qips(qipNumber);
-        assertEq(uint(status), uint(QIPRegistry.QIPStatus.VotePending));
+        assertEq(status, keccak256(bytes("Posted to Snapshot")));
     }
 
     function test_PausePreventsCreation() public {

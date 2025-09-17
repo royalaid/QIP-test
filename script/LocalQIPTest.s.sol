@@ -70,7 +70,7 @@ contract LocalQIPTest is Script {
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
         // Check if QIP-249 already exists
-        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, QIPRegistry.QIPStatus, string memory, uint256, string memory, uint256) {
+        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, bytes32, string memory, uint256, string memory, uint256) {
             if (qipNum == 249) {
                 console.log("QIP-249 already exists, skipping test QIP creation");
                 vm.stopBroadcast();
@@ -89,7 +89,7 @@ contract LocalQIPTest is Script {
             keccak256("QIP-249: Dynamic Interest Rate Model Implementation"),
             "ipfs://QmWYqKxQPcsAkTLvkGZmZP9oWAEeCYP8J7X5XvKeEHEeC1",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
@@ -104,7 +104,7 @@ contract LocalQIPTest is Script {
             keccak256("QIP-250: Multi-Collateral Support"),
             "ipfs://QmXRwXY9QBdAnu3r6hWCaCYKv2Xn5jtB8ZzyS53dQzHDuo",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
@@ -119,7 +119,7 @@ contract LocalQIPTest is Script {
             keccak256("QIP-251: Staking Rewards Program"),
             "ipfs://QmUJcCwZBKtgF5PjbwSEBVT9royDfpwtt6FRE36N42km1M",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
@@ -133,7 +133,7 @@ contract LocalQIPTest is Script {
     
     function _simulateQIPLifecycle() internal {
         // Check if test QIP-249 exists before trying to simulate lifecycle
-        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, QIPRegistry.QIPStatus, string memory, uint256, string memory, uint256) {
+        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, bytes32, string memory, uint256, string memory, uint256) {
             if (qipNum != 249) {
                 console.log("QIP-249 does not exist, skipping lifecycle simulation");
                 return;
@@ -144,8 +144,8 @@ contract LocalQIPTest is Script {
         }
         
         // Only simulate lifecycle if QIP-249 exists and is in Draft status
-        (, , , , , , , , QIPRegistry.QIPStatus status249, , , ,) = registry.qips(249);
-        if (status249 != QIPRegistry.QIPStatus.Draft) {
+        (, , , , , , , , bytes32 status249, , , ,) = registry.qips(249);
+        if (status249 != keccak256("Draft")) {
             console.log("QIP-249 is not in Draft status, skipping lifecycle simulation");
             return;
         }
@@ -153,9 +153,8 @@ contract LocalQIPTest is Script {
         // Move QIP-249 through lifecycle (use governance account for editor operations)
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
-        // Update status to ReviewPending
-        registry.updateStatus(249, QIPRegistry.QIPStatus.ReviewPending);
-        console.log("\nQIP-249: Draft -> ReviewPending");
+        registry.updateStatus(249, "Ready for Snapshot");
+        console.log("\nQIP-249: Draft -> Ready for Snapshot");
         
         vm.stopBroadcast();
         
@@ -180,24 +179,17 @@ contract LocalQIPTest is Script {
         // Editor approves after vote passes (use governance account for editor operations)
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
-        registry.updateStatus(249, QIPRegistry.QIPStatus.Approved);
-        console.log("QIP-249: VotePending -> Approved");
+        registry.updateStatus(249, "Posted to Snapshot");
+        console.log("QIP-249: Ready for Snapshot -> Posted to Snapshot");
         
         // Set implementation details
         registry.setImplementation(249, "Core Team", block.timestamp + 7 days);
         console.log("QIP-249: Implementation scheduled");
         
-        // Mark as implemented
-        registry.updateStatus(249, QIPRegistry.QIPStatus.Implemented);
-        console.log("QIP-249: Approved -> Implemented");
         
         // Move QIP-250 to voting
-        registry.updateStatus(250, QIPRegistry.QIPStatus.ReviewPending);
-        console.log("\nQIP-250: Draft -> ReviewPending");
-        
-        // Update status for QIP-251 to withdrawn
-        registry.updateStatus(251, QIPRegistry.QIPStatus.Withdrawn);
-        console.log("\nQIP-251: Draft -> Withdrawn");
+        registry.updateStatus(250, "Ready for Snapshot");
+        console.log("\nQIP-250: Draft -> Ready for Snapshot");
         
         vm.stopBroadcast();
         
