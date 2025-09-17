@@ -8,7 +8,6 @@ import Layout from './layout'
 // Pages
 import HomePage from './pages/HomePage'
 import AllProposals from './pages/AllProposals'
-import AllProposalsPaginated from './pages/AllProposalsPaginated'
 import CreateProposal from './pages/CreateProposal'
 import QIPDetail from './pages/QIPDetail'
 import TemplatesPage from './pages/TemplatesPage'
@@ -27,7 +26,7 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/all-proposals" element={<AllProposalsPaginated />} />
+              <Route path="/all-proposals" element={<AllProposals />} />
               <Route path="/qips/:qipNumber" element={<QIPDetail />} />
               <Route path="/create-proposal" element={<CreateProposal />} />
               <Route path="/edit-proposal" element={<EditProposal />} />
