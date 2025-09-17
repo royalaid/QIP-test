@@ -50,10 +50,22 @@ export function useQIPList({
       let maxQipNumber: bigint;
       try {
         const nextQipNumber = await qipClient.getNextQIPNumber();
-        maxQipNumber = nextQipNumber - 1n; // The last QIP is nextQIPNumber - 1
+        // Check if QIP at nextQIPNumber exists (edge case from migration bug)
+        // This handles the case where nextQIPNumber hasn't been properly incremented
+        try {
+          const testQip = await qipClient.getQIP(nextQipNumber);
+          if (testQip && testQip.qipNumber > 0n) {
+            console.log(`[useQIPList] Found QIP at nextQIPNumber ${nextQipNumber}, including it`);
+            maxQipNumber = nextQipNumber; // Include the QIP at nextQIPNumber
+          } else {
+            maxQipNumber = nextQipNumber - 1n; // Normal case
+          }
+        } catch {
+          maxQipNumber = nextQipNumber - 1n; // Normal case if QIP doesn't exist
+        }
         console.log('[useQIPList] Next QIP number:', nextQipNumber.toString(), 'Max QIP:', maxQipNumber.toString());
       } catch (error) {
-        console.warn('[useQIPList] Failed to get nextQIPNumber, falling back to hardcoded range');
+        console.warn('[useQIPList] Failed to get nextQIPNumber, falling back to hardcoded range', error);
         maxQipNumber = 248n; // Fallback to known range if contract call fails
       }
 
@@ -149,6 +161,9 @@ export function useQIPList({
       }
 
       console.log('[useQIPList] Total QIPs fetched:', qips.length);
+      console.log('[useQIPList] QIP numbers fetched:', qips.map(q => q.qipNumber).sort((a, b) => a - b));
+      console.log('[useQIPList] QIP statuses:', qips.map(q => `${q.qipNumber}: ${q.status}`));
+
       return qips;
     },
     enabled: enabled && !!registryAddress,

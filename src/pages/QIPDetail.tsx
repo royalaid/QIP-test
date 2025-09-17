@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useQIP } from '../hooks/useQIP'
 import { useUpdateQIPStatus } from '../hooks/useUpdateQIPStatus'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
 import { StatusUpdateComponent } from '../components/StatusUpdateComponent'
@@ -28,6 +30,7 @@ const QIPDetail: React.FC = () => {
   // Cache for role checks to avoid repeated contract calls
   const [roleCache] = useState<Map<string, boolean>>(new Map())
   const { updateStatus } = useUpdateQIPStatus()
+  const queryClient = useQueryClient()
 
   // Extract number from QIP-XXX format
   const qipNumberParsed = qipNumber?.replace('QIP-', '') || '0'
@@ -43,6 +46,15 @@ const QIPDetail: React.FC = () => {
     rpcUrl,
     enabled: !!registryAddress && !!qipNumber
   })
+
+  // Clear stale cache on mount to ensure fresh data
+  useEffect(() => {
+    if (registryAddress && qipNumber) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qip(parseInt(qipNumberParsed), registryAddress)
+      })
+    }
+  }, [qipNumberParsed, registryAddress, queryClient])
 
   // Create a memoized QIPClient instance to avoid recreating it
   const qipClient = useMemo(() => {
@@ -176,9 +188,24 @@ const QIPDetail: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-          <Link to="/all-proposals" className="text-primary hover:text-primary/80 mb-4 inline-block">
-            ← Back to all proposals
-          </Link>
+          <div className="flex justify-between items-center mb-4">
+            <Link to="/all-proposals" className="text-primary hover:text-primary/80 inline-block">
+              ← Back to all proposals
+            </Link>
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={() => {
+                  // Clear all caches
+                  queryClient.removeQueries()
+                  localStorage.removeItem('qips-query-cache')
+                  window.location.reload()
+                }}
+                className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+              >
+                Clear Cache (Dev)
+              </button>
+            )}
+          </div>
 
           <h1 className="text-4xl font-bold mb-4">
             QIP-{qipData.qipNumber}: {qipData.title}
@@ -198,9 +225,42 @@ const QIPDetail: React.FC = () => {
                   isAuthor={isAuthor}
                   isEditor={isEditor}
                   onStatusUpdate={async (newStatus) => {
-                    await updateStatus(BigInt(qipData.qipNumber), newStatus)
-                    // Refresh the QIP data after update
-                    refetch()
+                    console.log('[QIPDetail] Starting status update to:', newStatus)
+
+                    // Update status on blockchain (this waits for confirmation)
+                    const txHash = await updateStatus(BigInt(qipData.qipNumber), newStatus)
+                    console.log('[QIPDetail] Transaction confirmed:', txHash)
+
+                    // Give the blockchain a moment to fully sync
+                    await new Promise(resolve => setTimeout(resolve, 1000))
+
+                    // Invalidate the exact query key
+                    const queryKey = ["qip", parseInt(qipNumberParsed), registryAddress]
+                    console.log("[QIPDetail] Invalidating cache with key:", queryKey)
+
+                    // Remove ALL related queries to ensure clean state
+                    queryClient.removeQueries({
+                      queryKey: ["qip", parseInt(qipNumberParsed)],
+                      exact: false // Remove all queries starting with this pattern
+                    })
+
+                    // Also remove blockchain-specific cache
+                    queryClient.removeQueries({
+                      queryKey: ["qip-blockchain", parseInt(qipNumberParsed)],
+                      exact: false
+                    })
+
+                    // IMPORTANT: Invalidate the QIP list cache so the main page updates
+                    queryClient.invalidateQueries({
+                      queryKey: ["qips", "list", registryAddress]
+                    })
+                    console.log('[QIPDetail] Invalidated QIP list cache')
+
+                    console.log('[QIPDetail] Cache cleared, refetching...')
+
+                    // Force a fresh fetch
+                    const result = await refetch()
+                    console.log('[QIPDetail] Refetch complete:', result.status)
                   }}
                   hideStatusPill={true}
                 />

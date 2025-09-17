@@ -38,43 +38,7 @@ export function useQIP({
       if (!qipClient || qipNumber <= 0) return null;
 
       try {
-        // FIRST: Check if we already have the full QIP data cached from the list page
-        const cachedFullQIP = queryClient.getQueryData<QIPData>(queryKeys.qip(qipNumber, registryAddress));
-        if (cachedFullQIP) {
-          console.log(`[useQIP] ✅ Using fully cached QIP data for QIP-${qipNumber} (no fetch needed!)`, {
-            hasContent: !!cachedFullQIP.content,
-            contentLength: cachedFullQIP.content?.length,
-            contentPreview: cachedFullQIP.content?.substring(0, 100)
-          });
-          
-          // Also ensure IPFS cache is set (in case it's missing)
-          // This makes the cache more resilient to re-renders
-          if (cachedFullQIP.ipfsUrl && cachedFullQIP.content) {
-            const ipfsCacheKey = queryKeys.ipfs(cachedFullQIP.ipfsUrl);
-            const existingIpfsCache = queryClient.getQueryData(ipfsCacheKey);
-            if (!existingIpfsCache) {
-              queryClient.setQueryData(ipfsCacheKey, {
-                raw: cachedFullQIP.content, // Store content as raw for compatibility
-                frontmatter: {
-                  qip: cachedFullQIP.qipNumber,
-                  title: cachedFullQIP.title,
-                  status: cachedFullQIP.ipfsStatus || cachedFullQIP.status,
-                  author: cachedFullQIP.author,
-                  created: cachedFullQIP.created
-                },
-                body: cachedFullQIP.content,
-                content: cachedFullQIP.content, // Include both for compatibility
-                cid: cachedFullQIP.ipfsUrl
-              }, { updatedAt: Date.now() });
-            }
-          }
-          
-          // Return a shallow copy to prevent mutation of cached data
-          // This is critical to prevent React StrictMode or other components from corrupting the cache
-          return { ...cachedFullQIP };
-        }
-
-        console.log(`[useQIP] 🔍 No full cache for QIP-${qipNumber}, fetching...`);
+        console.log(`[useQIP] 🔍 Fetching QIP-${qipNumber}...`);
 
         // If no full cache, we need to fetch and assemble the data
         // Step 1: Get blockchain data (check cache first)
@@ -204,10 +168,12 @@ export function useQIP({
       }
     },
     enabled: enabled && !!registryAddress && qipNumber > 0,
-    staleTime: CACHE_TIMES.STALE_TIME.QIP_DETAIL, // 10 minutes
+    staleTime: 0, // Consider data immediately stale to ensure fresh fetches
     gcTime: CACHE_TIMES.GC_TIME.QIP_DETAIL, // 1 hour
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus
     ...queryOptions,
   });
 }

@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import type { Hash } from 'viem';
 
 interface UpdateQIPStatusResult {
-  updateStatus: (qipNumber: bigint, newStatus: QIPStatus) => Promise<Hash | undefined>;
+  updateStatus: (qipNumber: bigint, newStatus: QIPStatus | string) => Promise<Hash | undefined>;
   isUpdating: boolean;
   error: Error | null;
   transactionHash: Hash | null;
@@ -18,7 +18,7 @@ export function useUpdateQIPStatus(): UpdateQIPStatusResult {
   const [error, setError] = useState<Error | null>(null);
   const [transactionHash, setTransactionHash] = useState<Hash | null>(null);
 
-  const updateStatus = async (qipNumber: bigint, newStatus: QIPStatus): Promise<Hash | undefined> => {
+  const updateStatus = async (qipNumber: bigint, newStatus: QIPStatus | string): Promise<Hash | undefined> => {
     if (!walletClient || !address) {
       const errorMsg = 'Please connect your wallet to update QIP status';
       toast.error(errorMsg);
@@ -43,7 +43,7 @@ export function useUpdateQIPStatus(): UpdateQIPStatusResult {
       const qipClient = new QIPClient(contractAddress as `0x${string}`, rpcUrl, useTestnet);
 
       // Update the status on-chain
-      console.log(`Updating QIP ${qipNumber} status to ${QIPStatus[newStatus]}`);
+      console.log(`Updating QIP ${qipNumber} status to ${typeof newStatus === 'string' ? newStatus : QIPStatus[newStatus]}`);
       const hash = await qipClient.updateQIPStatus(walletClient, qipNumber, newStatus);
       
       setTransactionHash(hash);
