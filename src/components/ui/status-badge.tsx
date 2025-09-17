@@ -3,7 +3,7 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { QIPStatus, DEFAULT_STATUSES } from '@/services/qipClient';
 
-export type StatusType = QIPStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot' | 'Review' | 'Vote' | 'Approved' | 'Rejected' | 'Implemented' | 'Superseded' | 'Withdrawn';
+export type StatusType = QIPStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot';
 
 interface StatusBadgeProps extends Omit<BadgeProps, 'variant'> {
   status: StatusType | string;
@@ -25,7 +25,7 @@ const STATUS_CONFIG: Record<number | string, { label: string; className: string 
     label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
   },
-  // String values for backward compatibility and custom statuses
+  // String values for custom statuses
   'Draft': {
     label: 'Draft',
     className: 'bg-muted text-foreground hover:bg-muted/80',
@@ -37,36 +37,7 @@ const STATUS_CONFIG: Record<number | string, { label: string; className: string 
   'Posted to Snapshot': {
     label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
-  },
-  // Legacy statuses (for migration/historical data)
-  'Review': {
-    label: 'Review',
-    className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20',
-  },
-  'Vote': {
-    label: 'Vote',
-    className: 'bg-primary/10 text-primary hover:bg-primary/20',
-  },
-  'Approved': {
-    label: 'Approved',
-    className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40',
-  },
-  'Rejected': {
-    label: 'Rejected',
-    className: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
-  },
-  'Implemented': {
-    label: 'Implemented',
-    className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/40',
-  },
-  'Superseded': {
-    label: 'Superseded',
-    className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/40',
-  },
-  'Withdrawn': {
-    label: 'Withdrawn',
-    className: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  },
+  }
 };
 
 const SIZE_CLASSES = {

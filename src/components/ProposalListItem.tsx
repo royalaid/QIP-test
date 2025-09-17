@@ -12,18 +12,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 const statusColor:any = {
     Draft: '#757575',
     'Ready for Snapshot': '#FFEB3B',
-    'Posted to Snapshot': '#4CAF50',
-    // Legacy mappings for backward compatibility
-    Review: '#FFEB3B',
-    'Review Pending': '#FFEB3B',
-    Vote: '#FFEB3B',
-    'Vote Pending': '#FFEB3B',
-    Rejected: '#F44336',
-    Approved: '#4CAF50',
-    Implemented: '#4CAF50',
-    Superseded: '#9E9E9E',
-    Withdrawn: '#9E9E9E',
-    Templates: '#757575',
+    'Posted to Snapshot': '#4CAF50'
 };
 
 const ProposalListItem = (props: any) => {

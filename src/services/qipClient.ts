@@ -164,19 +164,11 @@ const QIP_REGISTRY_ABI = [
   }
 ] as const;
 
-// Status enum for backward compatibility
+// Status enum - only three statuses supported
 export enum QIPStatus {
   Draft = 0,
   ReadyForSnapshot = 1,
-  PostedToSnapshot = 2,
-  // Legacy mappings for backward compatibility (using unique values to avoid confusion)
-  ReviewPending = 101, // Maps to ReadyForSnapshot conceptually
-  VotePending = 102, // Maps to PostedToSnapshot conceptually
-  Approved = 103, // Maps to PostedToSnapshot conceptually
-  Rejected = 100, // Maps to Draft conceptually
-  Implemented = 104, // Maps to PostedToSnapshot conceptually
-  Superseded = 105, // Maps to PostedToSnapshot conceptually
-  Withdrawn = 106 // Maps to Draft conceptually
+  PostedToSnapshot = 2
 }
 
 // Map bytes32 status hashes to enum values

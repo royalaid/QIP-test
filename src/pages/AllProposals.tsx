@@ -7,22 +7,13 @@ import { config } from "../config/env";
 
 // Map blockchain status strings to display strings
 const statusDisplayMap: Record<string, string> = {
-  // New simplified statuses
   "Draft": "Draft",
   "Ready for Snapshot": "Ready for Snapshot",
-  "Posted to Snapshot": "Posted to Snapshot",
-  // Legacy statuses (kept for backward compatibility)
-  Review: "Review Pending",
-  Vote: "Vote Pending",
-  Approved: "Approved",
-  Rejected: "Rejected",
-  Implemented: "Implemented",
-  Superseded: "Deprecated",
-  Withdrawn: "Deprecated",
+  "Posted to Snapshot": "Posted to Snapshot"
 };
 
-// Status order for display - include new statuses
-const statusOrder = ["Draft", "Ready for Snapshot", "Posted to Snapshot", "Review", "Vote", "Approved", "Implemented", "Rejected", "Withdrawn"];
+// Status order for display
+const statusOrder = ["Draft", "Ready for Snapshot", "Posted to Snapshot"];
 
 const AllProposals: React.FC = () => {
   // Configuration
