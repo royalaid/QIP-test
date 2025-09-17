@@ -8,7 +8,7 @@ import { config } from "../config";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
-import { useWalletClient } from "wagmi";
+import { useWalletClient, usePublicClient } from "wagmi";
 import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 
 interface SnapshotSubmitterProps {
@@ -32,16 +32,8 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   isAuthor = false,
   isEditor = false
 }) => {
-  // Log component initialization
-  console.log("[SnapshotSubmitter] Component initialized with props:", {
-    qipNumber: frontmatter?.qip,
-    hasOnStatusUpdate: !!onStatusUpdate,
-    registryAddress,
-    isAuthor,
-    isEditor,
-    rpcUrl,
-  });
   const signer = useEthersSigner();
+  const publicClient = usePublicClient();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<React.ReactNode>(null);
   const [highestQip, setHighestQip] = useState<number | null>(null);
@@ -53,23 +45,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   // Wallet client for blockchain transactions
   const { data: walletClient } = useWalletClient();
 
-  // Debug state changes - run after component mounts
-  useEffect(() => {
-    // Skip initial mount to avoid initialization issues
-    const timer = setTimeout(() => {
-      console.log("[SnapshotSubmitter] State Debug:", {
-        proposalId,
-        proposalUrl,
-        showStatusUpdatePrompt,
-        isUpdatingStatus,
-        hasWalletClient: !!walletClient,
-        registryAddress,
-        isAuthor,
-        isEditor,
-      });
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [proposalId, proposalUrl, showStatusUpdatePrompt, isUpdatingStatus, walletClient, registryAddress, isAuthor, isEditor]);
 
   const SNAPSHOT_SPACE = config.snapshotSpace;
   const isDefaultSpace = SNAPSHOT_SPACE === "qidao.eth";
@@ -105,7 +80,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         const match = p.title.match(/QIP(\d+)/i);
         return match ? parseInt(match[1], 10) : 0;
       });
-      console.log("qipNumbers", qipNumbers);
       setHighestQip(Math.max(0, ...qipNumbers));
     }
   }, [proposals]);
@@ -148,7 +122,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       // Always use Ethereum mainnet blocks for all Snapshot proposals
       const ethProvider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
       const snapshotBlock = await ethProvider.getBlockNumber();
-      console.log("Using Ethereum mainnet block for snapshot:", snapshotBlock);
 
       // Calculate timestamps right before submission
       const now = Math.floor(Date.now() / 1000);
@@ -170,35 +143,20 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         timestamp: now, // Add explicit timestamp
       };
 
-      console.log("[SnapshotSubmitter] Creating proposal with options:", proposalOptions);
       const receipt = await createProposal(signer, "https://hub.snapshot.org", proposalOptions);
-      console.log("[SnapshotSubmitter] Proposal creation receipt:", receipt);
 
       if (receipt && (receipt as any).id) {
         const newProposalId = (receipt as any).id;
-        console.log("[SnapshotSubmitter] Extracted proposal ID:", newProposalId);
 
         const proposalUrl = `https://snapshot.org/#/${space}/proposal/${newProposalId}`;
-        console.log("[SnapshotSubmitter] Generated proposal URL:", proposalUrl);
 
-        console.log("[SnapshotSubmitter] Setting state - proposalUrl:", proposalUrl);
         setProposalUrl(proposalUrl);
 
-        console.log("[SnapshotSubmitter] Setting state - proposalId:", newProposalId);
         setProposalId(newProposalId);
 
-        console.log("[SnapshotSubmitter] State after setting:", {
-          newProposalId,
-          proposalUrl,
-          registryAddress,
-          isAuthor,
-          isEditor,
-          shouldShowPrompt: !!(registryAddress && (isAuthor || isEditor)),
-        });
 
         // Show success message and prompt for status update if user has permissions
         if (registryAddress && (isAuthor || isEditor)) {
-          console.log("[SnapshotSubmitter] User has permissions, showing status update prompt");
           setShowStatusUpdatePrompt(true);
           setStatus(
             <div className="flex items-center gap-2 text-sm">
@@ -248,16 +206,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   };
 
   const handleStatusUpdate = async () => {
-    console.log("[SnapshotSubmitter] handleStatusUpdate called - full state:", {
-      registryAddress,
-      walletClient: !!walletClient,
-      proposalId,
-      proposalIdType: typeof proposalId,
-      proposalIdLength: proposalId?.length,
-      proposalUrl,
-      showStatusUpdatePrompt,
-      isUpdatingStatus,
-    });
 
     if (!registryAddress || !walletClient || !proposalId) {
       console.error("[SnapshotSubmitter] Cannot update status - missing required data:", {
@@ -293,28 +241,97 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       return;
     }
 
-    console.log("[SnapshotSubmitter] Starting linkSnapshotProposal:", {
-      registryAddress,
-      qipNumber: frontmatter.qip,
-      proposalId,
-      walletConnected: !!walletClient,
-      args: [BigInt(frontmatter.qip), proposalId],
-    });
 
     setIsUpdatingStatus(true);
     try {
-      const hash = await walletClient.writeContract({
-        address: registryAddress,
-        abi: QIPRegistryABI,
-        functionName: "linkSnapshotProposal",
-        args: [BigInt(frontmatter.qip), proposalId],
-      });
+      // Use linkSnapshotProposal which automatically updates status AND sets the proposal ID
+
+      // Check if we're in local development
+      const isLocalDev = rpcUrl?.includes("localhost") || rpcUrl?.includes("127.0.0.1");
+      if (isLocalDev) {
+        console.warn("[SnapshotSubmitter] ⚠️ LOCAL DEVELOPMENT DETECTED:", {
+          message: "You need to import an Anvil private key to your wallet!",
+          anvilAccounts: [
+            "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Account #0 - Admin)",
+            "0x70997970C51812dc3A010C7d01b50e0d17dc79C8 (Account #1 - Editor)",
+            "Private keys are shown when Anvil starts",
+          ],
+          currentAccount: walletClient.account?.address,
+          issue: "MetaMask/WalletConnect may not work properly with local Anvil",
+        });
+      }
+
+      let hash;
+      try {
+        if (!publicClient) {
+          throw new Error("Public client not available");
+        }
+
+        // First, estimate gas for the transaction
+
+        const estimatedGas = await publicClient.estimateContractGas({
+          address: registryAddress,
+          abi: QIPRegistryABI,
+          functionName: "linkSnapshotProposal",
+          args: [BigInt(frontmatter.qip), proposalId],
+          account: walletClient.account,
+        });
+
+
+        // Simulate the transaction with 20% buffer
+        const gasWithBuffer = (estimatedGas * 120n) / 100n;
+
+        const { request } = await publicClient.simulateContract({
+          address: registryAddress,
+          abi: QIPRegistryABI,
+          functionName: "linkSnapshotProposal",
+          args: [BigInt(frontmatter.qip), proposalId],
+          account: walletClient.account,
+          gas: gasWithBuffer,
+        });
+
+
+        // Execute the transaction with the simulated request
+        hash = await walletClient.writeContract(request);
+
+
+      } catch (contractError: any) {
+        const errorMessage = contractError?.message || "Unknown contract error";
+        const isSimulationError = errorMessage.includes("simulation") || errorMessage.includes("revert");
+
+        console.error("[SnapshotSubmitter] Contract call failed:", {
+          error: contractError,
+          errorMessage,
+          errorType: typeof contractError,
+          isSimulationError,
+          stack: contractError instanceof Error ? contractError.stack : undefined,
+          contractParams: {
+            address: registryAddress,
+            functionName: "linkSnapshotProposal",
+            args: [BigInt(frontmatter.qip), proposalId],
+          },
+        });
+
+        // Provide more helpful error messages
+        if (isSimulationError) {
+          console.error("[SnapshotSubmitter] Simulation failed - possible reasons:", [
+            "1. QIP status is not 'Ready for Snapshot'",
+            "2. Proposal ID is invalid or already linked",
+            "3. User lacks permission to link proposal",
+            "4. Contract state doesn't allow this operation",
+          ]);
+        }
+
+        throw contractError;
+      }
+
       setShowStatusUpdatePrompt(false);
 
       // Trigger the parent's refresh callback
       if (onStatusUpdate) {
         await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for blockchain sync
         onStatusUpdate();
+      } else {
       }
     } catch (error: any) {
       console.error("[SnapshotSubmitter] Failed to link Snapshot proposal:", {
@@ -347,13 +364,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         </div>
       );
     } finally {
-      console.log("[SnapshotSubmitter] handleStatusUpdate completed, setting isUpdatingStatus to false");
       setIsUpdatingStatus(false);
     }
   };
 
   const dismissStatusPrompt = () => {
-    console.log("[SnapshotSubmitter] Dismissing status update prompt");
     setShowStatusUpdatePrompt(false);
   };
 
@@ -453,7 +468,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
                 <div className="flex gap-2">
                   <Button
                     onClick={() => {
-                      console.log("[SnapshotSubmitter] Link Proposal button clicked");
                       handleStatusUpdate();
                     }}
                     disabled={isUpdatingStatus}
