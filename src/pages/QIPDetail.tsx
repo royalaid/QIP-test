@@ -7,7 +7,7 @@ import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
 import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndicator'
-import QIPRegistryABI from '../config/abis/QIPRegistry.json'
+import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 import { QIPStatus, QIPClient } from '../services/qipClient'
 import { useMemo } from 'react'
 import { getIPFSGatewayUrl } from '../utils/ipfsGateway'

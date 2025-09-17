@@ -36,4 +36,4 @@ export const getContractAddress = (chainId: number, contract: 'qipRegistry'): `0
 /**
  * Contract ABIs
  */
-export { default as QIP_REGISTRY_ABI } from './abis/QIPRegistry.json'
+export { QIPRegistryABI as QIP_REGISTRY_ABI } from "./abis/QIPRegistry";

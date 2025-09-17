@@ -63,7 +63,11 @@ const AllProposals: React.FC = () => {
 
   // Get ordered status groups
   const orderedGroups = statusOrder
-    .filter((status) => groupedQIPs[status] && groupedQIPs[status].length > 0)
+    .filter((status) => {
+      const hasQIPs = groupedQIPs[status] && groupedQIPs[status].length > 0;
+      console.log(`[AllProposals] Checking status "${status}": found ${hasQIPs ? groupedQIPs[status].length : 0} QIPs`);
+      return hasQIPs;
+    })
     .map((status) => ({
       status,
       qips: groupedQIPs[status],

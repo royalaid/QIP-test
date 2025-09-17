@@ -11,7 +11,7 @@ import { useQIPData } from "../../hooks/useQIPData";
 import { useUpdateQIPStatus } from "../../hooks/useUpdateQIPStatus";
 import { config } from "../../config";
 import { ethers } from "ethers";
-import QIPRegistryABI from "../../config/abis/QIPRegistry.json";
+import { QIPRegistryABI } from "../../config/abis/QIPRegistry";
 import { QIPStatus } from "../../services/qipClient";
 import { getIPFSGatewayUrl } from "../../utils/ipfsGateway";
 

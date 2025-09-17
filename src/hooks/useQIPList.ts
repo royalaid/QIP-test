@@ -91,7 +91,7 @@ export function useQIPList({
         try {
           // Fetch batch of QIPs with multicall
           const batchQIPs = await qipClient.getQIPsBatch(batch);
-          
+
           for (const qip of batchQIPs) {
             // Skip if QIP doesn't exist
             if (!qip || qip.qipNumber === 0n) {

@@ -8,17 +8,12 @@ import { config } from '../config/env'
 // Map blockchain status strings to display strings
 const statusDisplayMap: Record<string, string> = {
   'Draft': 'Draft',
-  'Review': 'Review Pending',
-  'Vote': 'Vote Pending',
-  'Approved': 'Approved',
-  'Rejected': 'Rejected',
-  'Implemented': 'Implemented',
-  'Superseded': 'Deprecated',
-  'Withdrawn': 'Deprecated'
+  'Ready for Snapshot': 'Ready for Snapshot',
+  'Posted to Snapshot': 'Posted to Snapshot'
 }
 
 // Status order for display
-const statusOrder = ['Draft', 'Review', 'Vote', 'Approved', 'Implemented', 'Rejected', 'Withdrawn']
+const statusOrder = ['Draft', 'Ready for Snapshot', 'Posted to Snapshot']
 
 const AllProposalsPaginated: React.FC = () => {
   const localMode = config.localMode
