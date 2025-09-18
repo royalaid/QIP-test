@@ -29,3 +29,5 @@ CLAUDE.md
 /dependencies
 dist/**/*.*
 deployments/**/*.*
+scripts/snapshot/qip-snapshot-cache.json
+.env.*.bak

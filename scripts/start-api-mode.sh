@@ -37,7 +37,7 @@ export VITE_MAI_API_URL=${VITE_MAI_API_URL:-"https://staging-api.mai.finance"}
 export VITE_IPFS_API_URL=${VITE_IPFS_API_URL:-"https://staging-api.mai.finance/v2/ipfs-upload"}
 
 # Registry address (production Base network)
-export VITE_QIP_REGISTRY_ADDRESS=${VITE_QIP_REGISTRY_ADDRESS:-"0xA541fD5521115E6d1DD510D5203E7e7065BcB652"}
+export VITE_QIP_REGISTRY_ADDRESS=${VITE_QIP_REGISTRY_ADDRESS:-"0x9638153a6f2e7E98E54BB0A603fAE5e4B02A26c2"}
 
 # WalletConnect (required for wallet connections)
 export VITE_WALLETCONNECT_PROJECT_ID=${VITE_WALLETCONNECT_PROJECT_ID:-"07aaa3b8014f862823c152b9a472f26f"}
