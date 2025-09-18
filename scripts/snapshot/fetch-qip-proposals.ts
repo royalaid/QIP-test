@@ -219,10 +219,7 @@ async function main() {
   }
 }
 
-// Run if executed directly
-if (import.meta.main) {
-  main();
-}
+ main();
 
 // Export for use in other scripts
 export { fetchProposals, filterAndMapQIPs, extractQIPNumber };
