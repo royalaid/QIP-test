@@ -383,7 +383,7 @@ echo -e "${BOLD}Deployer:${NC}        $DEPLOYER_ADDRESS"
 echo -e "${BOLD}Registry:${NC}        $REGISTRY_ADDRESS"
 echo -e "${BOLD}Admin:${NC}           $DEPLOYER_ADDRESS"
 echo -e "${BOLD}Starting QIP:${NC}    209"
-echo -e "${BOLD}Salt:${NC}            QIPRegistry.v1.base"
+echo -e "${BOLD}Salt:${NC}            QIPRegistry.v2.base"
 echo -e "${BOLD}CREATE2:${NC}         0x4e59b44847b379578588920cA78FbF26c0B4956C"
 echo ""
 
@@ -472,69 +472,113 @@ DEPLOY_CMD="$DEPLOY_CMD --slow -vvv"
 # Execute deployment
 DEPLOYMENT_OUTPUT=$(eval $DEPLOY_CMD 2>&1)
 
-# Check deployment result
-if echo "$DEPLOYMENT_OUTPUT" | grep -q "ONCHAIN EXECUTION COMPLETE"; then
-    echo -e "${GREEN}  ✅ Deployment transaction broadcast successfully${NC}"
-    
-    # Update deployment record
-    sed -i.bak 's/"status": "pending"/"status": "deployed"/' $DEPLOYMENT_RECORD
-    
-    # Extract transaction hash if available
-    TX_HASH=$(echo "$DEPLOYMENT_OUTPUT" | grep -o "0x[a-fA-F0-9]\{64\}" | head -1)
-    if [ -n "$TX_HASH" ]; then
-        echo -e "${GREEN}  ✅ Transaction hash: $TX_HASH${NC}"
-        echo "  View on Basescan: https://basescan.org/tx/$TX_HASH"
+# Check deployment result based on mode
+if [ "$DRY_RUN" = true ]; then
+    # In dry-run mode, check for simulation success
+    if echo "$DEPLOYMENT_OUTPUT" | grep -q "SIMULATION COMPLETE"; then
+        echo -e "${GREEN}  ✅ Simulation completed successfully${NC}"
+
+        # Update deployment record
+        sed -i.bak 's/"status": "pending"/"status": "simulated"/' $DEPLOYMENT_RECORD
+
+        # Show simulation results
+        echo ""
+        echo -e "${BLUE}Simulation Results:${NC}"
+        echo "$DEPLOYMENT_OUTPUT" | grep -E "Estimated gas price:|Estimated total gas used:|Estimated amount required:" | sed 's/^/  /'
+    else
+        echo -e "${RED}  ❌ Simulation failed${NC}"
+        sed -i.bak 's/"status": "pending"/"status": "failed"/' $DEPLOYMENT_RECORD
+        echo ""
+        echo "Error output:"
+        echo "$DEPLOYMENT_OUTPUT" | tail -20
+        exit 1
     fi
 else
-    echo -e "${RED}  ❌ Deployment failed${NC}"
-    sed -i.bak 's/"status": "pending"/"status": "failed"/' $DEPLOYMENT_RECORD
-    echo ""
-    echo "Error output:"
-    echo "$DEPLOYMENT_OUTPUT" | tail -20
-    exit 1
+    # In real deployment mode, check for broadcast success
+    # First check if simulation passed (Forge always simulates before broadcasting)
+    if echo "$DEPLOYMENT_OUTPUT" | grep -q "SIMULATION COMPLETE"; then
+        echo -e "${GREEN}  ✅ Simulation passed${NC}"
+    fi
+
+    # Then check for actual broadcast
+    if echo "$DEPLOYMENT_OUTPUT" | grep -q "ONCHAIN EXECUTION COMPLETE"; then
+        echo -e "${GREEN}  ✅ Deployment transaction broadcast successfully${NC}"
+
+        # Update deployment record
+        sed -i.bak 's/"status": "pending"/"status": "deployed"/' $DEPLOYMENT_RECORD
+
+        # Extract transaction hash if available
+        TX_HASH=$(echo "$DEPLOYMENT_OUTPUT" | grep -o "0x[a-fA-F0-9]\{64\}" | head -1)
+        if [ -n "$TX_HASH" ]; then
+            echo -e "${GREEN}  ✅ Transaction hash: $TX_HASH${NC}"
+            echo "  View on Basescan: https://basescan.org/tx/$TX_HASH"
+        fi
+    elif echo "$DEPLOYMENT_OUTPUT" | grep -q "SIMULATION COMPLETE"; then
+        # Simulation passed but no broadcast happened
+        echo -e "${YELLOW}  ⚠️  Simulation successful but no broadcast occurred${NC}"
+        echo -e "${YELLOW}  This might indicate the --broadcast flag was not properly set${NC}"
+        sed -i.bak 's/"status": "pending"/"status": "simulated"/' $DEPLOYMENT_RECORD
+        echo ""
+        echo "Simulation output:"
+        echo "$DEPLOYMENT_OUTPUT" | grep -E "Estimated gas price:|Estimated total gas used:|Estimated amount required:" | sed 's/^/  /'
+        echo ""
+        echo -e "${YELLOW}Debug: Command used:${NC}"
+        echo "$DEPLOY_CMD"
+        exit 1
+    else
+        echo -e "${RED}  ❌ Deployment failed${NC}"
+        sed -i.bak 's/"status": "pending"/"status": "failed"/' $DEPLOYMENT_RECORD
+        echo ""
+        echo "Error output:"
+        echo "$DEPLOYMENT_OUTPUT" | tail -20
+        exit 1
+    fi
 fi
 
 # ============================================
 # STEP 6: Verify Deployment
 # ============================================
-echo ""
-echo -e "${BOLD}${BLUE}✅ Step 6: Verifying Deployment${NC}"
-echo "----------------------------------------"
+# Only verify if we're not in dry-run mode
+if [ "$DRY_RUN" = false ]; then
+    echo ""
+    echo -e "${BOLD}${BLUE}✅ Step 6: Verifying Deployment${NC}"
+    echo "----------------------------------------"
 
-# Wait for transaction to be mined
-echo -e "${YELLOW}Waiting for transaction to be mined...${NC}"
-sleep 15
+    # Wait for transaction to be mined
+    echo -e "${YELLOW}Waiting for transaction to be mined...${NC}"
+    sleep 15
 
-# Check contract deployment
-CODE_SIZE=$(cast codesize $REGISTRY_ADDRESS --rpc-url $BASE_RPC_URL 2>/dev/null || echo "0")
-if [ "$CODE_SIZE" != "0" ] && [ "$CODE_SIZE" != "0x0" ]; then
-    echo -e "${GREEN}  ✅ Contract deployed successfully${NC}"
-else
-    echo -e "${RED}  ❌ Contract not found at expected address${NC}"
-    exit 1
-fi
+    # Check contract deployment
+    CODE_SIZE=$(cast codesize $REGISTRY_ADDRESS --rpc-url $BASE_RPC_URL 2>/dev/null || echo "0")
+    if [ "$CODE_SIZE" != "0" ] && [ "$CODE_SIZE" != "0x0" ]; then
+        echo -e "${GREEN}  ✅ Contract deployed successfully${NC}"
+    else
+        echo -e "${RED}  ❌ Contract not found at expected address${NC}"
+        exit 1
+    fi
 
-# Verify admin role
-echo -e "${YELLOW}Verifying admin access...${NC}"
-ADMIN_ROLE="0x0000000000000000000000000000000000000000000000000000000000000000"
-HAS_ROLE=$(cast call $REGISTRY_ADDRESS "hasRole(bytes32,address)(bool)" $ADMIN_ROLE $DEPLOYER_ADDRESS --rpc-url $BASE_RPC_URL 2>/dev/null || echo "false")
+    # Verify admin role
+    echo -e "${YELLOW}Verifying admin access...${NC}"
+    ADMIN_ROLE="0x0000000000000000000000000000000000000000000000000000000000000000"
+    HAS_ROLE=$(cast call $REGISTRY_ADDRESS "hasRole(bytes32,address)(bool)" $ADMIN_ROLE $DEPLOYER_ADDRESS --rpc-url $BASE_RPC_URL 2>/dev/null || echo "false")
 
-if [ "$HAS_ROLE" = "true" ]; then
-    echo -e "${GREEN}  ✅ Admin role confirmed${NC}"
-else
-    echo -e "${RED}  ❌ Admin role not set correctly${NC}"
+    if [ "$HAS_ROLE" = "true" ]; then
+        echo -e "${GREEN}  ✅ Admin role confirmed${NC}"
+    else
+        echo -e "${RED}  ❌ Admin role not set correctly${NC}"
+    fi
 fi
 
 # ============================================
 # STEP 7: Contract Verification
 # ============================================
-if [ "$VERIFY_ON_BASESCAN" = true ] && [ "$VERIFY_CONTRACT" = true ]; then
+if [ "$DRY_RUN" = false ] && [ "$VERIFY_ON_BASESCAN" = true ] && [ "$VERIFY_CONTRACT" = true ]; then
     echo ""
     echo -e "${BOLD}${BLUE}🔍 Step 7: Verifying on Basescan${NC}"
     echo "----------------------------------------"
-    
+
     echo -e "${YELLOW}Submitting contract for verification...${NC}"
-    
+
     forge verify-contract \
         --chain-id 8453 \
         --compiler-version v0.8.30 \
@@ -542,7 +586,7 @@ if [ "$VERIFY_ON_BASESCAN" = true ] && [ "$VERIFY_CONTRACT" = true ]; then
         --watch \
         $REGISTRY_ADDRESS \
         contracts/QIPRegistry.sol:QIPRegistry
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}  ✅ Contract verified on Basescan${NC}"
     else
@@ -553,56 +597,79 @@ fi
 # ============================================
 # STEP 8: Update Configuration
 # ============================================
-echo ""
-echo -e "${BOLD}${BLUE}📝 Step 8: Updating Configuration${NC}"
-echo "----------------------------------------"
+if [ "$DRY_RUN" = false ]; then
+    echo ""
+    echo -e "${BOLD}${BLUE}📝 Step 8: Updating Configuration${NC}"
+    echo "----------------------------------------"
 
-# Update .env.production
-if [ -f .env.production ]; then
-    echo -e "${YELLOW}Updating .env.production...${NC}"
-    sed -i.bak "s|^VITE_QIP_REGISTRY_ADDRESS=.*|VITE_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS|" .env.production
-    echo -e "${GREEN}  ✅ Environment file updated${NC}"
+    # Update .env.production
+    if [ -f .env.production ]; then
+        echo -e "${YELLOW}Updating .env.production...${NC}"
+        sed -i.bak "s|^VITE_QIP_REGISTRY_ADDRESS=.*|VITE_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS|" .env.production
+        echo -e "${GREEN}  ✅ Environment file updated${NC}"
+    fi
+
+    # Create latest deployment symlink
+    ln -sf "$DEPLOYMENT_RECORD" "$DEPLOYMENT_DIR/latest.json"
+    echo -e "${GREEN}  ✅ Deployment record saved${NC}"
 fi
-
-# Create latest deployment symlink
-ln -sf "$DEPLOYMENT_RECORD" "$DEPLOYMENT_DIR/latest.json"
-echo -e "${GREEN}  ✅ Deployment record saved${NC}"
 
 # ============================================
 # STEP 9: Post-Deployment Instructions
 # ============================================
 echo ""
-echo -e "${BOLD}${GREEN}🎉 DEPLOYMENT SUCCESSFUL!${NC}"
-echo "============================================"
-echo ""
-echo -e "${BOLD}Contract Details:${NC}"
-echo "  Registry: $REGISTRY_ADDRESS"
-echo "  Admin: $DEPLOYER_ADDRESS"
-echo "  Network: Base Mainnet (8453)"
-echo ""
-echo -e "${BOLD}View on Basescan:${NC}"
-echo "  https://basescan.org/address/$REGISTRY_ADDRESS"
-echo ""
-echo -e "${BOLD}Next Steps:${NC}"
-echo ""
-echo "1. Update GitHub Secrets:"
-echo "   ${CYAN}gh secret set QIP_REGISTRY_ADDRESS --body \"$REGISTRY_ADDRESS\"${NC}"
-echo "   ${CYAN}gh secret set BASE_RPC_URL --body \"$BASE_RPC_URL\"${NC}"
-echo ""
-echo "2. Migrate existing QIPs (fast batch migration):"
-echo "   ${CYAN}./scripts/migrate-with-keystore.sh --account=$KEYSTORE_ACCOUNT${NC}"
-echo "   Uses Foundry FFI for 5x faster batch migration (5 QIPs per transaction)"
-echo ""
-echo "3. Deploy frontend:"
-echo "   ${CYAN}git add -A && git commit -m \"Deploy registry to $REGISTRY_ADDRESS\"${NC}"
-echo "   ${CYAN}git push origin main${NC}"
-echo ""
-echo "4. Transfer admin to multi-sig (recommended):"
-echo "   ${CYAN}cast send $REGISTRY_ADDRESS \"grantRole(bytes32,address)\" 0x00..00 <MULTISIG_ADDRESS> --account $KEYSTORE_ACCOUNT${NC}"
-echo ""
-echo -e "${BOLD}Deployment Record:${NC}"
-echo "  $DEPLOYMENT_RECORD"
-echo ""
-echo "============================================"
-echo -e "${BOLD}${GREEN}Deployment completed at $(date)${NC}"
-echo "============================================"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${BOLD}${GREEN}🎉 DRY RUN COMPLETED SUCCESSFULLY!${NC}"
+    echo "============================================"
+    echo ""
+    echo -e "${BOLD}Simulated Contract Details:${NC}"
+    echo "  Registry Address: $REGISTRY_ADDRESS"
+    echo "  Admin: $DEPLOYER_ADDRESS"
+    echo "  Network: Base Mainnet (8453)"
+    echo ""
+    echo -e "${BOLD}Simulation Record:${NC}"
+    echo "  $DEPLOYMENT_RECORD"
+    echo ""
+    echo -e "${BOLD}Next Steps:${NC}"
+    echo "  To execute actual deployment, run:"
+    echo -e "   ${CYAN}./scripts/deploy-production.sh${NC}"
+    echo ""
+    echo "============================================"
+    echo -e "${BOLD}${GREEN}Dry run completed at $(date)${NC}"
+    echo "============================================"
+else
+    echo -e "${BOLD}${GREEN}🎉 DEPLOYMENT SUCCESSFUL!${NC}"
+    echo "============================================"
+    echo ""
+    echo -e "${BOLD}Contract Details:${NC}"
+    echo "  Registry: $REGISTRY_ADDRESS"
+    echo "  Admin: $DEPLOYER_ADDRESS"
+    echo "  Network: Base Mainnet (8453)"
+    echo ""
+    echo -e "${BOLD}View on Basescan:${NC}"
+    echo "  https://basescan.org/address/$REGISTRY_ADDRESS"
+    echo ""
+    echo -e "${BOLD}Next Steps:${NC}"
+    echo ""
+    echo "1. Update GitHub Secrets:"
+    echo -e "   ${CYAN}gh secret set QIP_REGISTRY_ADDRESS --body \"$REGISTRY_ADDRESS\"${NC}"
+    echo -e "   ${CYAN}gh secret set BASE_RPC_URL --body \"$BASE_RPC_URL\"${NC}"
+    echo ""
+    echo "2. Migrate existing QIPs (fast batch migration):"
+    echo -e "   ${CYAN}./scripts/migrate-with-keystore.sh --account=$KEYSTORE_ACCOUNT${NC}"
+    echo "   Uses Foundry FFI for 5x faster batch migration (5 QIPs per transaction)"
+    echo ""
+    echo "3. Deploy frontend:"
+    echo -e "   ${CYAN}git add -A && git commit -m \"Deploy registry to $REGISTRY_ADDRESS\"${NC}"
+    echo -e "   ${CYAN}git push origin main${NC}"
+    echo ""
+    echo "4. Transfer admin to multi-sig (recommended):"
+    echo -e "   ${CYAN}cast send $REGISTRY_ADDRESS \"grantRole(bytes32,address)\" 0x00..00 <MULTISIG_ADDRESS> --account $KEYSTORE_ACCOUNT${NC}"
+    echo ""
+    echo -e "${BOLD}Deployment Record:${NC}"
+    echo "  $DEPLOYMENT_RECORD"
+    echo ""
+    echo "============================================"
+    echo -e "${BOLD}${GREEN}Deployment completed at $(date)${NC}"
+    echo "============================================"
+fi

@@ -14,7 +14,7 @@ contract DeployWithStandardCreate2 is Script {
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     
     // Salt for deterministic deployment
-    bytes32 constant SALT = keccak256("QIPRegistry.v1.base");
+    bytes32 constant SALT = keccak256("QIPRegistry.v2.base");
     
     function run() public returns (address) {
         // When using keystore (--account flag), msg.sender is the authenticated account
