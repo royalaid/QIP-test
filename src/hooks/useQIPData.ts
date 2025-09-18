@@ -61,7 +61,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     apiUrl: config.maiApiUrl,
     enabled: enabled && Boolean(shouldUseAPI),
     pollingInterval,
-    includeContent: false, // Don't fetch content by default for performance
+    includeContent: true, // Fetch content from API to avoid client-side IPFS calls
   });
 
   // Blockchain result (only used when shouldUseAPI is false)
