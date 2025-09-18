@@ -254,6 +254,34 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
+     * @notice Get Snapshot proposal ID for a QIP number
+     * @dev Extracts just the proposal ID (hash) from the URL as a string
+     */
+    function getSnapshotProposal(uint256 qipNumber) internal returns (string memory) {
+        // Use jq and sed to extract the proposal ID from the URL
+        // IMPORTANT: We want the ASCII string "0x66b6..." not the hex bytes
+        string[] memory cmd = new string[](3);
+        cmd[0] = "bash";
+        cmd[1] = "-c";
+        cmd[2] = string.concat(
+            "cat scripts/snapshot/qip-snapshot-cache.json | jq -r '.qips[] | select(.qipNumber == ",
+            vm.toString(qipNumber),
+            ") | .url // \"\"' | sed 's/.*proposal\\///' | tr -d '\\n'"
+        );
+
+        bytes memory result = vm.ffi(cmd);
+
+        // If the result is empty or "null", return empty string
+        if (result.length == 0 || (result.length == 4 && keccak256(result) == keccak256(bytes("null")))) {
+            return "";
+        }
+
+        // The result from FFI is the ASCII string "0x66b6..." as bytes
+        // We want to keep it as that string, not interpret it as hex
+        return vm.toString(result);
+    }
+
+    /**
      * @notice Parse status string to new status names
      * Maps old statuses to our new 3-status system
      */
@@ -389,20 +417,54 @@ contract MigrateBatchWithFFI is Script {
     function parseQIPFile(string memory filename, uint256 qipNumber) internal returns (QIPData memory) {
         string memory filePath = string.concat(QIP_DIR, "/", filename);
         QIPData memory data;
-        
+
         // Extract fields one by one to avoid stack too deep
         data.qipNumber = qipNumber;
         data.title = extractField(filePath, "title");
-        
+
         string memory networkStr = extractField(filePath, "network");
         data.network = bytes(networkStr).length == 0 ? "Polygon" : networkStr;
-        
-        // Extract proposal first to determine if it affects status
-        string memory proposalStr = extractField(filePath, "proposal");
-        bool hasValidProposal = isValidProposalUrl(proposalStr);
 
-        if (hasValidProposal) {
-            data.proposal = proposalStr;
+        // First check if we have a Snapshot proposal ID in our cache
+        string memory snapshotId = getSnapshotProposal(qipNumber);
+        console.log("  Snapshot ID:", snapshotId);
+        console.log("  Snapshot ID length:", bytes(snapshotId).length);
+        console.log("  Snapshot ID bytes:", vm.toString(bytes(snapshotId)));
+        
+        bool hasSnapshotProposal = bytes(snapshotId).length > 0;
+
+        // Then check the file's proposal field as fallback
+        string memory proposalStr = extractField(filePath, "proposal");
+        bool hasValidProposal = hasSnapshotProposal || isValidProposalUrl(proposalStr);
+
+        // Use Snapshot ID if available, otherwise use file's proposal
+        if (hasSnapshotProposal) {
+            data.proposal = snapshotId;
+        } else if (isValidProposalUrl(proposalStr)) {
+            // Extract ID from URL if it's a full URL
+            if (bytes(proposalStr).length > 0) {
+                // Check if it's a full URL and extract the ID
+                bytes memory proposalBytes = bytes(proposalStr);
+                uint256 lastSlash = 0;
+                for (uint256 i = proposalBytes.length - 1; i > 0; i--) {
+                    if (proposalBytes[i] == "/") {
+                        lastSlash = i;
+                        break;
+                    }
+                }
+                if (lastSlash > 0 && lastSlash < proposalBytes.length - 1) {
+                    // Extract everything after the last slash
+                    bytes memory idBytes = new bytes(proposalBytes.length - lastSlash - 1);
+                    for (uint256 i = 0; i < idBytes.length; i++) {
+                        idBytes[i] = proposalBytes[lastSlash + 1 + i];
+                    }
+                    data.proposal = string(idBytes);
+                } else {
+                    data.proposal = proposalStr; // Use as-is if not a URL
+                }
+            } else {
+                data.proposal = "";
+            }
         } else {
             data.proposal = "";
         }
@@ -438,8 +500,11 @@ contract MigrateBatchWithFFI is Script {
         console.log("    Network:", data.network);
         console.log("    Author:", authorStr);
         console.log("    Implementor:", data.implementor);
-        if (hasValidProposal) {
-            console.log("    Proposal:", proposalStr);
+        if (hasSnapshotProposal) {
+            // Convert to hex string for readable output
+            console.log("    Snapshot ID (hex):", vm.toString(bytes(snapshotId)));
+        } else if (hasValidProposal) {
+            console.log("    File Proposal ID:", data.proposal);
         }
         
         return data;
