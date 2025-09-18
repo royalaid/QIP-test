@@ -3,7 +3,7 @@ import { ABIParser, type ParsedFunction, type TransactionData } from '../utils/a
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChainCombobox } from './ChainCombobox';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -213,16 +213,12 @@ export const TransactionFormatter: React.FC<TransactionFormatterProps> = ({
           {/* Chain Selection */}
           <div className="space-y-2">
             <Label htmlFor="chain">Chain</Label>
-            <Select value={chain} onValueChange={setChain}>
-              <SelectTrigger id="chain">
-                <SelectValue placeholder="Select a chain" />
-              </SelectTrigger>
-              <SelectContent>
-                {networks.map(network => (
-                  <SelectItem key={network} value={network}>{network}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ChainCombobox
+              value={chain}
+              onChange={setChain}
+              placeholder="Select or type a chain..."
+              networks={networks}
+            />
           </div>
 
           {/* Contract Address */}

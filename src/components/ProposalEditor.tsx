@@ -9,12 +9,12 @@ import { config } from '../config/env';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TransactionFormatter } from './TransactionFormatter';
-import { type TransactionData, ABIParser } from '../utils/abiParser';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { ChainCombobox } from "./ChainCombobox";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TransactionFormatter } from "./TransactionFormatter";
+import { type TransactionData, ABIParser } from "../utils/abiParser";
+import { Plus, Edit2, Trash2 } from "lucide-react";
 
 interface ProposalEditorProps {
   registryAddress: Address;
@@ -29,7 +29,20 @@ interface ProposalEditorProps {
   initialImplementor?: string;
 }
 
-const NETWORKS = ['Polygon', 'Ethereum', 'Base', 'Metis', 'Arbitrum', 'Optimism', 'BSC', 'Avalanche'];
+const NETWORKS = [
+  "Ethereum",
+  "Base",
+  "Polygon PoS",
+  "Linea",
+  "BNB",
+  "Metis",
+  "Optimism",
+  "Arbitrum",
+  "Avalanche",
+  "Polygon zkEVM",
+  "Gnosis",
+  "Kava",
+];
 
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({ 
   registryAddress, 
@@ -335,9 +348,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">
-        {existingQIP ? `Edit QIP-${existingQIP.qipNumber}` : 'Create New QIP'}
-      </h2>
+      <h2 className="text-2xl font-bold mb-6">{existingQIP ? `Edit QIP-${existingQIP.qipNumber}` : "Create New QIP"}</h2>
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -353,9 +364,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="title">
-            Title *
-          </Label>
+          <Label htmlFor="title">Title *</Label>
           <Input
             type="text"
             id="title"
@@ -367,25 +376,12 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="chain">
-            Chain *
-          </Label>
-          <Select value={selectedChain} onValueChange={setSelectedChain} required>
-            <SelectTrigger id="chain">
-              <SelectValue placeholder="Select a chain" />
-            </SelectTrigger>
-            <SelectContent>
-              {NETWORKS.map(net => (
-                <SelectItem key={net} value={net}>{net}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="chain">Chain *</Label>
+          <ChainCombobox value={selectedChain} onChange={setSelectedChain} placeholder="Select or type a chain..." />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="implementor">
-            Implementor
-          </Label>
+          <Label htmlFor="implementor">Implementor</Label>
           <Input
             type="text"
             id="implementor"
@@ -396,9 +392,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="content">
-            Proposal Content (Markdown) *
-          </Label>
+          <Label htmlFor="content">Proposal Content (Markdown) *</Label>
           <Textarea
             id="content"
             value={content}
@@ -427,9 +421,7 @@ Implementation details...`}
         {/* Transactions Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>
-              Transactions
-            </Label>
+            <Label>Transactions</Label>
             <Button
               type="button"
               onClick={() => {
@@ -443,33 +435,19 @@ Implementation details...`}
               Add Transaction
             </Button>
           </div>
-          
+
           {transactions.length > 0 ? (
             <div className="space-y-2 mb-4">
               {transactions.map((tx, index) => (
                 <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
                   <div className="flex-1">
-                    <code className="text-sm font-mono break-all">
-                      {ABIParser.formatTransaction(tx)}
-                    </code>
+                    <code className="text-sm font-mono break-all">{ABIParser.formatTransaction(tx)}</code>
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <Button
-                      type="button"
-                      onClick={() => handleEditTransaction(index)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                    >
+                    <Button type="button" onClick={() => handleEditTransaction(index)} variant="ghost" size="icon" className="h-8 w-8">
                       <Edit2 size={16} className="text-muted-foreground" />
                     </Button>
-                    <Button
-                      type="button"
-                      onClick={() => handleDeleteTransaction(index)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                    >
+                    <Button type="button" onClick={() => handleDeleteTransaction(index)} variant="ghost" size="icon" className="h-8 w-8">
                       <Trash2 size={16} className="text-destructive" />
                     </Button>
                   </div>
@@ -484,22 +462,12 @@ Implementation details...`}
         </div>
 
         <div className="flex space-x-4">
-          <Button
-            type="submit"
-            disabled={saving}
-            variant="gradient-primary"
-            size="lg"
-          >
-            {saving ? 'Saving...' : existingQIP ? 'Update QIP' : 'Create QIP'}
+          <Button type="submit" disabled={saving} variant="gradient-primary" size="lg">
+            {saving ? "Saving..." : existingQIP ? "Update QIP" : "Create QIP"}
           </Button>
 
-          <Button
-            type="button"
-            onClick={handlePreview}
-            variant="outline"
-            size="lg"
-          >
-            {preview ? 'Edit' : 'Preview'}
+          <Button type="button" onClick={handlePreview} variant="outline" size="lg">
+            {preview ? "Edit" : "Preview"}
           </Button>
         </div>
       </form>
@@ -508,19 +476,17 @@ Implementation details...`}
         <div className="mt-8 border-t pt-8">
           <h3 className="text-xl font-bold mb-4">Preview</h3>
           <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
-            <h1 className="text-2xl font-bold mb-2">{title || 'Untitled'}</h1>
+            <h1 className="text-2xl font-bold mb-2">{title || "Untitled"}</h1>
             <div className="text-sm text-muted-foreground mb-4">
-              <span>Chain: {selectedChain}</span> • 
-              <span> Author: {address}</span> • 
-              <span> Status: Draft</span>
+              <span>Chain: {selectedChain}</span> •<span> Author: {address}</span> •<span> Status: Draft</span>
             </div>
-            <div 
+            <div
               className="prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ 
-                __html: content.replace(/\n/g, '<br />') 
-              }} 
+              dangerouslySetInnerHTML={{
+                __html: content.replace(/\n/g, "<br />"),
+              }}
             />
-            
+
             {/* Show transactions in preview */}
             {transactions.length > 0 && (
               <div className="mt-8 pt-6 border-t border-border">
@@ -528,7 +494,7 @@ Implementation details...`}
                 <pre className="bg-muted/50 p-4 rounded-lg overflow-x-auto">
                   <code className="text-sm font-mono">
                     {JSON.stringify(
-                      transactions.map(tx => {
+                      transactions.map((tx) => {
                         const formatted = ABIParser.formatTransaction(tx);
                         try {
                           return JSON.parse(formatted);
