@@ -39,7 +39,7 @@ contract MigrateBatchWithFFI is Script {
         string title;
         string network;
         address author;
-        QIPRegistry.QIPStatus status;
+        string status;
         string implementor;
         uint256 implementationDate;
         string proposal;
@@ -254,34 +254,37 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
-     * @notice Parse status string to enum value
+     * @notice Parse status string to new status names
+     * Maps old statuses to our new 3-status system
      */
-    function parseStatus(string memory statusStr) internal pure returns (QIPRegistry.QIPStatus) {
+    function parseStatus(string memory statusStr, bool hasValidProposal) internal pure returns (string memory) {
         bytes32 statusHash = keccak256(bytes(statusStr));
-        
+
+        // If there's a valid snapshot proposal, it should be "Posted to Snapshot"
+        if (hasValidProposal) {
+            return "Posted to Snapshot";
+        }
+
+        // Otherwise, map based on original status
         if (statusHash == keccak256(bytes("Draft"))) {
-            return QIPRegistry.QIPStatus.Draft;
-        } else if (statusHash == keccak256(bytes("Review")) || 
+            return "Draft";
+        } else if (statusHash == keccak256(bytes("Review")) ||
                    statusHash == keccak256(bytes("Review Pending")) ||
                    statusHash == keccak256(bytes("ReviewPending"))) {
-            return QIPRegistry.QIPStatus.ReviewPending;
-        } else if (statusHash == keccak256(bytes("Vote")) || 
+            return "Ready for Snapshot";
+        } else if (statusHash == keccak256(bytes("Vote")) ||
                    statusHash == keccak256(bytes("Vote Pending")) ||
-                   statusHash == keccak256(bytes("VotePending"))) {
-            return QIPRegistry.QIPStatus.VotePending;
-        } else if (statusHash == keccak256(bytes("Approved"))) {
-            return QIPRegistry.QIPStatus.Approved;
-        } else if (statusHash == keccak256(bytes("Rejected"))) {
-            return QIPRegistry.QIPStatus.Rejected;
-        } else if (statusHash == keccak256(bytes("Implemented"))) {
-            return QIPRegistry.QIPStatus.Implemented;
-        } else if (statusHash == keccak256(bytes("Superseded"))) {
-            return QIPRegistry.QIPStatus.Superseded;
-        } else if (statusHash == keccak256(bytes("Withdrawn"))) {
-            return QIPRegistry.QIPStatus.Withdrawn;
+                   statusHash == keccak256(bytes("VotePending")) ||
+                   statusHash == keccak256(bytes("Approved")) ||
+                   statusHash == keccak256(bytes("Rejected")) ||
+                   statusHash == keccak256(bytes("Implemented")) ||
+                   statusHash == keccak256(bytes("Superseded")) ||
+                   statusHash == keccak256(bytes("Withdrawn"))) {
+            // All these map to "Posted to Snapshot" since they're past voting
+            return "Posted to Snapshot";
         } else {
-            // Default to Draft for unknown statuses
-            return QIPRegistry.QIPStatus.Draft;
+            // Default to Posted for unknown statuses (most are historical)
+            return "Posted to Snapshot";
         }
     }
     
@@ -333,6 +336,54 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
+     * @notice Check if a proposal URL is valid (not a placeholder)
+     */
+    function isValidProposalUrl(string memory proposalStr) internal pure returns (bool) {
+        if (bytes(proposalStr).length == 0) return false;
+
+        bytes32 proposalHash = keccak256(bytes(proposalStr));
+
+        // Check for placeholder values
+        if (proposalHash == keccak256(bytes("TBU")) ||
+            proposalHash == keccak256(bytes("tbu")) ||
+            proposalHash == keccak256(bytes("None")) ||
+            proposalHash == keccak256(bytes("none")) ||
+            proposalHash == keccak256(bytes("TBD")) ||
+            proposalHash == keccak256(bytes("tbd"))) {
+            return false;
+        }
+
+        // Basic validation - should contain "snapshot" or be a valid URL format
+        // This is a simple check - could be made more robust
+        bytes memory proposalBytes = bytes(proposalStr);
+
+        // Check if it contains "snapshot" (case-insensitive check would be better but complex in Solidity)
+        bytes memory snapshotBytes = bytes("snapshot");
+        if (proposalBytes.length >= snapshotBytes.length) {
+            for (uint256 i = 0; i <= proposalBytes.length - snapshotBytes.length; i++) {
+                bool found = true;
+                for (uint256 j = 0; j < snapshotBytes.length; j++) {
+                    // Simple case-insensitive comparison for ASCII letters
+                    bytes1 char1 = proposalBytes[i + j];
+                    bytes1 char2 = snapshotBytes[j];
+
+                    // Convert to lowercase for comparison
+                    if (char1 >= 0x41 && char1 <= 0x5A) char1 = bytes1(uint8(char1) + 32);
+
+                    if (char1 != char2) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) return true;
+            }
+        }
+
+        // Could also check for https:// prefix but let's be flexible
+        return false;
+    }
+
+    /**
      * @notice Parse QIP file using FFI
      */
     function parseQIPFile(string memory filename, uint256 qipNumber) internal returns (QIPData memory) {
@@ -346,31 +397,33 @@ contract MigrateBatchWithFFI is Script {
         string memory networkStr = extractField(filePath, "network");
         data.network = bytes(networkStr).length == 0 ? "Polygon" : networkStr;
         
+        // Extract proposal first to determine if it affects status
+        string memory proposalStr = extractField(filePath, "proposal");
+        bool hasValidProposal = isValidProposalUrl(proposalStr);
+
+        if (hasValidProposal) {
+            data.proposal = proposalStr;
+        } else {
+            data.proposal = "";
+        }
+
+        // Parse status considering the proposal
         string memory statusStr = extractField(filePath, "status");
-        data.status = parseStatus(statusStr);
-        
+        data.status = parseStatus(statusStr, hasValidProposal);
+
         // Use default author address for now
         string memory authorStr = extractField(filePath, "author");
         data.author = address(0x0000000000000000000000000000000000000001);
-        
+
         string memory implementorStr = extractField(filePath, "implementor");
         if (bytes(implementorStr).length == 0 || keccak256(bytes(implementorStr)) == keccak256(bytes("None"))) {
             data.implementor = "None";
         } else {
             data.implementor = implementorStr;
         }
-        
+
         string memory implDateStr = extractField(filePath, "implementation-date");
         data.implementationDate = parseDateToTimestamp(implDateStr);
-        
-        string memory proposalStr = extractField(filePath, "proposal");
-        if (keccak256(bytes(proposalStr)) == keccak256(bytes("TBU")) || 
-            keccak256(bytes(proposalStr)) == keccak256(bytes("tbu")) ||
-            keccak256(bytes(proposalStr)) == keccak256(bytes("None"))) {
-            data.proposal = "";
-        } else {
-            data.proposal = proposalStr;
-        }
         
         string memory createdStr = extractField(filePath, "created");
         data.created = parseDateToTimestamp(createdStr);
@@ -380,10 +433,14 @@ contract MigrateBatchWithFFI is Script {
         
         console.log("  Parsed QIP-", qipNumber);
         console.log("    Title:", data.title);
-        console.log("    Status:", statusStr);
+        console.log("    Status:", statusStr, hasValidProposal ? "(has proposal)" : "");
+        console.log("    Final Status:", data.status);
         console.log("    Network:", data.network);
         console.log("    Author:", authorStr);
         console.log("    Implementor:", data.implementor);
+        if (hasValidProposal) {
+            console.log("    Proposal:", proposalStr);
+        }
         
         return data;
     }

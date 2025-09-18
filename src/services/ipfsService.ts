@@ -747,7 +747,7 @@ export class IPFSService {
     let formatted = `---
 qip: ${qipData.qip}
 title: ${qipData.title}
-network: ${qipData.network}
+chain: ${qipData.chain}
 status: ${qipData.status}
 author: ${qipData.author}
 implementor: ${qipData.implementor}

@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { useQIP } from '../hooks/useQIP'
-import { useUpdateQIPStatus } from '../hooks/useUpdateQIPStatus'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
-import { StatusUpdateComponent } from '../components/StatusUpdateComponent'
 import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndicator'
-import QIPRegistryABI from '../config/abis/QIPRegistry.json'
+import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 import { QIPStatus, QIPClient } from '../services/qipClient'
 import { useMemo } from 'react'
 import { getIPFSGatewayUrl } from '../utils/ipfsGateway'
@@ -27,7 +27,7 @@ const QIPDetail: React.FC = () => {
   
   // Cache for role checks to avoid repeated contract calls
   const [roleCache] = useState<Map<string, boolean>>(new Map())
-  const { updateStatus } = useUpdateQIPStatus()
+  const queryClient = useQueryClient()
 
   // Extract number from QIP-XXX format
   const qipNumberParsed = qipNumber?.replace('QIP-', '') || '0'
@@ -44,6 +44,15 @@ const QIPDetail: React.FC = () => {
     enabled: !!registryAddress && !!qipNumber
   })
 
+  // Clear stale cache on mount to ensure fresh data
+  useEffect(() => {
+    if (registryAddress && qipNumber) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.qip(parseInt(qipNumberParsed), registryAddress)
+      })
+    }
+  }, [qipNumberParsed, registryAddress, queryClient])
+
   // Create a memoized QIPClient instance to avoid recreating it
   const qipClient = useMemo(() => {
     if (!registryAddress) return null
@@ -57,8 +66,10 @@ const QIPDetail: React.FC = () => {
   useEffect(() => {
     // Debounce timer to prevent rapid re-checks
     let timeoutId: NodeJS.Timeout
-    
+
     const checkPermissions = async () => {
+      console.log('[QIPDetail] Permission check - address:', address, 'qipData:', !!qipData, 'qipClient:', !!qipClient);
+
       if (!address || !qipData || !qipClient) {
         setCanEdit(false)
         setCanSubmitSnapshot(false)
@@ -71,26 +82,33 @@ const QIPDetail: React.FC = () => {
       
       // Check if user has editor or admin role using the load-balanced client
       let editorCheck = false
-      
+
       // Check cache first
       const cacheKey = `${address}-roles`
-      if (roleCache.has(cacheKey)) {
+      // Force fresh check - skip cache for debugging
+      const skipCache = true;
+
+      if (!skipCache && roleCache.has(cacheKey)) {
         editorCheck = roleCache.get(cacheKey) || false
+        console.log('[QIPDetail] Using cached role:', editorCheck);
       } else {
+        console.log('[QIPDetail] Making fresh role check for address:', address);
         try {
           // Use the QIPClient's public client which has load balancing
           const publicClient = qipClient.getPublicClient()
-          
+
           // Batch both role checks together to reduce RPC calls
           const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000'
-          
+
           // Get EDITOR_ROLE constant first
           const editorRoleResult = await publicClient.readContract({
             address: registryAddress,
             abi: QIPRegistryABI,
             functionName: 'EDITOR_ROLE'
           })
-          
+
+          console.log('[QIPDetail] EDITOR_ROLE hash:', editorRoleResult);
+
           // Then batch the hasRole checks
           const [hasEditorRole, hasAdminRole] = await Promise.all([
             publicClient.readContract({
@@ -106,11 +124,13 @@ const QIPDetail: React.FC = () => {
               args: [DEFAULT_ADMIN_ROLE, address]
             })
           ])
-          
+
+          console.log('[QIPDetail] Role check results - hasEditorRole:', hasEditorRole, 'hasAdminRole:', hasAdminRole);
+
           editorCheck = (hasEditorRole || hasAdminRole) as boolean
           // Cache the result
           roleCache.set(cacheKey, editorCheck)
-          
+
           if (editorCheck) {
             console.log(`User ${address} has ${hasAdminRole ? 'admin' : 'editor'} role`)
           }
@@ -120,6 +140,7 @@ const QIPDetail: React.FC = () => {
       }
       setIsEditor(editorCheck)
 
+      console.log('[QIPDetail] Final permissions - authorCheck:', authorCheck, 'editorCheck:', editorCheck);
       setCanEdit(authorCheck || editorCheck)
       // Editors can submit to snapshot even if they're not the author
       setCanSubmitSnapshot(authorCheck || editorCheck)
@@ -163,7 +184,7 @@ const QIPDetail: React.FC = () => {
   const frontmatter = {
     qip: qipData.qipNumber,
     title: qipData.title,
-    network: qipData.network,
+    chain: qipData.chain,
     status: qipData.status,
     author: qipData.author,
     implementor: qipData.implementor,
@@ -176,125 +197,193 @@ const QIPDetail: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-          <Link to="/all-proposals" className="text-primary hover:text-primary/80 mb-4 inline-block">
+        <div className="flex justify-between items-center mb-4">
+          <Link to="/all-proposals" className="text-primary hover:text-primary/80 inline-block">
             ← Back to all proposals
           </Link>
-
-          <h1 className="text-4xl font-bold mb-4">
-            QIP-{qipData.qipNumber}: {qipData.title}
-          </h1>
-
-          <div className="mb-8">
-            <FrontmatterTable frontmatter={frontmatter} />
-          </div>
-
-          {(isAuthor || isEditor) && (
-            <div className="mb-6">
-              <div className="flex items-center gap-3">
-                <StatusUpdateComponent
-                  qipNumber={BigInt(qipData.qipNumber)}
-                  currentStatus={qipData.statusEnum || QIPStatus.Draft}
-                  currentIpfsStatus={qipData.ipfsStatus}
-                  isAuthor={isAuthor}
-                  isEditor={isEditor}
-                  onStatusUpdate={async (newStatus) => {
-                    await updateStatus(BigInt(qipData.qipNumber), newStatus)
-                    // Refresh the QIP data after update
-                    refetch()
-                  }}
-                  hideStatusPill={true}
-                />
-                <StatusDiscrepancyIndicator
-                  onChainStatus={qipData.status}
-                  ipfsStatus={qipData.ipfsStatus}
-                />
-              </div>
-            </div>
+          {process.env.NODE_ENV === "development" && (
+            <button
+              onClick={() => {
+                // Clear all caches
+                queryClient.removeQueries();
+                localStorage.removeItem("qips-query-cache");
+                window.location.reload();
+              }}
+              className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+            >
+              Clear Cache (Dev)
+            </button>
           )}
+        </div>
 
-          {qipData.ipfsUrl && (
-            <div className="mb-4 text-sm text-muted-foreground">
-              <span className="font-semibold">IPFS:</span>{' '}
-              <a 
-                href={getIPFSGatewayUrl(qipData.ipfsUrl)} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:text-primary/80"
-              >
-                {qipData.ipfsUrl}
-              </a>
-            </div>
-          )}
+        <h1 className="text-4xl font-bold mb-4">
+          QIP-{qipData.qipNumber}: {qipData.title}
+        </h1>
 
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {/* Fix reversed markdown link syntax (text)[url] -> [text](url) */}
-              {qipData.content?.replace(/\(([^)]+)\)\[([^\]]+)\]/g, '[$1]($2)')}
-            </ReactMarkdown>
+        <div className="mb-8">
+          <FrontmatterTable
+            frontmatter={frontmatter}
+            qipNumber={qipData.qipNumber}
+            statusEnum={qipData.statusEnum}
+            isAuthor={isAuthor}
+            isEditor={isEditor}
+            registryAddress={registryAddress}
+            rpcUrl={rpcUrl}
+            enableStatusEdit={true}
+            onStatusUpdate={async () => {
+              console.log("[QIPDetail] Status update triggered from FrontmatterTable");
+
+              // Give the blockchain a moment to fully sync
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              // Remove ALL related queries to ensure clean state
+              queryClient.removeQueries({
+                queryKey: ["qip", parseInt(qipNumberParsed)],
+                exact: false,
+              });
+
+              // Also remove blockchain-specific cache
+              queryClient.removeQueries({
+                queryKey: ["qip-blockchain", parseInt(qipNumberParsed)],
+                exact: false,
+              });
+
+              // IMPORTANT: Invalidate the QIP list cache so the main page updates
+              queryClient.invalidateQueries({
+                queryKey: ["qips", "list", registryAddress],
+              });
+
+              console.log("[QIPDetail] Cache cleared, refetching...");
+
+              // Force a fresh fetch
+              await refetch();
+            }}
+          />
+        </div>
+
+        {qipData.status !== qipData.ipfsStatus && (
+          <div className="mb-6">
+            <StatusDiscrepancyIndicator onChainStatus={qipData.status} ipfsStatus={qipData.ipfsStatus} />
           </div>
+        )}
 
-          {/* Version and edit info */}
-          <div className="mt-8 p-4 bg-muted rounded">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                Version {qipData.version}
-                {qipData.version > 1 && ` • Updated ${qipData.version - 1} time${qipData.version > 2 ? 's' : ''}`}
-              </p>
-              {canEdit && qipData.status === 'Draft' && (
-                <Link 
-                  to={`/edit-proposal?qip=${qipData.qipNumber}`}
-                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                >
-                  Edit Proposal
-                </Link>
+        {qipData.ipfsUrl && (
+          <div className="mb-4 text-sm text-muted-foreground">
+            <span className="font-semibold">IPFS:</span>{" "}
+            <a
+              href={getIPFSGatewayUrl(qipData.ipfsUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80"
+            >
+              {qipData.ipfsUrl}
+            </a>
+          </div>
+        )}
+
+        <div className="prose prose-lg dark:prose-invert max-w-none">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {/* Fix reversed markdown link syntax (text)[url] -> [text](url) */}
+            {qipData.content?.replace(/\(([^)]+)\)\[([^\]]+)\]/g, "[$1]($2)")}
+          </ReactMarkdown>
+        </div>
+
+        {/* Version and edit info */}
+        <div className="mt-8 p-4 bg-muted rounded">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Version {qipData.version}
+              {qipData.version > 1 && ` • Updated ${qipData.version - 1} time${qipData.version > 2 ? "s" : ""}`}
+            </p>
+            {canEdit && qipData.status === "Draft" && (
+              <Link to={`/edit-proposal?qip=${qipData.qipNumber}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                Edit Proposal
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Snapshot submission for QIPs ready for snapshot submission */}
+        {canSubmitSnapshot && qipData.status === "Ready for Snapshot" && (!qipData.proposal || qipData.proposal === "None") && (
+          <div className="mt-8 border-t pt-8">
+            <h2 className="text-2xl font-bold mb-4">
+              Submit to Snapshot
+              {config.snapshotSpace !== "qidao.eth" && (
+                <span className="text-base font-normal text-primary ml-2">(Space: {config.snapshotSpace})</span>
               )}
-            </div>
+            </h2>
+            {isClient ? (
+              <SnapshotSubmitter
+                frontmatter={frontmatter}
+                html={`<div>${qipData.content}</div>`}
+                rawMarkdown={qipData.content}
+                onStatusUpdate={async () => {
+                  console.log("[QIPDetail] Status update triggered from SnapshotSubmitter");
+
+                  // Give the blockchain a moment to fully sync
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+                  // Remove ALL related queries to ensure clean state
+                  queryClient.removeQueries({
+                    queryKey: ["qip", parseInt(qipNumberParsed)],
+                    exact: false,
+                  });
+
+                  // Also remove blockchain-specific cache
+                  queryClient.removeQueries({
+                    queryKey: ["qip-blockchain", parseInt(qipNumberParsed)],
+                    exact: false,
+                  });
+
+                  // IMPORTANT: Invalidate the QIP list cache so the main page updates
+                  queryClient.invalidateQueries({
+                    queryKey: ["qips", "list", registryAddress],
+                  });
+
+                  console.log("[QIPDetail] Cache cleared, refetching...");
+
+                  // Force a fresh fetch
+                  await refetch();
+                }}
+                registryAddress={registryAddress}
+                rpcUrl={rpcUrl}
+                isAuthor={isAuthor}
+                isEditor={isEditor}
+              />
+            ) : (
+              <div className="text-center p-4">Loading interactive module...</div>
+            )}
           </div>
+        )}
 
-          {/* Snapshot submission for eligible statuses - visible to editors and authors */}
-          {/* Also show for recently approved QIPs that don't have a proposal yet */}
-          {canSubmitSnapshot && 
-           ((qipData.status === 'Review' || qipData.status === 'Vote' || 
-            (qipData.status === 'Approved' && (!qipData.proposal || qipData.proposal === 'None'))) && 
-            (!qipData.proposal || qipData.proposal === 'None')) && (
-            <div className="mt-8 border-t pt-8">
-              <h2 className="text-2xl font-bold mb-4">
-                Submit to Snapshot
-                {config.snapshotSpace !== 'qidao.eth' && (
-                  <span className="text-base font-normal text-primary ml-2">
-                    (Space: {config.snapshotSpace})
-                  </span>
-                )}
-              </h2>
-              {isClient ? (
-                <SnapshotSubmitter 
-                  frontmatter={frontmatter} 
-                  html={`<div>${qipData.content}</div>`}
-                  rawMarkdown={qipData.content} 
-                />
-              ) : (
-                <div className="text-center p-4">Loading interactive module...</div>
-              )}
-            </div>
-          )}
-
-          {/* Show existing Snapshot proposal link */}
-          {qipData.proposal && qipData.proposal !== 'None' && (
-            <div className="mt-8 p-4 bg-primary/5 rounded">
-              <h3 className="font-bold mb-2">Snapshot Proposal</h3>
-              <a 
-                href={qipData.proposal.startsWith('http') ? qipData.proposal : `https://snapshot.org/#/${qipData.proposal}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                View on Snapshot →
-              </a>
-            </div>
-          )}
+        {/* Show existing Snapshot proposal link */}
+        {qipData.proposal && qipData.proposal !== "None" && (
+          <div className="mt-8 p-4 bg-primary/5 rounded">
+            <h3 className="font-bold mb-2">Snapshot Proposal</h3>
+            <a
+              href={(() => {
+                if (qipData.proposal.startsWith("http")) {
+                  return qipData.proposal;
+                }
+                // If it's just a proposal ID (0x...), construct the full URL with the space
+                const space = config.snapshotSpace || 'qidao.eth';
+                if (qipData.proposal.startsWith("0x")) {
+                  return `https://snapshot.org/#/${space}/proposal/${qipData.proposal}`;
+                }
+                // Fallback for other formats
+                return `https://snapshot.org/#/${qipData.proposal}`;
+              })()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              View on Snapshot →
+            </a>
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }
 
 export default QIPDetail

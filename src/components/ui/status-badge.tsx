@@ -1,82 +1,43 @@
 import React from 'react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { QIPStatus } from '@/services/qipClient';
+import { QIPStatus, DEFAULT_STATUSES } from '@/services/qipClient';
 
-export type StatusType = QIPStatus | 'Draft' | 'Review' | 'Vote' | 'Approved' | 'Rejected' | 'Implemented' | 'Superseded' | 'Withdrawn';
+export type StatusType = QIPStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot';
 
 interface StatusBadgeProps extends Omit<BadgeProps, 'variant'> {
   status: StatusType | string;
+  statusName?: string; // Optional: if status name is already fetched
   size?: 'sm' | 'default' | 'lg';
 }
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  // QIPStatus enum values
-  [QIPStatus.Draft]: {
+const STATUS_CONFIG: Record<number | string, { label: string; className: string }> = {
+  // New simplified status system (numbers)
+  [DEFAULT_STATUSES.Draft]: {
     label: 'Draft',
     className: 'bg-muted text-foreground hover:bg-muted/80',
   },
-  [QIPStatus.ReviewPending]: {
-    label: 'Review Pending',
+  [DEFAULT_STATUSES.ReadyForSnapshot]: {
+    label: 'Ready for Snapshot',
     className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20',
   },
-  [QIPStatus.VotePending]: {
-    label: 'Vote Pending',
+  [DEFAULT_STATUSES.PostedToSnapshot]: {
+    label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
   },
-  [QIPStatus.Approved]: {
-    label: 'Approved',
-    className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40',
-  },
-  [QIPStatus.Rejected]: {
-    label: 'Rejected',
-    className: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
-  },
-  [QIPStatus.Implemented]: {
-    label: 'Implemented',
-    className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/40',
-  },
-  [QIPStatus.Superseded]: {
-    label: 'Superseded',
-    className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/40',
-  },
-  [QIPStatus.Withdrawn]: {
-    label: 'Withdrawn',
-    className: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  },
-  // String values for backward compatibility
+  // String values for custom statuses
   'Draft': {
     label: 'Draft',
     className: 'bg-muted text-foreground hover:bg-muted/80',
   },
-  'Review': {
-    label: 'Review',
+  'Ready for Snapshot': {
+    label: 'Ready for Snapshot',
     className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20',
   },
-  'Vote': {
-    label: 'Vote',
+  'Posted to Snapshot': {
+    label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
-  },
-  'Approved': {
-    label: 'Approved',
-    className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40',
-  },
-  'Rejected': {
-    label: 'Rejected',
-    className: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
-  },
-  'Implemented': {
-    label: 'Implemented',
-    className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/40',
-  },
-  'Superseded': {
-    label: 'Superseded',
-    className: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/40',
-  },
-  'Withdrawn': {
-    label: 'Withdrawn',
-    className: 'bg-muted text-muted-foreground hover:bg-muted/80',
-  },
+  }
 };
 
 const SIZE_CLASSES = {
@@ -87,12 +48,15 @@ const SIZE_CLASSES = {
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
+  statusName,
   size = 'default',
   className,
   ...props
 }) => {
+  // If statusName is provided, use it; otherwise look up in config
+  const label = statusName || STATUS_CONFIG[status]?.label || STATUS_CONFIG[String(status)]?.label || `Status ${status}`;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG[String(status)] || {
-    label: String(status),
+    label: label,
     className: 'bg-muted text-foreground',
   };
 
@@ -106,7 +70,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       )}
       {...props}
     >
-      {config.label}
+      {statusName || config.label}
     </Badge>
   );
 };
@@ -116,7 +80,8 @@ export const getStatusColor = (status: StatusType | string): string => {
   return config?.className || 'bg-muted text-foreground';
 };
 
-export const getStatusLabel = (status: StatusType | string): string => {
+export const getStatusLabel = (status: StatusType | string, statusName?: string): string => {
+  if (statusName) return statusName;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG[String(status)];
   return config?.label || String(status);
 };

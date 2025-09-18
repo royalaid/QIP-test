@@ -11,16 +11,8 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/com
 
 const statusColor:any = {
     Draft: '#757575',
-    Review: '#FFEB3B',           // Changed from 'Review Pending'
-    'Review Pending': '#FFEB3B', // Keep for backward compatibility
-    Vote: '#FFEB3B',             // Changed from 'Vote Pending'
-    'Vote Pending': '#FFEB3B',   // Keep for backward compatibility
-    Rejected: '#F44336',
-    Approved: '#4CAF50',
-    Implemented: '#4CAF50',
-    Superseded: '#9E9E9E',       // Added
-    Withdrawn: '#9E9E9E',        // Added
-    Templates: '#757575',
+    'Ready for Snapshot': '#FFEB3B',
+    'Posted to Snapshot': '#4CAF50'
 };
 
 const ProposalListItem = (props: any) => {
@@ -90,7 +82,7 @@ const ProposalListItem = (props: any) => {
                         return {
                             qipNumber,
                             title: qip.title,
-                            network: qip.network,
+                            chain: qip.chain,
                             status: qipClient.getStatusString(qip.status),
                             author: frontmatter.author || qip.author,
                             implementor: qip.implementor,

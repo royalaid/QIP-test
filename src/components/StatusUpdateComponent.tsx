@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useAccount, useWalletClient } from 'wagmi';
-import { QIPStatus } from '../services/qipClient';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { QIPStatus, DEFAULT_STATUSES, QIPClient } from '../services/qipClient';
 import { toast } from 'react-hot-toast';
 import { FiCheck, FiX, FiAlertCircle } from 'react-icons/fi';
+import { Address } from 'viem';
 
 interface StatusUpdateComponentProps {
   qipNumber: bigint;
@@ -10,59 +11,12 @@ interface StatusUpdateComponentProps {
   currentIpfsStatus?: string;
   isAuthor: boolean;
   isEditor: boolean;
-  onStatusUpdate: (newStatus: QIPStatus) => Promise<void>;
+  onStatusUpdate: (newStatus: QIPStatus | string) => Promise<void>;
   onSyncToIPFS?: () => Promise<void>;
   hideStatusPill?: boolean;
 }
 
-// Status transition rules - defines valid transitions from each status
-// Note: These are UI suggestions only. Editors/Admins can transition to any status on-chain.
-const STATUS_TRANSITIONS: Record<QIPStatus, QIPStatus[]> = {
-  [QIPStatus.Draft]: [QIPStatus.ReviewPending, QIPStatus.Withdrawn],
-  [QIPStatus.ReviewPending]: [QIPStatus.VotePending, QIPStatus.Draft, QIPStatus.Withdrawn],
-  [QIPStatus.VotePending]: [QIPStatus.Approved, QIPStatus.Rejected, QIPStatus.Withdrawn],
-  [QIPStatus.Approved]: [QIPStatus.Implemented, QIPStatus.Superseded],
-  [QIPStatus.Rejected]: [QIPStatus.Draft, QIPStatus.Withdrawn],
-  [QIPStatus.Implemented]: [QIPStatus.Superseded],
-  [QIPStatus.Superseded]: [],
-  [QIPStatus.Withdrawn]: [QIPStatus.Draft]
-};
-
-// All possible statuses for editors/admins
-const ALL_STATUSES = [
-  QIPStatus.Draft,
-  QIPStatus.ReviewPending,
-  QIPStatus.VotePending,
-  QIPStatus.Approved,
-  QIPStatus.Rejected,
-  QIPStatus.Implemented,
-  QIPStatus.Superseded,
-  QIPStatus.Withdrawn
-];
-
-// Human-readable status labels
-const STATUS_LABELS: Record<QIPStatus, string> = {
-  [QIPStatus.Draft]: 'Draft',
-  [QIPStatus.ReviewPending]: 'Review Pending',
-  [QIPStatus.VotePending]: 'Vote Pending',
-  [QIPStatus.Approved]: 'Approved',
-  [QIPStatus.Rejected]: 'Rejected',
-  [QIPStatus.Implemented]: 'Implemented',
-  [QIPStatus.Superseded]: 'Superseded',
-  [QIPStatus.Withdrawn]: 'Withdrawn'
-};
-
-// Status colors for visual feedback
-const STATUS_COLORS: Record<QIPStatus, string> = {
-  [QIPStatus.Draft]: 'bg-muted text-foreground',
-  [QIPStatus.ReviewPending]: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
-  [QIPStatus.VotePending]: 'bg-primary/10 text-primary',
-  [QIPStatus.Approved]: 'bg-green-100 text-green-800',
-  [QIPStatus.Rejected]: 'bg-destructive/10 text-destructive',
-  [QIPStatus.Implemented]: 'bg-purple-100 text-purple-800',
-  [QIPStatus.Superseded]: 'bg-orange-100 text-orange-800',
-  [QIPStatus.Withdrawn]: 'bg-muted text-muted-foreground'
-};
+// No status transition rules - all transitions are allowed
 
 export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   qipNumber,
@@ -74,48 +28,116 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   onSyncToIPFS,
   hideStatusPill = false
 }) => {
-  const { address, isConnected } = useAccount();
+  console.log('StatusUpdateComponent received currentStatus:', currentStatus, 'which is:', QIPStatus[currentStatus]);
+  const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const [isUpdating, setIsUpdating] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<QIPStatus | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [availableStatuses, setAvailableStatuses] = useState<{ hash: string, name: string }[]>([]);
 
-  // Only editors/admins can update status on-chain (per smart contract)
-  const canUpdateStatus = isConnected && isEditor;
+  // Fetch available statuses from contract on mount
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      // Use import.meta.env for Vite environment variables
+      const contractAddress = import.meta.env.VITE_QIP_REGISTRY_ADDRESS as Address;
 
-  // Get valid transitions for current status
-  const validTransitions = STATUS_TRANSITIONS[currentStatus] || [];
+      if (!contractAddress) {
+        console.warn('QIP Registry address not configured, using defaults');
+        // Set default statuses immediately if no contract address
+        setAvailableStatuses([
+          { hash: '0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382', name: 'Draft' },
+          { hash: '0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb', name: 'Ready for Snapshot' },
+          { hash: '0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c', name: 'Posted to Snapshot' }
+        ]);
+        return;
+      }
 
-  // Get available transitions based on user permissions
-  const getAvailableTransitions = (): QIPStatus[] => {
-    if (!canUpdateStatus) return [];
+      try {
+        const client = new QIPClient(contractAddress);
+        const statuses = await client.fetchAllStatuses();
 
-    // Editors/Admins can transition to ANY status (as enforced by smart contract)
-    // We show all statuses except the current one
-    if (isEditor) {
-      return ALL_STATUSES.filter(status => status !== currentStatus);
-    }
+        const statusList: { hash: string, name: string }[] = [];
 
-    // Authors cannot update status on-chain at all
-    // The smart contract's updateStatus function has onlyRole(EDITOR_ROLE) modifier
-    return [];
+        for (let i = 0; i < statuses.hashes.length; i++) {
+          statusList.push({ hash: statuses.hashes[i], name: statuses.names[i] });
+        }
+
+        console.log('Fetched statuses:', statusList);
+        setAvailableStatuses(statusList);
+      } catch (error) {
+        console.error('Failed to fetch statuses, using defaults:', error);
+        // Fallback to default statuses
+        setAvailableStatuses([
+          { hash: '0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382', name: 'Draft' },
+          { hash: '0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb', name: 'Ready for Snapshot' },
+          { hash: '0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c', name: 'Posted to Snapshot' }
+        ]);
+      }
+    };
+
+    fetchStatuses();
+  }, []);
+
+  const canUpdate = isAuthor || isEditor;
+
+  const getAvailableTransitions = () => {
+    // Get current status hash
+    const currentStatusHash = getCurrentStatusHash();
+
+    console.log('Getting available transitions:');
+    console.log('- Current status:', currentStatus, QIPStatus[currentStatus]);
+    console.log('- Current status hash:', currentStatusHash);
+    console.log('- Available statuses:', availableStatuses);
+
+    // All users can transition to any status except the current one
+    const transitions = availableStatuses.filter(s => s.hash.toLowerCase() !== currentStatusHash.toLowerCase());
+    console.log('- Available transitions:', transitions);
+
+    return transitions;
   };
 
-  const availableTransitions = getAvailableTransitions();
+  const getCurrentStatusHash = () => {
+    // Map enum values to hashes
+    const statusToHash: Record<number, string> = {
+      [QIPStatus.Draft]: '0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382',
+      [QIPStatus.ReadyForSnapshot]: '0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb',
+      [QIPStatus.PostedToSnapshot]: '0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c'
+    };
+    return statusToHash[currentStatus] || '';
+  };
 
-  const handleStatusSelect = (newStatus: QIPStatus) => {
-    setSelectedStatus(newStatus);
-    setShowConfirmDialog(true);
+  const getStatusLabel = (statusInput: number | string): string => {
+    if (typeof statusInput === 'number') {
+      // Convert enum to string
+      const statusMap: Record<number, string> = {
+        [QIPStatus.Draft]: 'Draft',
+        [QIPStatus.ReadyForSnapshot]: 'Ready for Snapshot',
+        [QIPStatus.PostedToSnapshot]: 'Posted to Snapshot'
+      };
+      return statusMap[statusInput] || 'Unknown';
+    }
+
+    // If it's a hash, find the corresponding name
+    const status = availableStatuses.find(s => s.hash.toLowerCase() === statusInput.toLowerCase());
+    return status?.name || 'Unknown';
+  };
+
+  const handleStatusChange = (newStatusHash: string, newStatusName: string) => {
+    setSelectedStatus(newStatusName);
+    setShowConfirmation(true);
   };
 
   const confirmStatusUpdate = async () => {
-    if (!selectedStatus || !walletClient) return;
+    if (selectedStatus === null || !walletClient) return;
 
     setIsUpdating(true);
     try {
-      await onStatusUpdate(selectedStatus);
-      toast.success(`Status updated to ${STATUS_LABELS[selectedStatus]}`);
-      setShowConfirmDialog(false);
+      // Call onStatusUpdate with the status name (string)
+      await onStatusUpdate(selectedStatus as any);
+      toast.success(`Status updated to ${selectedStatus}`);
+      setShowConfirmation(false);
       setSelectedStatus(null);
     } catch (error: any) {
       console.error('Failed to update status:', error);
@@ -126,181 +148,175 @@ export const StatusUpdateComponent: React.FC<StatusUpdateComponentProps> = ({
   };
 
   const cancelStatusUpdate = () => {
-    setShowConfirmDialog(false);
+    setShowConfirmation(false);
     setSelectedStatus(null);
   };
 
-  if (!canUpdateStatus || availableTransitions.length === 0) {
-    // Just show current status without update options
-    return (
-      <div className="inline-flex items-center gap-2">
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
-          {STATUS_LABELS[currentStatus]}
-        </span>
-        {isAuthor && !isEditor && (
-          <span className="text-xs text-gray-500 italic">
-            (Status updates require editor permissions)
-          </span>
-        )}
-      </div>
-    );
+  const handleSyncToIPFS = async () => {
+    if (!onSyncToIPFS) return;
+
+    setIsUpdating(true);
+    try {
+      await onSyncToIPFS();
+      toast.success('IPFS content synced with blockchain status');
+    } catch (error: any) {
+      console.error('Failed to sync to IPFS:', error);
+      toast.error(error.message || 'Failed to sync to IPFS');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const getStatusColor = (status: QIPStatus): string => {
+    switch (status) {
+      case DEFAULT_STATUSES.Draft:
+        return 'bg-gray-500';
+      case DEFAULT_STATUSES.ReadyForSnapshot:
+        return 'bg-yellow-500';
+      case DEFAULT_STATUSES.PostedToSnapshot:
+        return 'bg-blue-500';
+      default:
+        return 'bg-gray-400';
+    }
+  };
+
+  // Check if there's a discrepancy between blockchain and IPFS status
+  const hasStatusDiscrepancy = currentIpfsStatus &&
+    currentIpfsStatus.toLowerCase() !== getStatusLabel(currentStatus).toLowerCase();
+
+  const availableTransitions = getAvailableTransitions();
+
+  if (!canUpdate && !hasStatusDiscrepancy) {
+    return null;
   }
 
   return (
-    <>
-      <div className="inline-flex items-center gap-2">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Status Management</h3>
         {!hideStatusPill && (
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${STATUS_COLORS[currentStatus]}`}>
-            {STATUS_LABELS[currentStatus]}
-          </span>
-        )}
-        
-        {/* Status update dropdown */}
-        <div className="relative inline-block">
-          <select
-            className="appearance-none bg-background dark:bg-zinc-800 text-foreground border border-border rounded-md px-3 py-1 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-            onChange={(e) => {
-              const newStatus = parseInt(e.target.value) as QIPStatus;
-              if (!isNaN(newStatus)) {
-                handleStatusSelect(newStatus);
-              }
-            }}
-            disabled={isUpdating}
-            value=""
-          >
-            <option value="" disabled>Change status...</option>
-            {/* Group transitions for better UX */}
-            {isEditor && (
-              <>
-                <optgroup label="Suggested Transitions">
-                  {validTransitions.map(status => (
-                    <option key={status} value={status}>
-                      → {STATUS_LABELS[status]} (suggested)
-                    </option>
-                  ))}
-                </optgroup>
-                {availableTransitions.filter(s => !validTransitions.includes(s)).length > 0 && (
-                  <optgroup label="All Other Statuses">
-                    {availableTransitions
-                      .filter(status => !validTransitions.includes(status))
-                      .map(status => (
-                        <option key={status} value={status}>
-                          → {STATUS_LABELS[status]}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-              </>
-            )}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-            </svg>
+          <div className={`px-3 py-1 rounded-full text-white text-sm ${getStatusColor(currentStatus)}`}>
+            {getStatusLabel(currentStatus)}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && selectedStatus !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-start mb-4">
-              <div className="flex-shrink-0">
-                <FiAlertCircle className="h-6 w-6 text-yellow-500" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Confirm Status Change
-                </h3>
-                <div className="mt-2">
-                  <p className="text-sm text-gray-500">
-                    Are you sure you want to change the status from{' '}
-                    <span className="font-semibold">{STATUS_LABELS[currentStatus]}</span> to{' '}
-                    <span className="font-semibold">{STATUS_LABELS[selectedStatus]}</span>?
-                  </p>
-                  
-                  {/* Show admin override notice when making non-standard transitions */}
-                  {isEditor && !validTransitions.includes(selectedStatus) && (
-                    <div className="mt-3 p-3 bg-primary/5 rounded-md">
-                      <p className="text-sm text-blue-800">
-                        <strong>Administrative Override:</strong> This is not a standard workflow transition. 
-                        As an editor/admin, you have permission to make any status change.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Show IPFS sync warning if status will be out of sync */}
-                  {currentIpfsStatus && STATUS_LABELS[selectedStatus] !== currentIpfsStatus && (
-                    <div className="mt-3 p-3 bg-amber-50 rounded-md">
-                      <p className="text-sm text-amber-800">
-                        <strong>Note:</strong> This status update will only change the on-chain status. 
-                        The IPFS content will show "{currentIpfsStatus}" until manually synchronized.
-                        {onSyncToIPFS && (
-                          <span> You can sync to IPFS after updating if needed.</span>
-                        )}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Show warning for certain transitions */}
-                  {selectedStatus === QIPStatus.Withdrawn && (
-                    <div className="mt-3 p-3 bg-yellow-50 rounded-md">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Warning:</strong> Withdrawing a proposal will remove it from active consideration.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {selectedStatus === QIPStatus.Rejected && (
-                    <div className="mt-3 p-3 bg-red-50 rounded-md">
-                      <p className="text-sm text-red-800">
-                        <strong>Warning:</strong> Rejecting a proposal will require it to be resubmitted for review.
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedStatus === QIPStatus.Implemented && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-md">
-                      <p className="text-sm text-green-800">
-                        <strong>Note:</strong> Mark as implemented only after the proposal has been fully executed on-chain.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+      {hasStatusDiscrepancy && (
+        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-start">
+            <FiAlertCircle className="text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Status discrepancy detected:
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                • Blockchain: <span className="font-semibold">{getStatusLabel(currentStatus)}</span>
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                • IPFS: <span className="font-semibold">{currentIpfsStatus}</span>
+              </p>
+              {onSyncToIPFS && canUpdate && (
+                <button
+                  onClick={handleSyncToIPFS}
+                  disabled={isUpdating}
+                  className="mt-2 text-sm text-yellow-800 dark:text-yellow-200 hover:text-yellow-900 dark:hover:text-yellow-100 font-medium underline"
+                >
+                  Sync IPFS with blockchain status
+                </button>
+              )}
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={cancelStatusUpdate}
-                disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-gray-300 rounded-md hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                <FiX className="inline mr-1" />
-                Cancel
-              </button>
+      {canUpdate && availableTransitions.length > 0 && (
+        <>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Update Status
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {availableTransitions.map((status) => (
+                <button
+                  key={status.hash}
+                  onClick={() => handleStatusChange(status.hash, status.name)}
+                  disabled={isUpdating}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                    selectedStatus === status.name
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {status.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            You can transition to any available status.
+          </p>
+        </>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirmation && selectedStatus !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h4 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Confirm Status Update</h4>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Are you sure you want to change the status from{' '}
+              <span className="font-semibold">{getStatusLabel(currentStatus)}</span> to{' '}
+              <span className="font-semibold">{selectedStatus}</span>?
+            </p>
+            <div className="flex space-x-3">
               <button
                 onClick={confirmStatusUpdate}
                 disabled={isUpdating}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="flex-1 bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isUpdating ? (
-                  <>
-                    <span className="inline-block animate-spin mr-2">⟳</span>
+                  <span className="flex items-center justify-center">
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
                     Updating...
-                  </>
+                  </span>
                 ) : (
-                  <>
-                    <FiCheck className="inline mr-1" />
+                  <span className="flex items-center justify-center">
+                    <FiCheck className="mr-2" />
                     Confirm
-                  </>
+                  </span>
                 )}
+              </button>
+              <button
+                onClick={cancelStatusUpdate}
+                disabled={isUpdating}
+                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="flex items-center justify-center">
+                  <FiX className="mr-2" />
+                  Cancel
+                </span>
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+
+      {!canUpdate && hasStatusDiscrepancy && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+          Only the author or editors can update the status or sync with IPFS.
+        </p>
+      )}
+
+      {canUpdate && availableTransitions.length === 0 && !hasStatusDiscrepancy && (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          <p>Loading status options...</p>
+          {availableStatuses.length === 0 && (
+            <p className="text-xs mt-2">No statuses available. Check console for errors.</p>
+          )}
+        </div>
+      )}
+
+    </div>
   );
 };

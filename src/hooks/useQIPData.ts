@@ -11,7 +11,7 @@ import { useQIPList } from './useQIPList';
 export interface QIPData {
   qipNumber: number;
   title: string;
-  network: string;
+  chain: string;
   status: string; // On-chain status (source of truth)
   statusEnum: QIPStatus; // On-chain status enum value
   ipfsStatus?: string; // Status from IPFS frontmatter (may be outdated)
@@ -135,12 +135,9 @@ export function useQIPsByStatus(status: QIPStatus, options: UseQIPDataOptions = 
   const filteredQIPs = blockchainQIPs.filter(qip => {
     // Map status string back to enum for comparison
     const statusMap: Record<string, QIPStatus> = {
-      'Draft': QIPStatus.Draft,
-      'Review Pending': QIPStatus.ReviewPending,
-      'Vote Pending': QIPStatus.VotePending,
-      'Approved': QIPStatus.Approved,
-      'Rejected': QIPStatus.Rejected,
-      'Implemented': QIPStatus.Implemented,
+      Draft: QIPStatus.Draft,
+      "Ready for Snapshot": QIPStatus.ReadyForSnapshot,
+      "Posted to Snapshot": QIPStatus.PostedToSnapshot,
     };
     
     return statusMap[qip.status] === status;

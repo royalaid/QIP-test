@@ -6,7 +6,7 @@ import { IPFSService, PinataProvider, LocalIPFSProvider } from '../services/ipfs
 export interface QIPData {
   qipNumber: number;
   title: string;
-  network: string;
+  chain: string;
   status: string;
   author: string;
   implementor: string;
@@ -53,11 +53,8 @@ export class QIPDataSource {
     // Get QIPs by status
     const statuses = [
       QIPStatus.Draft,
-      QIPStatus.ReviewPending,
-      QIPStatus.VotePending,
-      QIPStatus.Approved,
-      QIPStatus.Rejected,
-      QIPStatus.Implemented
+      QIPStatus.ReadyForSnapshot,
+      QIPStatus.PostedToSnapshot
     ];
 
     for (const status of statuses) {
@@ -103,7 +100,7 @@ export class QIPDataSource {
       const qipData: QIPData = {
         qipNumber,
         title: qip.title,
-        network: qip.network,
+        chain: qip.chain,
         status: this.qipClient.getStatusString(qip.status),
         author: frontmatter.author || qip.author,
         implementor: qip.implementor,

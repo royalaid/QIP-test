@@ -7,7 +7,7 @@ const testQIPs: QIPContent[] = [
   {
     qip: 249,
     title: 'Implement Dynamic Interest Rates',
-    network: 'Polygon',
+    chain: 'Polygon',
     status: 'Draft',
     author: 'AUTHOR1',
     implementor: 'None',
@@ -55,7 +55,7 @@ Where:
   {
     qip: 250,
     title: 'Add Support for New Collateral Types',
-    network: 'Base',
+    chain: 'Base',
     status: 'ReviewPending',
     author: 'AUTHOR2',
     implementor: 'None',
@@ -107,7 +107,7 @@ Each collateral type has been evaluated for:
   {
     qip: 251,
     title: 'Governance Token Staking Rewards',
-    network: 'Ethereum',
+    chain: 'Ethereum',
     status: 'Withdrawn',
     author: 'AUTHOR3',
     implementor: 'None',
@@ -161,7 +161,7 @@ Current governance participation is low due to lack of direct incentives. A stak
   {
     qip: 100,
     title: 'Historical: Protocol Launch',
-    network: 'Polygon',
+    chain: 'Polygon',
     status: 'Implemented',
     author: 'Core Team',
     implementor: 'Core Team',
@@ -191,7 +191,7 @@ This proposal marked the beginning of the QiDAO ecosystem.`
   {
     qip: 150,
     title: 'Historical: Rejected Proposal',
-    network: 'Ethereum',
+    chain: 'Ethereum',
     status: 'Rejected',
     author: 'Community Member',
     implementor: 'None',

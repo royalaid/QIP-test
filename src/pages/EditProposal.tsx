@@ -27,7 +27,7 @@ const EditProposal: React.FC = () => {
       content: {
         qip: qipData.qipNumber,
         title: qipData.title,
-        network: qipData.network,
+        chain: qipData.chain,
         status: qipData.status,
         author: qipData.author,
         implementor: qipData.implementor,

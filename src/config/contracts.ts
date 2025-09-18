@@ -6,13 +6,13 @@ import { config } from './env'
 export const CONTRACT_ADDRESSES = {
   // Base Mainnet
   8453: {
-    qipRegistry: config.qipRegistryAddress || '0xf5D5CdccEe171F02293337b7F3eda4D45B85B233',
+    qipRegistry: config.qipRegistryAddress || "0xA541fD5521115E6d1DD510D5203E7e7065BcB652",
   },
   // Base Sepolia
   84532: {
-    qipRegistry: config.qipRegistryAddress || '0x0000000000000000000000000000000000000000', // TODO: Deploy to testnet
+    qipRegistry: config.qipRegistryAddress || "0x0000000000000000000000000000000000000000", // TODO: Deploy to testnet
   },
-} as const
+} as const;
 
 /**
  * Get contract address for current chain
@@ -36,4 +36,4 @@ export const getContractAddress = (chainId: number, contract: 'qipRegistry'): `0
 /**
  * Contract ABIs
  */
-export { default as QIP_REGISTRY_ABI } from './abis/QIPRegistry.json'
+export { QIPRegistryABI as QIP_REGISTRY_ABI } from "./abis/QIPRegistry";
