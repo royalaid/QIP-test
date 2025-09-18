@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useEthersSigner } from "../utils/ethers";
-import { createProposal, getProposals } from "../utils/snapshotClient";
+import { createProposal } from "../utils/snapshotClient";
 import { Proposal } from "@snapshot-labs/snapshot.js/dist/src/sign/types";
 import { ethers } from "ethers";
 import { useQuery } from "@tanstack/react-query";
@@ -36,7 +36,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   const publicClient = usePublicClient();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<React.ReactNode>(null);
-  const [highestQip, setHighestQip] = useState<number | null>(null);
   const [showStatusUpdatePrompt, setShowStatusUpdatePrompt] = useState(false);
   const [proposalUrl, setProposalUrl] = useState<string | null>(null);
   const [proposalId, setProposalId] = useState<string | null>(null);
@@ -51,7 +50,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
   // Conditional validation based on space
   const requiresTokenBalance = isDefaultSpace;
-  const requiresQipValidation = isDefaultSpace;
 
   const formatProposalBody = (rawMarkdown: string, frontmatter: any) => {
     // Remove frontmatter from the beginning of the markdown
@@ -69,20 +67,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
     return frontmatterInfo.length > 0 ? `${frontmatterInfo.join("\n")}\n\n${content}` : content;
   };
 
-  const { data: proposals, isLoading: loadingProposals } = useQuery({
-    queryKey: ["proposals", SNAPSHOT_SPACE],
-    queryFn: () => getProposals(SNAPSHOT_SPACE),
-  });
-
-  useEffect(() => {
-    if (proposals) {
-      const qipNumbers = proposals.map((p: any) => {
-        const match = p.title.match(/QIP(\d+)/i);
-        return match ? parseInt(match[1], 10) : 0;
-      });
-      setHighestQip(Math.max(0, ...qipNumbers));
-    }
-  }, [proposals]);
 
   const TOKEN_CONTRACT_ADDRESS = "0x1bffabc6dfcafb4177046db6686e3f135e8bc732";
   const REQUIRED_BALANCE = 150000;
@@ -104,16 +88,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
     refetchInterval: 60000,
   });
 
-  const isQipValid = requiresQipValidation ? highestQip !== null && frontmatter.qip === highestQip + 1 : true;
   const space = SNAPSHOT_SPACE;
 
   const handleSubmit = async () => {
     if (!signer) {
       setStatus("Please connect your wallet first.");
-      return;
-    }
-    if (requiresQipValidation && !isQipValid) {
-      setStatus(`Error: Invalid QIP number. The next QIP should be #${highestQip === null ? "..." : highestQip + 1}.`);
       return;
     }
     setLoading(true);
@@ -412,12 +391,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
             </div>
           )}
 
-          {requiresQipValidation && isQipValid && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>QIP number validation passed</span>
-            </div>
-          )}
         </div>
 
         {/* Submit Button */}
@@ -428,21 +401,17 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               !signer ||
               (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) ||
               loading ||
-              (requiresTokenBalance && checkingBalance) ||
-              !isQipValid ||
-              (requiresQipValidation && loadingProposals)
+              (requiresTokenBalance && checkingBalance)
             }
             className="w-full"
             size="lg"
           >
             {loading
               ? "Submitting..."
-              : (requiresTokenBalance && checkingBalance) || (requiresQipValidation && loadingProposals)
+              : requiresTokenBalance && checkingBalance
               ? "Checking prerequisites..."
               : !signer
               ? "Connect Wallet"
-              : requiresQipValidation && !isQipValid
-              ? `Invalid QIP Number (currently ${frontmatter.qip}, next is ${highestQip === null ? "..." : highestQip + 1})`
               : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
               ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
               : !isDefaultSpace
