@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TransactionFormatter } from "./TransactionFormatter";
 import { type TransactionData, ABIParser } from "../utils/abiParser";
 import { Plus, Edit2, Trash2 } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ProposalEditorProps {
   registryAddress: Address;
@@ -480,12 +482,11 @@ Implementation details...`}
             <div className="text-sm text-muted-foreground mb-4">
               <span>Chain: {selectedChain}</span> •<span> Author: {address}</span> •<span> Status: Draft</span>
             </div>
-            <div
-              className="prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: content.replace(/\n/g, "<br />"),
-              }}
-            />
+            <div className="prose dark:prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
 
             {/* Show transactions in preview */}
             {transactions.length > 0 && (
