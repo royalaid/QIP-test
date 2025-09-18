@@ -43,7 +43,7 @@ const AllProposals: React.FC = () => {
           qip: qip.qipNumber,
           title: qip.title,
           author: qip.author,
-          network: qip.network,
+          chain: qip.chain,
           proposal: qip.proposal,
           implementor: qip.implementor,
           created: qip.created,

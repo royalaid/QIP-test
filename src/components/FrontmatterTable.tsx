@@ -77,10 +77,10 @@ const FrontmatterTable: React.FC<Props> = ({
             <td className="py-3 px-6">{frontmatter.type}</td>
           </tr>
         )}
-        {frontmatter.network && (
+        {frontmatter.chain && (
           <tr>
-            <th className="py-3 px-6 text-left font-bold">Network</th>
-            <td className="py-3 px-6">{frontmatter.network}</td>
+            <th className="py-3 px-6 text-left font-bold">Chain</th>
+            <td className="py-3 px-6">{frontmatter.chain}</td>
           </tr>
         )}
         <tr>

@@ -82,7 +82,7 @@ const ProposalListItem = (props: any) => {
                         return {
                             qipNumber,
                             title: qip.title,
-                            network: qip.network,
+                            chain: qip.chain,
                             status: qipClient.getStatusString(qip.status),
                             author: frontmatter.author || qip.author,
                             implementor: qip.implementor,

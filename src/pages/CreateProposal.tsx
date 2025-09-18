@@ -93,7 +93,7 @@ const CreateProposal: React.FC = () => {
             registryAddress={config.qipRegistryAddress}
             rpcUrl={config.baseRpcUrl}
             initialTitle={selectedTemplate?.title}
-            initialNetwork={selectedTemplate?.network}
+            initialChain={selectedTemplate?.chain}
             initialContent={selectedTemplate?.content}
             initialImplementor={selectedTemplate?.implementor}
           />

@@ -107,7 +107,7 @@ export function useQIPList({
               continue;
             }
             
-            if (network && qip.network.toLowerCase() !== network.toLowerCase()) {
+            if (network && qip.chain.toLowerCase() !== network.toLowerCase()) {
               continue;
             }
             
@@ -123,7 +123,7 @@ export function useQIPList({
               qips.push({
                 qipNumber: Number(qip.qipNumber),
                 title: qip.title,
-                network: qip.network,
+                chain: qip.chain,
                 status: qipClient.getStatusString(qip.status), // On-chain status (source of truth)
                 statusEnum: qip.status, // Include the enum value
                 ipfsStatus: frontmatter.status, // Status from IPFS (may differ)

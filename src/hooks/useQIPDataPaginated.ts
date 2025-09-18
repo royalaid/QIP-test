@@ -219,7 +219,7 @@ export function useQIPDataPaginated(options: UseQIPDataPaginatedOptions = {}): P
                     const fullQIPData: QIPData = {
                       qipNumber: Number(blockchainData.qipNumber),
                       title: blockchainData.title,
-                      network: blockchainData.network,
+                      chain: blockchainData.chain,
                       status: qipClient.getStatusString(blockchainData.status),
                       statusEnum: blockchainData.status,
                       ipfsStatus: frontmatter?.status,
@@ -388,7 +388,7 @@ export function useQIPDataPaginated(options: UseQIPDataPaginatedOptions = {}): P
                       const fullQIPData: QIPData = {
                         qipNumber: Number(qip.qipNumber),
                         title: qip.title,
-                        network: qip.network,
+                        chain: qip.chain,
                         status: qipClient.getStatusString(qip.status),
                         statusEnum: qip.status,
                         ipfsStatus: frontmatter?.status,
@@ -657,7 +657,7 @@ export function useQIPDataPaginated(options: UseQIPDataPaginatedOptions = {}): P
             const qipData: QIPData = {
               qipNumber: Number(qip.qipNumber),
               title: qip.title,
-              network: qip.network,
+              chain: qip.chain,
               status: statusString, // On-chain status (source of truth)
               statusEnum: qip.status, // Include the enum value
               ipfsStatus: frontmatter.status, // Status from IPFS (may differ)

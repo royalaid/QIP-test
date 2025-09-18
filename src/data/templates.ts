@@ -3,7 +3,7 @@ export interface Template {
   name: string;
   description: string;
   title: string;
-  network: string;
+  chain: string;
   implementor: string;
   content: string;
 }
@@ -14,7 +14,7 @@ export const templates: Template[] = [
     name: 'General QIP Template',
     description: 'For protocol improvements and changes',
     title: 'General template',
-    network: 'Polygon',
+    chain: 'Polygon',
     implementor: 'None',
     content: `### Summary
 
@@ -49,7 +49,7 @@ Please list all values configurable under this implementation, if applicable.`
     name: 'New Asset Template',
     description: 'For adding new collateral assets to QiDAO',
     title: 'Add [Asset Name] as Collateral',
-    network: 'Polygon',
+    chain: 'Polygon',
     implementor: 'None',
     content: `### Summary
 

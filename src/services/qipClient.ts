@@ -33,7 +33,7 @@ export const DEFAULT_STATUSES = {
 export interface QIPContent {
   qip: number;
   title: string;
-  network: string;
+  chain: string;
   status: string;
   author: string;
   implementor: string;
@@ -48,7 +48,7 @@ export interface QIP {
   qipNumber: bigint;
   author: Address;
   title: string;
-  network: string;
+  chain: string;
   contentHash: Hash;
   ipfsUrl: string;
   createdAt: bigint;
@@ -136,7 +136,7 @@ export class QIPClient {
   async createQIP(
     walletClient: WalletClient,
     title: string,
-    network: string,
+    chain: string,
     contentHash: Hash,
     ipfsUrl: string
   ): Promise<{ hash: Hash; qipNumber: bigint }> {
@@ -147,7 +147,7 @@ export class QIPClient {
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
       functionName: "createQIP",
-      args: [title, network, contentHash, ipfsUrl],
+      args: [title, chain, contentHash, ipfsUrl],
       account: walletClient.account,
     });
 
@@ -155,7 +155,7 @@ export class QIPClient {
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
       functionName: "createQIP",
-      args: [title, network, contentHash, ipfsUrl],
+      args: [title, chain, contentHash, ipfsUrl],
       account: walletClient.account,
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
     });
@@ -306,7 +306,7 @@ export class QIPClient {
     let frontmatter = `---
 qip: ${qipData.qip}
 title: ${qipData.title}
-network: ${qipData.network}
+chain: ${qipData.chain}
 status: ${qipData.status}
 author: ${qipData.author}
 implementor: ${qipData.implementor}
@@ -397,7 +397,7 @@ ${qipData.content}`;
       qipNumber: result[0],
       author: result[1],
       title: result[2],
-      network: result[3],
+      chain: result[3],
       contentHash: result[4],
       ipfsUrl: result[5],
       createdAt: result[6],
@@ -542,7 +542,7 @@ ${qipData.content}`;
               qipNumber: data[0],
               author: data[1],
               title: data[2],
-              network: data[3],
+              chain: data[3],
               contentHash: data[4],
               ipfsUrl: data[5],
               createdAt: data[6],
@@ -690,7 +690,7 @@ ${qipData.content}`;
    * Watch for new QIPs
    */
   watchQIPs(
-    callback: (qip: { qipNumber: bigint; author: Address; title: string; network: string; contentHash: Hash; ipfsUrl: string }) => void
+    callback: (qip: { qipNumber: bigint; author: Address; title: string; chain: string; contentHash: Hash; ipfsUrl: string }) => void
   ) {
     return this.publicClient.watchContractEvent({
       address: this.contractAddress,
@@ -703,7 +703,7 @@ ${qipData.content}`;
             qipNumber: BigInt(log.topics[1]!),
             author: log.topics[2] as Address,
             title: args?.title || "",
-            network: args?.network || "",
+            chain: args?.chain || "",
             contentHash: args?.contentHash || "0x",
             ipfsUrl: args?.ipfsUrl || "",
           });
@@ -784,7 +784,7 @@ ${qipData.content}`;
     ipfsUrl: string
   ): Promise<{ qipNumber: bigint; transactionHash: string }> {
     const contentHash = keccak256(toBytes(content.content));
-    const result = await this.createQIP(walletClient, content.title, content.network, contentHash, ipfsUrl);
+    const result = await this.createQIP(walletClient, content.title, content.chain, contentHash, ipfsUrl);
 
     return {
       qipNumber: result.qipNumber,

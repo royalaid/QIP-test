@@ -59,7 +59,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
     // Add frontmatter information to the proposal body
     const frontmatterInfo = [];
-    if (frontmatter.network) frontmatterInfo.push(`**Network:** ${frontmatter.network}`);
+    if (frontmatter.chain) frontmatterInfo.push(`**Chain:** ${frontmatter.chain}`);
     if (frontmatter.author) frontmatterInfo.push(`**Author:** ${frontmatter.author}`);
     if (frontmatter.implementor) frontmatterInfo.push(`**Implementor:** ${frontmatter.implementor}`);
     if (frontmatter["implementation-date"]) frontmatterInfo.push(`**Implementation Date:** ${frontmatter["implementation-date"]}`);

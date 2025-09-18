@@ -60,7 +60,7 @@ export function useCreateQIP({
         const result = await qipClient.createQIP(
           walletClient,
           content.title,
-          content.network,
+          content.chain,
           contentHash,
           expectedIpfsUrl
         );

@@ -11,7 +11,7 @@ import { useQIPList } from './useQIPList';
 export interface QIPData {
   qipNumber: number;
   title: string;
-  network: string;
+  chain: string;
   status: string; // On-chain status (source of truth)
   statusEnum: QIPStatus; // On-chain status enum value
   ipfsStatus?: string; // Status from IPFS frontmatter (may be outdated)

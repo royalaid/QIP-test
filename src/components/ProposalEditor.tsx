@@ -24,7 +24,7 @@ interface ProposalEditorProps {
     content: QIPContent;
   };
   initialTitle?: string;
-  initialNetwork?: string;
+  initialChain?: string;
   initialContent?: string;
   initialImplementor?: string;
 }
@@ -36,7 +36,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   rpcUrl,
   existingQIP,
   initialTitle,
-  initialNetwork,
+  initialChain,
   initialContent,
   initialImplementor
 }) => {
@@ -75,7 +75,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   
   // Form state - prioritize existingQIP over initial props
   const [title, setTitle] = useState(existingQIP?.content.title || initialTitle || '');
-  const [network, setNetwork] = useState(existingQIP?.content.network || initialNetwork || 'Polygon');
+  const [selectedChain, setSelectedChain] = useState(existingQIP?.content.chain || initialChain || 'Polygon');
   const [content, setContent] = useState(existingQIP?.content.content || initialContent || '');
   const [implementor, setImplementor] = useState(existingQIP?.content.implementor || initialImplementor || 'None');
   const [saving, setSaving] = useState(false);
@@ -150,7 +150,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         const qipContent: QIPContent = {
           qip: existingQIP?.qipNumber ? Number(existingQIP.qipNumber) : 0, // Will be assigned by contract
           title,
-          network,
+          chain: selectedChain,
           status: "Draft",
           author: address,
           implementor,
@@ -202,7 +202,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         } else {
           // Create new QIP
           console.log("🚀 Creating new QIP on blockchain...");
-          const result = await qipClient.createQIP(walletClient, title, network, contentHash, expectedIpfsUrl);
+          const result = await qipClient.createQIP(walletClient, title, selectedChain, contentHash, expectedIpfsUrl);
           txHash = result.hash;
           qipNumber = result.qipNumber;
           console.log("✅ QIP created on blockchain:", { txHash, qipNumber });
@@ -260,7 +260,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         console.log("✅ Saving state set to false");
       }
     },
-    [qipClient, ipfsService, address, walletClient, title, network, content, implementor, existingQIP, transactions]
+    [qipClient, ipfsService, address, walletClient, title, selectedChain, content, implementor, existingQIP, transactions]
   );
 
   const handlePreview = () => {
@@ -367,12 +367,12 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="network">
-            Network *
+          <Label htmlFor="chain">
+            Chain *
           </Label>
-          <Select value={network} onValueChange={setNetwork} required>
-            <SelectTrigger id="network">
-              <SelectValue placeholder="Select a network" />
+          <Select value={selectedChain} onValueChange={setSelectedChain} required>
+            <SelectTrigger id="chain">
+              <SelectValue placeholder="Select a chain" />
             </SelectTrigger>
             <SelectContent>
               {NETWORKS.map(net => (
@@ -510,7 +510,7 @@ Implementation details...`}
           <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
             <h1 className="text-2xl font-bold mb-2">{title || 'Untitled'}</h1>
             <div className="text-sm text-muted-foreground mb-4">
-              <span>Network: {network}</span> • 
+              <span>Chain: {selectedChain}</span> • 
               <span> Author: {address}</span> • 
               <span> Status: Draft</span>
             </div>

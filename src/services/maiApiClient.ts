@@ -8,19 +8,20 @@ import { QIPStatus } from './qipClient';
 
 /**
  * QIP data as returned by the Mai API
- * Matches the format from /v2/qips endpoint
+ * Matches the format from /v3/qips endpoint
  */
 export interface MaiAPIQIP {
   qipNumber: number;
   author: string;
   title: string;
-  network: string;
+  chain: string;
   contentHash: string;
   ipfsUrl: string;
   createdAt: number;
   lastUpdated: number;
   status: string;
   statusCode: number;
+  statusBytes32?: string; // bytes32 representation of status for v3 API
   implementor: string;
   implementationDate: number;
   snapshotProposalId: string;
@@ -30,7 +31,7 @@ export interface MaiAPIQIP {
 }
 
 /**
- * Response format from the Mai API /v2/qips endpoint
+ * Response format from the Mai API /v3/qips endpoint
  */
 export interface MaiAPIResponse {
   qips: MaiAPIQIP[];
@@ -93,7 +94,7 @@ export class MaiAPIClient {
       params.append('mockMode', 'true');
     }
 
-    const url = `${this.baseUrl}/v2/qips${params.toString() ? `?${params}` : ''}`;
+    const url = `${this.baseUrl}/v3/qips${params.toString() ? `?${params}` : ''}`;
 
     console.log('[MaiAPIClient] Fetching QIPs from:', url);
 
@@ -225,7 +226,7 @@ export class MaiAPIClient {
     return {
       qipNumber: apiQip.qipNumber,
       title: apiQip.title,
-      network: apiQip.network,
+      chain: apiQip.chain,
       status: MaiAPIClient.statusIdToDisplay(apiQip.statusCode as QIPStatus),
       statusEnum: apiQip.statusCode as QIPStatus,
       author: authorDisplay,
