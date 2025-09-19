@@ -239,39 +239,45 @@ export class PinataProvider implements IPFSProvider {
     // Race multiple gateways in parallel for fastest response
     const gatewaysToRace = Math.min(3, this.gateways.length);
     const usedGateways = new Set<string>();
-    
-    // Create abort controller for canceling slower requests
-    const abortController = new AbortController();
-    
-    const fetchFromGateway = async (gateway: string): Promise<string> => {
+
+    // Don't use AbortController - let all requests complete
+    // This allows us to validate responses and use the best one
+
+    const fetchFromGateway = async (gateway: string): Promise<{ content: string; gateway: string; time: number }> => {
       const url = `${gateway}/ipfs/${cid}`;
-      
+      const startTime = Date.now();
+
       try {
         console.debug(`[IPFS] Racing fetch from: ${gateway}`);
         const response = await fetch(url, {
-          signal: abortController.signal,
+          signal: AbortSignal.timeout(15000), // 15 second timeout per gateway
         });
-        
+
         if (!response.ok) {
           if (response.status === 429) {
             throw new Error(`Rate limited on ${gateway}`);
           }
           throw new Error(`${gateway} failed: ${response.statusText}`);
         }
-        
+
         const text = await response.text();
-        console.debug(`[IPFS] ✅ Fastest response from: ${gateway}`);
-        
-        // Cancel other requests since we got a response
-        abortController.abort();
-        
-        return text;
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.debug(`[IPFS] Request to ${gateway} was cancelled (slower)`);
-        } else {
-          console.warn(`[IPFS] Failed to fetch from ${gateway}:`, error.message);
+        const fetchTime = Date.now() - startTime;
+
+        // Validate response content
+        if (!text || text.length === 0) {
+          throw new Error(`Empty response from ${gateway}`);
         }
+
+        // Check if response looks like an error page (common with public gateways)
+        if (text.includes('404') || text.includes('Not Found') || text.includes('Gateway Timeout')) {
+          throw new Error(`Invalid response from ${gateway}: possibly an error page`);
+        }
+
+        console.debug(`[IPFS] ✅ Got response from ${gateway} in ${fetchTime}ms (${text.length} bytes)`);
+
+        return { content: text, gateway, time: fetchTime };
+      } catch (error: any) {
+        console.warn(`[IPFS] Failed to fetch from ${gateway}:`, error.message);
         throw error;
       }
     };
@@ -285,42 +291,61 @@ export class PinataProvider implements IPFSProvider {
         gatewaysForRacing.push(gateway);
       }
     }
-    
     try {
-      // Race all gateways in parallel
-      const result = await Promise.race(
+      // Race all gateways but collect all results
+      const results = await Promise.allSettled(
         gatewaysForRacing.map(gateway => fetchFromGateway(gateway))
       );
-      
-      return result;
-    } catch (firstRaceError) {
-      console.warn('[IPFS] First race failed, trying backup gateways...');
-      
-      // If all racing gateways failed, try remaining gateways sequentially
-      let lastError: Error = firstRaceError as Error;
-      
-      for (const gateway of this.gateways) {
-        if (usedGateways.has(gateway)) continue;
-        
-        try {
-          console.debug(`[IPFS] Trying backup gateway: ${gateway}`);
-          const url = `${gateway}/ipfs/${cid}`;
-          const response = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Fetch failed: ${response.statusText}`);
-          }
-          
-          return response.text();
-        } catch (error: any) {
-          lastError = error;
-        }
+
+      // Filter successful responses
+      const successfulResults = results
+        .filter((r): r is PromiseFulfilledResult<{ content: string; gateway: string; time: number }> =>
+          r.status === 'fulfilled'
+        )
+        .map(r => r.value);
+
+      if (successfulResults.length > 0) {
+        // Sort by response time and pick the fastest valid response
+        successfulResults.sort((a, b) => a.time - b.time);
+        const best = successfulResults[0];
+        console.debug(`[IPFS] Using response from ${best.gateway} (${best.time}ms, ${best.content.length} bytes)`);
+        return best.content;
       }
-      
-      throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
+
+      // All racing gateways failed
+      const errors = results
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+        .map(r => r.reason);
+
+      console.warn('[IPFS] All racing gateways failed:', errors);
+    } catch (firstRaceError) {
+      console.warn('[IPFS] Error during gateway racing:', firstRaceError);
     }
+
+    // If racing failed, try remaining gateways sequentially
+    let lastError: Error = new Error('All gateways failed');
+
+    for (const gateway of this.gateways) {
+      if (usedGateways.has(gateway)) continue;
+
+      try {
+        console.debug(`[IPFS] Trying backup gateway: ${gateway}`);
+        const url = `${gateway}/ipfs/${cid}`;
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Fetch failed: ${response.statusText}`);
+        }
+
+        return response.text();
+      } catch (error: any) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
   }
 
   /**
@@ -414,7 +439,6 @@ export class MaiAPIProvider implements IPFSProvider {
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
     // Convert Blob to string if needed
     let contentString: string;
-    let isJson = false;
 
     if (content instanceof Blob) {
       contentString = await content.text();
@@ -422,25 +446,18 @@ export class MaiAPIProvider implements IPFSProvider {
       contentString = content;
     }
 
-    // Try to parse as JSON to determine the upload format
-    let jsonData: any = null;
-    try {
-      jsonData = JSON.parse(contentString);
-      isJson = true;
-    } catch {
-      // Not JSON, treat as plain text/markdown
-      isJson = false;
-    }
+    // IMPORTANT: For MaiAPIProvider, we upload content directly as-is
+    // The Mai API endpoint handles the wrapping/formatting
+    // This ensures consistency with how content is stored and retrieved
 
     let requestBody: any;
 
-    if (isJson) {
-      // For JSON data, use Pinata's JSON upload format
-      // Check if it already has QIP structure
-      const hasQIPStructure = jsonData.qip !== undefined || jsonData.title !== undefined;
+    // Try to parse as JSON to check if it's already structured
+    try {
+      const jsonData = JSON.parse(contentString);
 
-      if (hasQIPStructure) {
-        // Upload with metadata
+      // If it has QIP structure, send with metadata
+      if (jsonData.qip !== undefined || jsonData.title !== undefined) {
         requestBody = {
           pinataContent: jsonData,
           pinataMetadata: {
@@ -453,23 +470,23 @@ export class MaiAPIProvider implements IPFSProvider {
             },
           },
           pinataOptions: {
-            cidVersion: 1,  // Use CIDv1 (modern IPFS standard)
+            cidVersion: 1,
             ...(metadata?.groupId && { groupId: metadata.groupId }),
           },
         };
       } else {
-        // Direct JSON upload
+        // It's JSON but not QIP structure, send as-is
         requestBody = jsonData;
       }
-    } else {
-      // For plain text/markdown, wrap it in a JSON structure
+    } catch {
+      // Not JSON - it's markdown/plain text
+      // For MaiAPIProvider, we DON'T wrap markdown in JSON
+      // The Mai API endpoint will handle this appropriately
+      // This matches how Pinata provider works
       requestBody = {
-        pinataContent: {
-          content: contentString,
-          type: "markdown",
-        },
+        pinataContent: contentString,  // Send raw content
         pinataMetadata: {
-          name: `QIP-${metadata?.qipNumber || "content"}.json`,
+          name: `QIP-${metadata?.qipNumber || "content"}.md`,
           keyvalues: {
             type: "qip-content",
             format: "markdown",
@@ -477,7 +494,7 @@ export class MaiAPIProvider implements IPFSProvider {
           },
         },
         pinataOptions: {
-          cidVersion: 1,  // Use CIDv1 (modern IPFS standard)
+          cidVersion: 1,
           ...(metadata?.groupId && { groupId: metadata.groupId }),
         },
       };
@@ -654,40 +671,23 @@ export class IPFSService {
    */
   async calculateCID(content: string): Promise<string> {
     try {
-      // Check which provider is being used to determine content format
-      let contentToHash: string;
-      
-      // If using MaiAPIProvider and content is markdown (not JSON)
-      if (this.provider instanceof MaiAPIProvider) {
-        try {
-          // Try to parse as JSON - if it succeeds, it's already JSON
-          JSON.parse(content);
-          contentToHash = content;
-        } catch {
-          // Not JSON, so it's markdown that will be wrapped
-          // MaiAPIProvider wraps markdown in this format for IPFS storage
-          const wrappedContent = {
-            content: content,
-            type: "markdown"
-          };
-          contentToHash = JSON.stringify(wrappedContent);
-        }
-      } else {
-        // For other providers, use content as-is
-        contentToHash = content;
-      }
-      
+      // Always use content as-is for CID calculation
+      // The wrapping should happen at upload time, not CID calculation
+      // This ensures CID consistency across providers
+
       // Use ipfs-only-hash to calculate the CID
       // IMPORTANT: Use CIDv1 with raw codec to match Pinata's behavior
       // Pinata uses raw codec for JSON uploads, which produces bafkrei... CIDs
-      const cid = await IPFSOnlyHash.of(contentToHash, { 
+      const cid = await IPFSOnlyHash.of(content, {
         cidVersion: 1,
         rawLeaves: true,
         codec: 'raw'
       });
+
+      console.debug(`[IPFSService] Calculated CID for ${content.length} bytes: ${cid}`);
       return cid;
     } catch (error) {
-      console.error("Error calculating CID:", error);
+      console.error("[IPFSService] Error calculating CID:", error);
       throw new Error("Failed to calculate IPFS CID");
     }
   }
@@ -890,15 +890,20 @@ ${qipData.content}`;
    * Process IPFS content to handle various JSON wrapping formats
    */
   private processIPFSContent(rawContent: string, cid: string): string {
+    // Log for debugging
+    console.debug(`[IPFSService] Processing content for CID ${cid}, length: ${rawContent.length}`);
+
     // Try to parse as JSON
     try {
       const parsed = JSON.parse(rawContent);
-      
+
       // Check if it's a valid JSON object
       if (typeof parsed === "object" && parsed !== null) {
+        console.debug(`[IPFSService] Content is JSON object with keys: ${Object.keys(parsed).join(', ')}`);
+
         // Case 1: Full QIP JSON structure (has qip, title, etc. - check this first)
         if ("qip" in parsed || "title" in parsed) {
-          console.debug(`Converting full QIP JSON structure to markdown for CID: ${cid}`);
+          console.debug(`[IPFSService] Converting full QIP JSON structure to markdown for CID: ${cid}`);
           // Convert the JSON structure to markdown format
           const frontmatter = [
             `qip: ${parsed.qip || "unknown"}`,
