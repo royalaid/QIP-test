@@ -63,7 +63,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     apiUrl: config.maiApiUrl,
     enabled: enabled && Boolean(shouldUseAPI),
     pollingInterval,
-    includeContent: true, // Fetch content from API to avoid client-side IPFS calls
+    includeContent: false, // Fetch content from API to avoid client-side IPFS calls
     forceRefresh,
   });
 

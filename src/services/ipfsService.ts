@@ -671,20 +671,32 @@ export class IPFSService {
    */
   async calculateCID(content: string): Promise<string> {
     try {
-      // Always use content as-is for CID calculation
-      // The wrapping should happen at upload time, not CID calculation
-      // This ensures CID consistency across providers
+      // IMPORTANT: The Mai API wraps markdown content in { content: "..." } before uploading
+      // We need to match this wrapping when calculating the CID
+
+      const isMarkdown = content.trim().startsWith('---');
+
+      let contentToHash: string;
+      if (isMarkdown) {
+        // Wrap markdown in JSON structure to match what the API does
+        const wrappedContent = { content: content };
+        contentToHash = JSON.stringify(wrappedContent);
+        console.debug(`[IPFSService] Wrapping markdown content in JSON for CID calculation`);
+      } else {
+        // Already JSON or other format, use as-is
+        contentToHash = content;
+      }
 
       // Use ipfs-only-hash to calculate the CID
       // IMPORTANT: Use CIDv1 with raw codec to match Pinata's behavior
       // Pinata uses raw codec for JSON uploads, which produces bafkrei... CIDs
-      const cid = await IPFSOnlyHash.of(content, {
+      const cid = await IPFSOnlyHash.of(contentToHash, {
         cidVersion: 1,
         rawLeaves: true,
         codec: 'raw'
       });
 
-      console.debug(`[IPFSService] Calculated CID for ${content.length} bytes: ${cid}`);
+      console.debug(`[IPFSService] Calculated CID for ${contentToHash.length} bytes: ${cid}`);
       return cid;
     } catch (error) {
       console.error("[IPFSService] Error calculating CID:", error);
