@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from 'react-router-dom';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { type Address } from 'viem';
+import { toast } from 'sonner';
+import { debounce } from 'lodash';
 import { QIPClient, QIPStatus, type QIPContent } from '../services/qipClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
@@ -58,6 +61,10 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const { address, isConnected, chain, status } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { switchChain } = useSwitchChain();
+  const navigate = useNavigate();
+
+  // Track if we've already navigated to prevent multiple navigations
+  const hasNavigatedRef = useRef(false);
   
   // Debug logging
   console.log("🔍 ProposalEditor Debug:");
@@ -149,6 +156,9 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       e.preventDefault();
       console.log("📝 Form submission started");
 
+      // Reset navigation flag for new submission
+      hasNavigatedRef.current = false;
+
       if (!qipClient || !ipfsService || !address || !walletClient) {
         setError("Please connect your wallet");
         console.error("❌ Missing required services:", { qipClient: !!qipClient, ipfsService: !!ipfsService, address });
@@ -238,26 +248,84 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           console.log("✅ IPFS upload successful, CID matches:", actualCID);
         }
         
-        // Set success message
+        // Invalidate caches immediately after successful update
         if (existingQIP) {
-          setSuccess(`QIP-${qipNumber} updated successfully! Transaction: ${txHash}`);
-        } else if (qipNumber > 0) {
-          setSuccess(`QIP-${qipNumber} created successfully! Transaction: ${txHash}`);
-        } else {
-          setSuccess(
-            `QIP submitted successfully! Transaction: ${txHash}\n\nNote: The QIP number will be available once the transaction is confirmed.`
-          );
+          // Invalidate all related caches for the updated QIP
+          const qipNum = Number(qipNumber);
+
+          // Get current data to find IPFS URL
+          const currentData = queryClient.getQueryData<any>(['qip', qipNum, registryAddress]);
+
+          // Invalidate QIP query
+          queryClient.invalidateQueries({
+            queryKey: ['qip', qipNum, registryAddress]
+          });
+
+          // Invalidate blockchain cache
+          queryClient.invalidateQueries({
+            queryKey: ['qip-blockchain', qipNum, registryAddress]
+          });
+
+          // Invalidate old IPFS content if exists
+          if (currentData?.ipfsUrl) {
+            queryClient.invalidateQueries({
+              queryKey: ['ipfs', currentData.ipfsUrl]
+            });
+          }
+
+          // Also invalidate the new IPFS URL
+          queryClient.invalidateQueries({
+            queryKey: ['ipfs', `ipfs://${actualCID}`]
+          });
         }
-        
+
         // Invalidate list to refresh AllProposals
         queryClient.invalidateQueries({ queryKey: ["qips"] });
 
-        // Reset form for new QIP
-        console.log("🔄 Resetting form...");
-        setTitle("");
-        setContent("");
-        setImplementor("None");
-        console.log("✅ Form reset complete");
+        // Show success toast and navigate (prevent multiple navigations)
+        if (!hasNavigatedRef.current) {
+          if (existingQIP) {
+            toast.success(`QIP-${qipNumber} updated successfully!`);
+            // Mark as navigated before actually navigating
+            hasNavigatedRef.current = true;
+            // Navigate back to the QIP detail page with transaction hash
+            // Include timestamp to ensure fresh data fetch
+            navigate(`/qips/${qipNumber}`, {
+              state: {
+                txHash,
+                justUpdated: true,
+                timestamp: Date.now() // Force refresh with timestamp
+              }
+            });
+          } else {
+            // For new QIP, show success and reset form
+            if (qipNumber > 0) {
+              toast.success(`QIP-${qipNumber} created successfully!`);
+              // Mark as navigated before actually navigating
+              hasNavigatedRef.current = true;
+              // Navigate to the new QIP page
+              navigate(`/qips/${qipNumber}`, {
+                state: {
+                  txHash,
+                  justCreated: true,
+                  timestamp: Date.now() // Force refresh with timestamp
+                }
+              });
+            } else {
+              toast.success(`QIP submitted! Check transaction for QIP number.`);
+              setSuccess(`Transaction: ${txHash}`);
+            }
+          }
+        }
+
+        // Reset form only for new QIPs that don't redirect
+        if (!existingQIP && qipNumber === 0n) {
+          console.log("🔄 Resetting form...");
+          setTitle("");
+          setContent("");
+          setImplementor("None");
+          console.log("✅ Form reset complete");
+        }
       } catch (err: any) {
         console.error("❌ Error saving QIP:", err);
 

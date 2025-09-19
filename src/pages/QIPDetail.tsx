@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import React, { useEffect, useState, useRef } from 'react'
+import { useParams, Link, useLocation } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { toast } from 'sonner'
 import { useQIP } from '../hooks/useQIP'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../utils/queryKeys'
@@ -20,12 +21,16 @@ import { config } from '../config/env'
 const QIPDetail: React.FC = () => {
   const { qipNumber } = useParams<{ qipNumber: string }>()
   const { address } = useAccount()
+  const location = useLocation()
   const [isClient, setIsClient] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
   const [canSubmitSnapshot, setCanSubmitSnapshot] = useState(false)
   const [isAuthor, setIsAuthor] = useState(false)
   const [isEditor, setIsEditor] = useState(false)
-  
+
+  // Use ref to track if we've already shown the toast for this transaction
+  const toastShownRef = useRef<string | null>(null)
+
   // Cache for role checks to avoid repeated contract calls
   const [roleCache] = useState<Map<string, boolean>>(new Map())
   const queryClient = useQueryClient()
@@ -53,6 +58,128 @@ const QIPDetail: React.FC = () => {
       })
     }
   }, [qipNumberParsed, registryAddress, queryClient])
+
+  // Handle navigation state from ProposalEditor
+  useEffect(() => {
+    if (location.state) {
+      const state = location.state as { txHash?: string; justUpdated?: boolean; justCreated?: boolean; timestamp?: number }
+
+      if (state.txHash && (state.justUpdated || state.justCreated)) {
+        // Check if we've already shown a toast for this transaction
+        if (toastShownRef.current === state.txHash) {
+          console.log(`[QIPDetail] Toast already shown for tx ${state.txHash}, skipping`)
+          return
+        }
+
+        // Mark this transaction as toasted
+        toastShownRef.current = state.txHash
+
+        // Clear the navigation state immediately to prevent duplicate toasts
+        window.history.replaceState({}, document.title)
+
+        // Show success toast with Basescan link (only once)
+        const message = state.justCreated
+          ? `QIP-${qipNumberParsed} created successfully!`
+          : `QIP-${qipNumberParsed} updated successfully!`
+
+        toast.success(message, {
+          description: "Your changes are now on-chain",
+          action: {
+            label: "View on Basescan",
+            onClick: () => {
+              window.open(`https://basescan.org/tx/${state.txHash}`, '_blank')
+            }
+          },
+          duration: 8000 // Show for 8 seconds
+        })
+
+        // Force invalidate and refetch both QIP and IPFS data
+        console.log(`[QIPDetail] Forcing complete cache invalidation for QIP-${qipNumberParsed}`)
+        if (registryAddress && qipNumber) {
+          const qipNum = parseInt(qipNumberParsed)
+
+          // Get the current QIP data to find the IPFS URL
+          const currentData = queryClient.getQueryData<any>(queryKeys.qip(qipNum, registryAddress))
+          console.log(`[QIPDetail] Current IPFS URL: ${currentData?.ipfsUrl}`)
+
+          // Remove data from cache completely (not just invalidate)
+          queryClient.removeQueries({
+            queryKey: queryKeys.qip(qipNum, registryAddress)
+          })
+
+          queryClient.removeQueries({
+            queryKey: queryKeys.qipBlockchain(qipNum, registryAddress)
+          })
+
+          // Remove IPFS content cache if we have the URL
+          if (currentData?.ipfsUrl) {
+            queryClient.removeQueries({
+              queryKey: queryKeys.ipfs(currentData.ipfsUrl)
+            })
+          }
+
+          // Also remove any potential new IPFS URL from cache
+          queryClient.removeQueries({
+            queryKey: ['ipfs'],
+            exact: false
+          })
+
+          // Invalidate the QIPs list
+          queryClient.invalidateQueries({
+            queryKey: ['qips']
+          })
+
+          // Force immediate refetch with multiple attempts
+          console.log(`[QIPDetail] Scheduling refetch for QIP-${qipNum}`)
+
+          // First attempt - immediate
+          if (refetch) {
+            console.log(`[QIPDetail] Immediate refetch attempt`)
+            refetch()
+          }
+
+          // Second attempt - after small delay
+          setTimeout(() => {
+            if (refetch) {
+              console.log(`[QIPDetail] Delayed refetch attempt (100ms)`)
+              refetch()
+            }
+          }, 100)
+
+          // Third attempt - after longer delay for safety
+          setTimeout(() => {
+            if (refetch) {
+              console.log(`[QIPDetail] Final refetch attempt (500ms)`)
+              refetch()
+            }
+          }, 500)
+        }
+      }
+    }
+  }, [location.state?.timestamp, location.state?.txHash, refetch, registryAddress, qipNumber, qipNumberParsed, queryClient]) // Use timestamp to trigger effect
+
+  // Additional effect to force refetch when coming from edit
+  useEffect(() => {
+    if (location.state?.timestamp && location.state?.justUpdated) {
+      console.log(`[QIPDetail] Detected navigation from edit with timestamp ${location.state.timestamp}, forcing data refresh`)
+
+      // Invalidate everything related to this QIP
+      if (registryAddress) {
+        const qipNum = parseInt(qipNumberParsed)
+
+        // Clear all caches for this QIP
+        queryClient.resetQueries({
+          queryKey: queryKeys.qip(qipNum, registryAddress),
+          exact: true
+        })
+
+        // Force an immediate refetch
+        if (refetch) {
+          refetch()
+        }
+      }
+    }
+  }, [location.state?.timestamp]) // Only run when timestamp changes
 
   // Create a memoized QIPClient instance to avoid recreating it
   const qipClient = useMemo(() => {

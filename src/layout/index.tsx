@@ -2,6 +2,7 @@ import React from 'react';
 import Navigation from '../components/Navigation';
 import Footer from '../components/Footer';
 import LocalModeBanner from '../components/LocalModeBanner';
+import { Toaster } from '@/components/ui/sonner';
 
 interface Props {
     children: React.ReactNode;
@@ -13,7 +14,7 @@ const Layout: React.FC<Props> = ({ children }) => {
     return (
         <main className="min-h-screen">
             <LocalModeBanner />
-            
+
             <header className="site-header h-20" role="banner">
                 <Navigation />
             </header>
@@ -23,7 +24,7 @@ const Layout: React.FC<Props> = ({ children }) => {
             </main>
 
             <Footer />
-
+            <Toaster />
         </main>
     );
 };
