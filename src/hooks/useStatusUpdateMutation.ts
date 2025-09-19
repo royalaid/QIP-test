@@ -23,7 +23,7 @@ export function useStatusUpdateMutation() {
   return useMutation<Hash, Error, StatusUpdateParams>({
     mutationFn: async ({ qipNumber, newStatus, registryAddress, rpcUrl }) => {
       if (!walletClient) {
-        throw new Error('Please connect your wallet');
+        throw new Error("Please connect your wallet");
       }
 
       const qipClient = new QIPClient(registryAddress, rpcUrl, false);
@@ -32,16 +32,19 @@ export function useStatusUpdateMutation() {
       const hash = await qipClient.updateQIPStatus(walletClient, qipNumber, newStatus);
 
       // Wait for transaction confirmation
-      const publicClient = walletClient.chain ?
-        await import('viem').then(m => m.createPublicClient({
-          chain: walletClient.chain,
-          transport: m.http(rpcUrl || import.meta.env.VITE_BASE_RPC_URL)
-        })) : null;
+      const publicClient = walletClient.chain
+        ? await import("viem").then((m) =>
+            m.createPublicClient({
+              chain: walletClient.chain,
+              transport: m.http(rpcUrl || import.meta.env.VITE_BASE_RPC_URL),
+            })
+          )
+        : null;
 
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({
           hash,
-          confirmations: 1
+          confirmations: 1,
         });
       }
 
@@ -49,15 +52,15 @@ export function useStatusUpdateMutation() {
       const maiApiUrl = config.maiApiUrl || import.meta.env.VITE_MAI_API_URL;
       if (maiApiUrl && config.useMaiApi) {
         fetch(`${maiApiUrl}/v2/cache/invalidate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: 'status_update',
+            type: "status_update",
             qipNumber: Number(qipNumber),
             txHash: hash,
-            reason: `Status updated to ${newStatus}`
-          })
-        }).catch(err => console.error('[StatusUpdate] Cache invalidation failed:', err));
+            reason: `Status updated to ${newStatus}`,
+          }),
+        }).catch((err) => console.error("[StatusUpdate] Cache invalidation failed:", err));
       }
 
       return hash;
@@ -68,29 +71,25 @@ export function useStatusUpdateMutation() {
       toast.loading(`Updating status to ${newStatus}...`, { id: `status-${qipNumber}` });
 
       // Cancel any outgoing refetches to prevent overwriting our optimistic update
-      await queryClient.cancelQueries({ queryKey: ['qips', 'api'] });
+      await queryClient.cancelQueries({ queryKey: ["qips", "api"] });
 
       // Get current data
-      const previousData = queryClient.getQueryData(['qips', 'api']);
+      const previousData = queryClient.getQueryData(["qips", "api"]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(['qips', 'api'], (old: any) => {
+      queryClient.setQueryData(["qips", "api"], (old: any) => {
         if (!old) return old;
 
         // Find the query data structure and update it
         // The actual structure depends on how the data is stored
-        const queryKey = Object.keys(old).find(key =>
-          key.includes('forceRefresh') || key === '0'
-        );
+        const queryKey = Object.keys(old).find((key) => key.includes("forceRefresh") || key === "0");
 
         if (queryKey && Array.isArray(old[queryKey])) {
           return {
             ...old,
             [queryKey]: old[queryKey].map((qip: any) =>
-              qip.qipNumber === Number(qipNumber)
-                ? { ...qip, status: newStatus, statusEnum: newStatus }
-                : qip
-            )
+              qip.qipNumber === Number(qipNumber) ? { ...qip, status: newStatus, statusEnum: newStatus } : qip
+            ),
           };
         }
 
@@ -98,23 +97,20 @@ export function useStatusUpdateMutation() {
       });
 
       // Also update the full query key structure used by useQIPsFromAPI
-      const fullQueryKey = ['qips', 'api', config.maiApiUrl, { includeContent: false, contentFor: undefined, forceRefresh: false }];
+      const fullQueryKey = ["qips", "api", config.maiApiUrl, { includeContent: false, contentFor: undefined, forceRefresh: false }];
       const currentQIPs = queryClient.getQueryData(fullQueryKey) as any[];
 
       if (currentQIPs) {
-        queryClient.setQueryData(fullQueryKey,
-          currentQIPs.map((qip: any) =>
-            qip.qipNumber === Number(qipNumber)
-              ? { ...qip, status: newStatus, statusEnum: newStatus }
-              : qip
-          )
+        queryClient.setQueryData(
+          fullQueryKey,
+          currentQIPs.map((qip: any) => (qip.qipNumber === Number(qipNumber) ? { ...qip, status: newStatus, statusEnum: newStatus } : qip))
         );
       }
 
       return { previousData, qipNumber };
     },
 
-    onError: (err, variables, context) => {
+    onError: (err, variables, context: any) => {
       // Dismiss loading toast
       if (context?.qipNumber) {
         toast.dismiss(`status-${context.qipNumber}`);
@@ -122,14 +118,14 @@ export function useStatusUpdateMutation() {
 
       // Rollback on error
       if (context?.previousData) {
-        queryClient.setQueryData(['qips', 'api'], context.previousData);
+        queryClient.setQueryData(["qips", "api"], context.previousData);
       }
 
-      let errorMessage = 'Failed to update status';
-      if (err.message?.includes('AccessControl')) {
-        errorMessage = 'You do not have permission to update this status';
-      } else if (err.message?.includes('user rejected')) {
-        errorMessage = 'Transaction cancelled';
+      let errorMessage = "Failed to update status";
+      if (err.message?.includes("AccessControl")) {
+        errorMessage = "You do not have permission to update this status";
+      } else if (err.message?.includes("user rejected")) {
+        errorMessage = "Transaction cancelled";
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -144,15 +140,15 @@ export function useStatusUpdateMutation() {
       // Mark queries as stale so they refetch in the background
       // This uses stale-while-revalidate: shows optimistic update while fetching fresh data
       queryClient.invalidateQueries({
-        queryKey: ['qips'],
-        refetchType: 'active' // Only refetch if the component is mounted
+        queryKey: ["qips"],
+        refetchType: "active", // Only refetch if the component is mounted
       });
     },
 
     onSettled: () => {
       // Ensure we always resync with the server after mutation
       // This happens in the background without blocking the UI
-      queryClient.invalidateQueries({ queryKey: ['qips', 'api'] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["qips", "api"] });
+    },
   });
 }
