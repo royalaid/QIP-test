@@ -41,7 +41,7 @@ interface UseQIPDataOptions {
 export function useQIPData(options: UseQIPDataOptions = {}) {
   const {
     registryAddress,
-    pollingInterval = 30000, // 30 seconds default
+    pollingInterval = 5 * 60 * 1000, // 5 minutes default (was 30 seconds)
     enabled = true,
     forceRefresh = false,
   } = options;

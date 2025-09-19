@@ -6,7 +6,7 @@ import { ConnectKitProvider } from "connectkit";
 import { mainnet } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 import { config, getChains, getDefaultChainId, localBaseFork } from "../config";
-import { createQueryClient, setupPersistentCache } from "../config/queryClient";
+import { createQueryClient, setupPersistentCache, clearQIPCacheOnFreshLoad } from "../config/queryClient";
 import { useTheme } from "../providers/ThemeProvider";
 
 // Get chains from config
@@ -33,11 +33,10 @@ const wagmiConfig = createConfig({
   ],
 });
 
-// Create query client with optimized caching
 const queryClient = createQueryClient();
 
-// Setup persistent caching to localStorage
 if (typeof window !== "undefined") {
+  clearQIPCacheOnFreshLoad();
   setupPersistentCache(queryClient);
 }
 

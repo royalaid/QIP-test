@@ -24,7 +24,7 @@ export function useQIPsFromAPI({
   contentFor,
   forceRefresh = false,
   enabled = true,
-  pollingInterval = 30000, // 30 seconds default
+  pollingInterval = 5 * 60 * 1000, // 5 minutes default (was 30 seconds)
   queryOptions = {},
 }: UseQIPsFromAPIOptions = {}) {
   const queryClient = useQueryClient();
@@ -67,8 +67,10 @@ export function useQIPsFromAPI({
     },
     enabled,
     refetchInterval: pollingInterval,
-    staleTime: 10000, // 10 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 60 * 1000, // 2 hours - data is considered fresh for this period
+    gcTime: 4 * 60 * 60 * 1000, // 4 hours - keep in cache for this long
+    refetchOnWindowFocus: true, // Refetch when window regains focus (only if stale)
+    refetchOnMount: false, // Don't refetch on component mount
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     ...queryOptions,
@@ -78,21 +80,23 @@ export function useQIPsFromAPI({
   const getQIP = React.useCallback(
     (qipNumber: number) => {
       return useQuery({
-        queryKey: ['qip', 'api', qipNumber, apiUrl],
+        queryKey: ["qip", "api", qipNumber, apiUrl],
         queryFn: async (): Promise<QIPData | null> => {
           console.log(`[useQIPsFromAPI] Fetching QIP ${qipNumber} with content`);
-          
+
           const apiQip = await apiClient.fetchQIP(qipNumber);
-          
+
           if (!apiQip) {
             return null;
           }
-          
+
           return MaiAPIClient.toQIPData(apiQip);
         },
         enabled: enabled && qipNumber > 0,
-        staleTime: 30000, // 30 seconds
-        gcTime: 10 * 60 * 1000, // 10 minutes
+        staleTime: 2 * 60 * 60 * 1000, // 2 hours
+        gcTime: 4 * 60 * 60 * 1000, // 4 hours
+        refetchOnMount: false,
+        refetchOnWindowFocus: true,
       });
     },
     [apiClient, apiUrl, enabled]

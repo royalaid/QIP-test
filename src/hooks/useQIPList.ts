@@ -25,27 +25,24 @@ export function useQIPList({
   author,
   network,
   enabled = true,
-  pollingInterval = 30000,
+  pollingInterval = 5 * 60 * 1000, // 5 minutes default (was 30 seconds)
   queryOptions = {},
 }: UseQIPListOptions) {
   // Memoize QIPClient to avoid recreating on every render
-  const qipClient = React.useMemo(() => 
-    new QIPClient(registryAddress, config.baseRpcUrl, false),
-    [registryAddress]
-  );
-  
+  const qipClient = React.useMemo(() => new QIPClient(registryAddress, config.baseRpcUrl, false), [registryAddress]);
+
   // Use centralized IPFS service selection
   const ipfsService = getIPFSService();
 
   return useQuery<QIPData[]>({
-    queryKey: ['qips', 'list', registryAddress, { status, author, network }],
+    queryKey: ["qips", "list", registryAddress, { status, author, network }],
     queryFn: async () => {
-      console.log('[useQIPList] Starting fetch with filters:', { status, author, network });
-      console.log('[useQIPList] Registry address:', registryAddress);
-      console.log('[useQIPList] Config RPC URL:', config.baseRpcUrl);
-      
+      console.log("[useQIPList] Starting fetch with filters:", { status, author, network });
+      console.log("[useQIPList] Registry address:", registryAddress);
+      console.log("[useQIPList] Config RPC URL:", config.baseRpcUrl);
+
       const qips: QIPData[] = [];
-      
+
       // First, get the next QIP number to determine the upper bound
       let maxQipNumber: bigint;
       try {
@@ -63,15 +60,15 @@ export function useQIPList({
         } catch {
           maxQipNumber = nextQipNumber - 1n; // Normal case if QIP doesn't exist
         }
-        console.log('[useQIPList] Next QIP number:', nextQipNumber.toString(), 'Max QIP:', maxQipNumber.toString());
+        console.log("[useQIPList] Next QIP number:", nextQipNumber.toString(), "Max QIP:", maxQipNumber.toString());
       } catch (error) {
-        console.warn('[useQIPList] Failed to get nextQIPNumber, falling back to hardcoded range', error);
+        console.warn("[useQIPList] Failed to get nextQIPNumber, falling back to hardcoded range", error);
         maxQipNumber = 248n; // Fallback to known range if contract call fails
       }
 
       // Check if the contract is empty (nextQIPNumber is 209, meaning no QIPs exist)
       if (maxQipNumber < 209n) {
-        console.log('[useQIPList] No QIPs in registry (contract is empty)');
+        console.log("[useQIPList] No QIPs in registry (contract is empty)");
         return [];
       }
 
@@ -80,14 +77,14 @@ export function useQIPList({
       for (let qipNum = 209n; qipNum <= maxQipNumber; qipNum++) {
         qipNumbers.push(qipNum);
       }
-      
+
       console.log(`[useQIPList] Fetching QIPs 209-${maxQipNumber} (${qipNumbers.length} total) with multicall batching`);
 
       // Batch fetch all QIPs using multicall
       const BATCH_SIZE = 5; // Reduced to avoid gas limits
       for (let i = 0; i < qipNumbers.length; i += BATCH_SIZE) {
         const batch = qipNumbers.slice(i, Math.min(i + BATCH_SIZE, qipNumbers.length));
-        
+
         try {
           // Fetch batch of QIPs with multicall
           const batchQIPs = await qipClient.getQIPsBatch(batch);
@@ -97,29 +94,28 @@ export function useQIPList({
             if (!qip || qip.qipNumber === 0n) {
               continue;
             }
-            
+
             // Apply filters
             if (status !== undefined && qip.status !== status) {
               continue;
             }
-            
+
             if (author && qip.author.toLowerCase() !== author.toLowerCase()) {
               continue;
             }
-            
+
             if (network && qip.chain.toLowerCase() !== network.toLowerCase()) {
               continue;
             }
-            
+
             try {
               // Fetch content from IPFS
               const ipfsContent = await ipfsService.fetchQIP(qip.ipfsUrl);
               const { frontmatter, content } = ipfsService.parseQIPMarkdown(ipfsContent);
-              
-              const implDate = qip.implementationDate > 0n 
-                ? new Date(Number(qip.implementationDate) * 1000).toISOString().split('T')[0]
-                : 'None';
-              
+
+              const implDate =
+                qip.implementationDate > 0n ? new Date(Number(qip.implementationDate) * 1000).toISOString().split("T")[0] : "None";
+
               qips.push({
                 qipNumber: Number(qip.qipNumber),
                 title: qip.title,
@@ -131,45 +127,54 @@ export function useQIPList({
                 implementor: qip.implementor,
                 implementationDate: implDate,
                 // Filter out TBU and other placeholders
-                proposal: (qip.snapshotProposalId && 
-                          qip.snapshotProposalId !== 'TBU' && 
-                          qip.snapshotProposalId !== 'tbu' &&
-                          qip.snapshotProposalId !== 'None') 
-                          ? qip.snapshotProposalId 
-                          : 'None',
-                created: frontmatter.created || new Date(Number(qip.createdAt) * 1000).toISOString().split('T')[0],
+                proposal:
+                  qip.snapshotProposalId &&
+                  qip.snapshotProposalId !== "TBU" &&
+                  qip.snapshotProposalId !== "tbu" &&
+                  qip.snapshotProposalId !== "None"
+                    ? qip.snapshotProposalId
+                    : "None",
+                created: frontmatter.created || new Date(Number(qip.createdAt) * 1000).toISOString().split("T")[0],
                 content,
                 ipfsUrl: qip.ipfsUrl,
                 contentHash: qip.contentHash,
                 version: Number(qip.version),
-                source: 'blockchain',
-                lastUpdated: Date.now()
+                source: "blockchain",
+                lastUpdated: Date.now(),
               });
             } catch (error) {
               console.error(`Error processing QIP ${qip.qipNumber}:`, error);
             }
           }
-          
+
           // Progressive delay between batches to avoid rate limiting
           if (i + BATCH_SIZE < qipNumbers.length) {
-            const delay = Math.min(100 * (Math.floor(i/BATCH_SIZE) + 1), 500);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            const delay = Math.min(100 * (Math.floor(i / BATCH_SIZE) + 1), 500);
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
         } catch (error) {
           console.error(`Error fetching batch:`, error);
         }
       }
 
-      console.log('[useQIPList] Total QIPs fetched:', qips.length);
-      console.log('[useQIPList] QIP numbers fetched:', qips.map(q => q.qipNumber).sort((a, b) => a - b));
-      console.log('[useQIPList] QIP statuses:', qips.map(q => `${q.qipNumber}: ${q.status}`));
+      console.log("[useQIPList] Total QIPs fetched:", qips.length);
+      console.log(
+        "[useQIPList] QIP numbers fetched:",
+        qips.map((q) => q.qipNumber).sort((a, b) => a - b)
+      );
+      console.log(
+        "[useQIPList] QIP statuses:",
+        qips.map((q) => `${q.qipNumber}: ${q.status}`)
+      );
 
       return qips;
     },
     enabled: enabled && !!registryAddress,
     refetchInterval: pollingInterval,
-    staleTime: 10 * 1000, // 10 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 60 * 1000,
+    gcTime: 4 * 60 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: true,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     ...queryOptions,

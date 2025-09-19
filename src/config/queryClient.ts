@@ -143,6 +143,77 @@ export const prefetchHelpers = {
 };
 
 /**
+ * Clear QIP-related cache on fresh page load (browser refresh)
+ * Preserves IPFS and other valuable cached data
+ */
+export function clearQIPCacheOnFreshLoad() {
+  // Check if this is a fresh page load (browser refresh, new tab, etc.)
+  if (typeof window === 'undefined') return;
+
+  // Use performance.navigation API or navigation.type to detect page refresh
+  // Type 1 = reload, Type 0 = navigation
+  const isPageReload = (
+    (window.performance && window.performance.navigation && window.performance.navigation.type === 1) ||
+    (window.performance && (window.performance as any).getEntriesByType &&
+     (window.performance as any).getEntriesByType('navigation')[0] &&
+     (window.performance as any).getEntriesByType('navigation')[0].type === 'reload')
+  );
+
+  // Also check if this is the first load in this React app instance
+  // We use a window property that React Router won't persist
+  const isFirstLoad = !(window as any).__qips_app_loaded;
+
+  if (isPageReload || isFirstLoad) {
+    try {
+      console.log('[Cache] Detected fresh page load (reload:', isPageReload, ', first load:', isFirstLoad, ')');
+
+      const cacheKey = 'qips-query-cache';
+      const cachedData = localStorage.getItem(cacheKey);
+
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+
+        if (parsed.clientState && parsed.clientState.queries) {
+          const originalCount = parsed.clientState.queries.length;
+
+          parsed.clientState.queries = parsed.clientState.queries.filter((query: any) => {
+            const queryKey = query.queryKey;
+            if (!Array.isArray(queryKey) || queryKey.length === 0) return true;
+
+            const firstKey = queryKey[0];
+
+            if (firstKey === 'qip' ||
+                firstKey === 'qips' ||
+                firstKey === 'qip-numbers' ||
+                firstKey === 'qip-blockchain' ||
+                firstKey === 'qip-versions') {
+              console.log('[Cache] Clearing stale QIP query:', queryKey);
+              return false;
+            }
+
+            return true;
+          });
+
+          const removedCount = originalCount - parsed.clientState.queries.length;
+          console.log(`[Cache] Cleared ${removedCount} QIP queries, preserved ${parsed.clientState.queries.length} other queries`);
+        }
+
+        localStorage.setItem(cacheKey, JSON.stringify(parsed));
+        console.log('[Cache] Successfully cleared QIP queries on fresh page load');
+      }
+
+      // Mark that the app has loaded
+      (window as any).__qips_app_loaded = true;
+    } catch (error) {
+      console.error('[Cache] Error clearing QIP cache:', error);
+      localStorage.removeItem('qips-query-cache');
+    }
+  } else {
+    console.log('[Cache] Internal navigation detected, preserving all cache');
+  }
+}
+
+/**
  * Cache invalidation helpers
  */
 export const cacheInvalidation = {
