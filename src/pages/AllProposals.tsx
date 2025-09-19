@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
 import { useQIPData } from '../hooks/useQIPData'
 import LocalModeBanner from '../components/LocalModeBanner'
+import CacheStatusIndicator from '../components/CacheStatusIndicator'
+import { StatusGroupSkeleton } from '../components/QIPSkeleton'
 import { config } from '../config/env'
+import { showDevTools } from '../config/debug'
+import { RefreshCw } from 'lucide-react'
 
 // Map blockchain status strings to display strings
 const statusDisplayMap: Record<string, string> = {
@@ -17,15 +21,29 @@ const statusOrder = ['Draft', 'Ready for Snapshot', 'Posted to Snapshot']
 
 const AllProposals: React.FC = () => {
   const localMode = config.localMode
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const {
     blockchainQIPs: qips,
     isLoading,
     isError,
-    invalidateQIPs: invalidate
+    invalidateQIPs: invalidate,
+    isFetching,
+    dataUpdatedAt
   } = useQIPData({
     enabled: true
   })
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await invalidate()
+      console.log('[AllProposals] Manual refresh triggered')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   // Group QIPs by status
   const groupedQIPs = useMemo(() => {
@@ -72,9 +90,29 @@ const AllProposals: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
-          
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-4xl font-bold">All Proposals</h1>
+            {showDevTools && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isFetching}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Refresh proposals"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || isFetching ? 'animate-spin' : ''}`} />
+                {isRefreshing || isFetching ? 'Refreshing...' : 'Refresh'}
+              </button>
+            )}
+          </div>
+
           {localMode && <LocalModeBanner />}
+
+          {/* Show last updated time - development only */}
+          {showDevTools && dataUpdatedAt && !isLoading && (
+            <div className="text-sm text-muted-foreground mb-2">
+              Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
+            </div>
+          )}
           
           {isError && (
             <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
@@ -89,10 +127,12 @@ const AllProposals: React.FC = () => {
             </div>
           )}
 
+          {/* Show skeletons on initial load */}
           {isLoading && qips.length === 0 && (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-              <span className="ml-3">Loading proposals from blockchain...</span>
+            <div className="space-y-8">
+              <StatusGroupSkeleton />
+              <StatusGroupSkeleton />
+              <StatusGroupSkeleton />
             </div>
           )}
 
@@ -104,7 +144,17 @@ const AllProposals: React.FC = () => {
           )}
         </div>
 
-        <div className="space-y-8">
+        {/* Show skeletons while refetching in background */}
+        {isFetching && !isLoading && (
+          <div className="space-y-8">
+            <StatusGroupSkeleton />
+            <StatusGroupSkeleton />
+            <StatusGroupSkeleton />
+          </div>
+        )}
+
+        {/* Show actual content when not fetching or when we have cached data */}
+        <div className={`space-y-8 ${isFetching && !isLoading ? 'hidden' : ''}`}>
           {orderedGroups.map(({ status, qips, displayName }) => (
             <div key={status}>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
@@ -124,6 +174,15 @@ const AllProposals: React.FC = () => {
             <p>{qips.length} proposals total</p>
           </div>
         )}
+
+        {/* Cache status indicator for debugging */}
+        <CacheStatusIndicator
+          dataUpdatedAt={dataUpdatedAt}
+          isFetching={isFetching}
+          isStale={false}
+          source={config.useMaiApi ? 'api' : 'blockchain'}
+          cacheHit={!isLoading && dataUpdatedAt ? true : false}
+        />
 
     </div>
   )

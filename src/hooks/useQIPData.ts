@@ -32,6 +32,7 @@ interface UseQIPDataOptions {
   registryAddress?: `0x${string}`;
   pollingInterval?: number;
   enabled?: boolean;
+  forceRefresh?: boolean;
 }
 
 /**
@@ -42,6 +43,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     registryAddress,
     pollingInterval = 30000, // 30 seconds default
     enabled = true,
+    forceRefresh = false,
   } = options;
 
   // Use API only if explicitly enabled
@@ -62,6 +64,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     enabled: enabled && Boolean(shouldUseAPI),
     pollingInterval,
     includeContent: true, // Fetch content from API to avoid client-side IPFS calls
+    forceRefresh,
   });
 
   // Blockchain result (only used when shouldUseAPI is false)
@@ -85,7 +88,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
 
       // Methods
       getQIP: apiResult.getQIP,
-      invalidateQIPs: apiResult.invalidateQIPs,
+      invalidateQIPs: apiResult.refreshQIPs || apiResult.invalidateQIPs, // Use refreshQIPs if available for force refresh
       prefetchQIP: apiResult.prefetchQIP,
 
       // Status

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Check, X, Loader2 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { QIPClient, QIPStatus } from '../services/qipClient';
-import { useWalletClient } from 'wagmi';
+import { useStatusUpdateMutation } from '../hooks/useStatusUpdateMutation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,8 +38,7 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
   registryAddress,
   rpcUrl
 }) => {
-  const { data: walletClient } = useWalletClient();
-  const [isUpdating, setIsUpdating] = useState(false);
+  const statusUpdateMutation = useStatusUpdateMutation();
   const [availableStatuses, setAvailableStatuses] = useState<{ name: string; hash: string }[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -72,58 +70,30 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
   const canEdit = isAuthor || isEditor;
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!walletClient) {
-      toast.error('Please connect your wallet');
-      return;
-    }
-
     if (newStatus === currentStatus) {
       setIsOpen(false);
       return;
     }
 
-    setIsUpdating(true);
+    // Close dropdown immediately for better UX
+    setIsOpen(false);
+
+    // Execute the mutation
     try {
-      const qipClient = new QIPClient(registryAddress, rpcUrl, false);
-      const hash = await qipClient.updateQIPStatus(walletClient, BigInt(qipNumber), newStatus);
+      await statusUpdateMutation.mutateAsync({
+        qipNumber: BigInt(qipNumber),
+        newStatus,
+        registryAddress,
+        rpcUrl
+      });
 
-      // Wait for transaction confirmation
-      const publicClient = walletClient.chain ?
-        await import('viem').then(m => m.createPublicClient({
-          chain: walletClient.chain,
-          transport: m.http(rpcUrl || 'http://localhost:8545')
-        })) : null;
-
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({
-          hash,
-          confirmations: 1
-        });
-      }
-
-      toast.success(`Status updated to ${newStatus}`);
-      setIsOpen(false);
-
-      // Give blockchain a moment to sync
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Trigger refresh
+      // Trigger refresh callback if provided
       if (onStatusUpdate) {
         onStatusUpdate();
       }
-    } catch (error: any) {
-      console.error('Failed to update status:', error);
-
-      let errorMessage = 'Failed to update status';
-      if (error.message?.includes('AccessControl')) {
-        errorMessage = 'You do not have permission to update this status';
-      } else if (error.message?.includes('user rejected')) {
-        errorMessage = 'Transaction cancelled';
-      }
-
-      toast.error(errorMessage);
-    } finally {
-      setIsUpdating(false);
+    } catch (error) {
+      // Error handling is done by the mutation hook
+      console.error('[InlineStatusEditor] Status update failed:', error);
     }
   };
 
@@ -150,11 +120,11 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
           className={cn(
             "h-auto py-0.5 px-2.5 font-medium text-xs",
             statusStyles[currentStatus as keyof typeof statusStyles] || 'bg-gray-100 text-gray-800',
-            isUpdating && "opacity-50 cursor-not-allowed"
+            statusUpdateMutation.isPending && "opacity-50 cursor-not-allowed"
           )}
-          disabled={isUpdating}
+          disabled={statusUpdateMutation.isPending}
         >
-          {isUpdating ? (
+          {statusUpdateMutation.isPending ? (
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
           ) : null}
           {currentStatus}

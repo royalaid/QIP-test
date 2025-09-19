@@ -33,8 +33,15 @@ export VITE_LOCAL_MODE=false
 export VITE_USE_LOCAL_IPFS=false
 
 # API endpoints (use staging by default, can override with production)
-export VITE_MAI_API_URL=${VITE_MAI_API_URL:-"https://staging-api.mai.finance"}
-export VITE_IPFS_API_URL=${VITE_IPFS_API_URL:-"https://staging-api.mai.finance/v2/ipfs-upload"}
+# Support LOCAL_API flag for testing against localhost
+if [ "$LOCAL_API" = "true" ]; then
+    export VITE_MAI_API_URL=${VITE_MAI_API_URL:-"http://localhost:3000"}
+    export VITE_IPFS_API_URL=${VITE_IPFS_API_URL:-"http://localhost:3000/v2/ipfs-upload"}
+    echo -e "${YELLOW}📍 Using LOCAL Mai API at localhost:3000${NC}"
+else
+    export VITE_MAI_API_URL=${VITE_MAI_API_URL:-"https://staging-api.mai.finance"}
+    export VITE_IPFS_API_URL=${VITE_IPFS_API_URL:-"https://staging-api.mai.finance/v2/ipfs-upload"}
+fi
 
 # Registry address (production Base network)
 export VITE_QIP_REGISTRY_ADDRESS=${VITE_QIP_REGISTRY_ADDRESS:-"0x9638153a6f2e7E98E54BB0A603fAE5e4B02A26c2"}

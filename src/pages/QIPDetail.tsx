@@ -7,6 +7,7 @@ import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
 import SnapshotSubmitter from '../components/SnapshotSubmitter'
 import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndicator'
+import { QIPSkeleton } from '../components/QIPSkeleton'
 import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 import { QIPStatus, QIPClient } from '../services/qipClient'
 import { useMemo } from 'react'
@@ -156,9 +157,8 @@ const QIPDetail: React.FC = () => {
     return (
       <>
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <span className="ml-3">Loading QIP...</span>
+          <div className="max-w-4xl mx-auto">
+            <QIPSkeleton variant="detail" />
           </div>
         </div>
       </>
