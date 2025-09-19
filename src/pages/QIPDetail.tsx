@@ -6,8 +6,7 @@ import { useQIP } from '../hooks/useQIP'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../utils/queryKeys'
 import FrontmatterTable from '../components/FrontmatterTable'
-import SnapshotSubmitter from '../components/SnapshotSubmitter'
-import { StatusDiscrepancyIndicator } from '../components/StatusDiscrepancyIndicator'
+import SnapshotSubmitter from "../components/SnapshotSubmitter";
 import { QIPSkeleton } from '../components/QIPSkeleton'
 import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 import { QIPStatus, QIPClient } from '../services/qipClient'
@@ -387,12 +386,6 @@ const QIPDetail: React.FC = () => {
             }}
           />
         </div>
-
-        {qipData.status !== qipData.ipfsStatus && (
-          <div className="mb-6">
-            <StatusDiscrepancyIndicator onChainStatus={qipData.status} ipfsStatus={qipData.ipfsStatus} />
-          </div>
-        )}
 
         {qipData.ipfsUrl && (
           <div className="mb-4 text-sm text-muted-foreground">
