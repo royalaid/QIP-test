@@ -21,6 +21,15 @@ export function useStatusUpdateMutation() {
   const queryClient = useQueryClient();
 
   return useMutation<Hash, Error, StatusUpdateParams>({
+    retry: (failureCount, error) => {
+      if (error?.message?.includes("user rejected") ||
+          error?.message?.includes("User denied") ||
+          error?.message?.includes("User cancelled") ||
+          error?.message?.toLowerCase().includes("rejected")) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     mutationFn: async ({ qipNumber, newStatus, registryAddress, rpcUrl }) => {
       if (!walletClient) {
         throw new Error("Please connect your wallet");
