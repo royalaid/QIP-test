@@ -678,12 +678,19 @@ contract MigrateBatchWithFFI is Script {
      */
     function countLines(string memory str) internal pure returns (uint256) {
         bytes memory strBytes = bytes(str);
-        uint256 lines = 0;
-        
+       if (strBytes.length == 0) return 0;
+
+        uint256 lines = 1; // Start with 1 line if non-empty
+
         for (uint256 i = 0; i < strBytes.length; i++) {
             if (strBytes[i] == "\n") lines++;
         }
-        
-        return lines > 0 ? lines : 1;
+
+        // If the string ends with a newline, don't count an extra empty line
+        if (strBytes.length > 0 && strBytes[strBytes.length - 1] == "\n") {
+            lines--;
+        }
+
+        return lines;
     }
 }
