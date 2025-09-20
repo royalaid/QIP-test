@@ -11,17 +11,30 @@ import {QIPRegistry} from "../contracts/QIPRegistry.sol";
 contract DeployLocal is Script {
     function run() public returns (address) {
         uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-        
+
+        // Get additional editor address from environment variable (if set)
+        address additionalEditor = vm.envOr("ADDITIONAL_EDITOR", address(0));
+
         vm.startBroadcast(deployerPrivateKey);
-        
-        // Deploy QIPRegistry (initial admin set to msg.sender)
-        QIPRegistry registry = new QIPRegistry(209, msg.sender);
-        
+
+        // The deployer address from the private key
+        address deployer = vm.addr(deployerPrivateKey);
+
+        // Deploy QIPRegistry with deployer as initial admin
+        QIPRegistry registry = new QIPRegistry(209, deployer);
+
         console.log("QIPRegistry deployed at:", address(registry));
-        console.log("Admin set to:", msg.sender);
-        
+        console.log("Admin set to:", deployer);
+
+        // Grant editor role to additional address if provided
+        if (additionalEditor != address(0)) {
+            bytes32 EDITOR_ROLE = keccak256("EDITOR_ROLE");
+            registry.grantRole(EDITOR_ROLE, additionalEditor);
+            console.log("Editor role granted to:", additionalEditor);
+        }
+
         vm.stopBroadcast();
-        
+
         return address(registry);
     }
 }

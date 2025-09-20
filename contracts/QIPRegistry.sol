@@ -13,6 +13,26 @@ import "./EditableEnumLib.sol";
 contract QIPRegistry is AccessControl, Pausable {
     using EditableEnumLib for EditableEnumLib.Data;
 
+    // Custom errors for gas optimization
+    error TitleRequired();
+    error ChainRequired();
+    error InvalidContentHash();
+    error IPFSURLRequired();
+    error ContentAlreadyExists();
+    error QIPSlotAlreadyUsed();
+    error QIPDoesNotExist();
+    error AlreadySubmittedToSnapshot();
+    error InvalidStatus();
+    error SnapshotAlreadyLinked();
+    error InvalidSnapshotID();
+    error QIPMustBeReadyForSnapshot();
+    error NoSnapshotIDToClear();
+    error InvalidAddress();
+    error OnlyAuthorOrEditor();
+    error MigrationModeDisabled();
+    error QIPAlreadyExists();
+    error OnlyPlaceholderCanBeCleared();
+
     bytes32 public constant EDITOR_ROLE = keccak256("EDITOR_ROLE");
 
     // Pre-hashed identifiers for the three canonical statuses
@@ -41,6 +61,28 @@ contract QIPRegistry is AccessControl, Pausable {
         uint256 timestamp;
         string changeNote;
     }
+
+    struct QIPExportData {
+        // Core QIP data
+        uint256 qipNumber;
+        address author;
+        string title;
+        string chain;
+        bytes32 contentHash;
+        string ipfsUrl;
+        uint256 createdAt;
+        uint256 lastUpdated;
+        string statusName;  // Human-readable status string
+        string implementor;
+        uint256 implementationDate;
+        string snapshotProposalId;
+        uint256 version;
+        // Version history
+        QIPVersion[] versions;
+        // Additional metadata
+        uint256 totalVersions;
+    }
+
 
     mapping(uint256 => QIP) public qips;
     mapping(uint256 => mapping(uint256 => QIPVersion)) public qipVersions;
@@ -98,13 +140,33 @@ contract QIPRegistry is AccessControl, Pausable {
         string warning
     );
 
+    // Debug events for troubleshooting
+    event DebugUpdateAttempt(
+        uint256 indexed qipNumber,
+        address caller,
+        string stage
+    );
+
+    event DebugValidation(
+        uint256 indexed qipNumber,
+        string check,
+        bool passed,
+        string reason
+    );
+
+    event DebugStorage(
+        uint256 indexed qipNumber,
+        bytes32 oldHash,
+        bytes32 newHash,
+        uint256 version
+    );
+
     modifier onlyAuthorOrEditor(uint256 _qipNumber) {
-        require(
-            qips[_qipNumber].author == msg.sender ||
+        if (!(qips[_qipNumber].author == msg.sender ||
             hasRole(EDITOR_ROLE, msg.sender) ||
-            hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "Only author or editor"
-        );
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender))) {
+            revert OnlyAuthorOrEditor();
+        }
         _;
     }
 
@@ -138,18 +200,18 @@ contract QIPRegistry is AccessControl, Pausable {
         bytes32 _contentHash,
         string memory _ipfsUrl
     ) external whenNotPaused returns (uint256) {
-        require(bytes(_title).length > 0, "Title required");
-        require(bytes(_chain).length > 0, "Chain required");
-        require(_contentHash != bytes32(0), "Invalid content hash");
-        require(bytes(_ipfsUrl).length > 0, "IPFS URL required");
-        require(contentHashToQIP[_contentHash] == 0, "Content already exists");
-        
-        
+        if (bytes(_title).length == 0) revert TitleRequired();
+        if (bytes(_chain).length == 0) revert ChainRequired();
+        if (_contentHash == bytes32(0)) revert InvalidContentHash();
+        if (bytes(_ipfsUrl).length == 0) revert IPFSURLRequired();
+        if (contentHashToQIP[_contentHash] != 0) revert ContentAlreadyExists();
+
+
         while (qips[nextQIPNumber].qipNumber != 0) {
             unchecked { nextQIPNumber++; }
         }
         uint256 qipNumber = nextQIPNumber++;
-        require(qips[qipNumber].qipNumber == 0, "QIP slot already used");
+        if (qips[qipNumber].qipNumber != 0) revert QIPSlotAlreadyUsed();
         
         qips[qipNumber] = QIP({
             qipNumber: qipNumber,
@@ -217,15 +279,43 @@ contract QIPRegistry is AccessControl, Pausable {
         string memory _newIpfsUrl,
         string memory _changeNote
     ) external onlyAuthorOrEditor(_qipNumber) {
+        emit DebugUpdateAttempt(_qipNumber, msg.sender, "start");
+
         QIP storage qip = qips[_qipNumber];
-        require(qip.qipNumber > 0, "QIP does not exist");
-        require(
-            qip.status == STATUS_DRAFT || qip.status == STATUS_READY_SNAPSHOT,
-            "Cannot update after posting to Snapshot"
-        );
-        require(bytes(qip.snapshotProposalId).length == 0, "Already submitted to Snapshot");
-        require(_newContentHash != bytes32(0), "Invalid content hash");
-        require(contentHashToQIP[_newContentHash] == 0, "Content already exists");
+        if (qip.qipNumber == 0) {
+            emit DebugValidation(_qipNumber, "exists", false, "QIP does not exist");
+            revert QIPDoesNotExist();
+        }
+
+        emit DebugValidation(_qipNumber, "exists", true, "QIP found");
+
+        if (!(qip.status == STATUS_DRAFT || qip.status == STATUS_READY_SNAPSHOT)) {
+            emit DebugValidation(_qipNumber, "status", false, "Invalid status for update");
+            revert AlreadySubmittedToSnapshot();
+        }
+
+        emit DebugValidation(_qipNumber, "status", true, "Status allows update");
+
+        if (bytes(qip.snapshotProposalId).length != 0) {
+            emit DebugValidation(_qipNumber, "snapshot", false, "Has snapshot ID");
+            revert AlreadySubmittedToSnapshot();
+        }
+
+        if (_newContentHash == bytes32(0)) {
+            emit DebugValidation(_qipNumber, "contentHash", false, "Empty content hash");
+            revert InvalidContentHash();
+        }
+
+        if (contentHashToQIP[_newContentHash] != 0) {
+            emit DebugValidation(_qipNumber, "uniqueHash", false, "Content hash exists");
+            revert ContentAlreadyExists();
+        }
+
+        emit DebugUpdateAttempt(_qipNumber, msg.sender, "validation_passed");
+
+        // Store old values for debugging
+        bytes32 oldHash = qip.contentHash;
+        uint256 oldVersion = qip.version;
 
         // Update content hash mapping
         delete contentHashToQIP[qip.contentHash];
@@ -240,6 +330,8 @@ contract QIPRegistry is AccessControl, Pausable {
         qip.lastUpdated = block.timestamp;
         qip.version++;
 
+        emit DebugStorage(_qipNumber, oldHash, _newContentHash, qip.version);
+
         // Store new version
         qipVersions[_qipNumber][qip.version] = QIPVersion({
             contentHash: _newContentHash,
@@ -248,6 +340,8 @@ contract QIPRegistry is AccessControl, Pausable {
             changeNote: _changeNote
         });
         qipVersionCount[_qipNumber] = qip.version;
+
+        emit DebugUpdateAttempt(_qipNumber, msg.sender, "storage_complete");
 
         emit QIPUpdated(
             _qipNumber,
@@ -266,10 +360,10 @@ contract QIPRegistry is AccessControl, Pausable {
         onlyRole(EDITOR_ROLE)
     {
         QIP storage qip = qips[_qipNumber];
-        require(qip.qipNumber > 0, "QIP does not exist");
+        if (qip.qipNumber == 0) revert QIPDoesNotExist();
 
         bytes32 newStatusId = keccak256(bytes(_newStatus));
-        require(_statuses.exists(newStatusId), "Invalid status");
+        if (!_statuses.exists(newStatusId)) revert InvalidStatus();
 
         bytes32 oldStatus = qip.status;
         qip.status = newStatusId;
@@ -286,20 +380,19 @@ contract QIPRegistry is AccessControl, Pausable {
         string memory _snapshotProposalId
     ) external onlyAuthorOrEditor(_qipNumber) {
         QIP storage qip = qips[_qipNumber];
-        require(qip.qipNumber > 0, "QIP does not exist");
-        require(bytes(qip.snapshotProposalId).length == 0, "Snapshot already linked");
-        require(bytes(_snapshotProposalId).length > 0, "Invalid snapshot ID");
-        
+        if (qip.qipNumber == 0) revert QIPDoesNotExist();
+        if (bytes(qip.snapshotProposalId).length != 0) revert SnapshotAlreadyLinked();
+        if (bytes(_snapshotProposalId).length == 0) revert InvalidSnapshotID();
+
         // Reject placeholder values
-        require(
-            keccak256(bytes(_snapshotProposalId)) != keccak256(bytes("TBU")) &&
-            keccak256(bytes(_snapshotProposalId)) != keccak256(bytes("tbu")) &&
-            keccak256(bytes(_snapshotProposalId)) != keccak256(bytes("None")),
-            "Invalid snapshot ID: placeholder value"
-        );
-        
+        if (keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("TBU")) ||
+            keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("tbu")) ||
+            keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("None"))) {
+            revert InvalidSnapshotID();
+        }
+
         // Require status to be "Ready for Snapshot"
-        require(qip.status == STATUS_READY_SNAPSHOT, "QIP must be Ready for Snapshot");
+        if (qip.status != STATUS_READY_SNAPSHOT) revert QIPMustBeReadyForSnapshot();
 
         qip.snapshotProposalId = _snapshotProposalId;
         qip.status = STATUS_POSTED_SNAPSHOT;
@@ -591,6 +684,58 @@ contract QIPRegistry is AccessControl, Pausable {
         returns (uint256)
     {
         return _statuses.indexOf(keccak256(bytes(_statusName)));
+    }
+
+    /**
+     * @dev Get human-readable status name from status ID
+     */
+    function getStatusName(bytes32 _statusId) public pure returns (string memory) {
+        // Pre-hashed status identifiers
+        if (_statusId == STATUS_DRAFT) return "Draft";
+        if (_statusId == STATUS_READY_SNAPSHOT) return "Ready for Snapshot";
+        if (_statusId == STATUS_POSTED_SNAPSHOT) return "Posted to Snapshot";
+
+        // For custom statuses added later, return hex string
+        return "Custom Status";
+    }
+
+    /**
+     * @dev Export complete QIP data including all versions
+     * @param _qipNumber The QIP number to export
+     * @return QIPExportData Complete QIP data with version history
+     */
+    function exportQIP(uint256 _qipNumber) external view returns (QIPExportData memory) {
+        if (qips[_qipNumber].qipNumber == 0) revert QIPDoesNotExist();
+
+        QIP storage qip = qips[_qipNumber];
+        uint256 versionCount = qipVersionCount[_qipNumber];
+
+        // Prepare versions array
+        QIPVersion[] memory versions = new QIPVersion[](versionCount);
+        for (uint256 i = 1; i <= versionCount; i++) {
+            versions[i - 1] = qipVersions[_qipNumber][i];
+        }
+
+        // Get human-readable status
+        string memory statusName = getStatusName(qip.status);
+
+        return QIPExportData({
+            qipNumber: qip.qipNumber,
+            author: qip.author,
+            title: qip.title,
+            chain: qip.chain,
+            contentHash: qip.contentHash,
+            ipfsUrl: qip.ipfsUrl,
+            createdAt: qip.createdAt,
+            lastUpdated: qip.lastUpdated,
+            statusName: statusName,
+            implementor: qip.implementor,
+            implementationDate: qip.implementationDate,
+            snapshotProposalId: qip.snapshotProposalId,
+            version: qip.version,
+            versions: versions,
+            totalVersions: versionCount
+        });
     }
 
     // Migration reporting functions removed to reduce contract size

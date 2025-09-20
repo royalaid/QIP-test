@@ -383,7 +383,7 @@ echo -e "${BOLD}Deployer:${NC}        $DEPLOYER_ADDRESS"
 echo -e "${BOLD}Registry:${NC}        $REGISTRY_ADDRESS"
 echo -e "${BOLD}Admin:${NC}           $DEPLOYER_ADDRESS"
 echo -e "${BOLD}Starting QIP:${NC}    209"
-echo -e "${BOLD}Salt:${NC}            QIPRegistry.v3.base"
+echo -e "${BOLD}Salt:${NC}            QIPRegistry.v4.base"
 echo -e "${BOLD}CREATE2:${NC}         0x4e59b44847b379578588920cA78FbF26c0B4956C"
 echo ""
 

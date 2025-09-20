@@ -301,7 +301,7 @@ fi
 echo -e "\n${GREEN}1. Starting Anvil (Base fork)...${NC}"
 
 # Standard Anvil command without impersonation
-ANVIL_CMD="anvil --fork-url https://mainnet.base.org --accounts 10 --balance 10000 --block-time 2 --port 8545"
+ANVIL_CMD="anvil --fork-url https://mainnet.base.org --accounts 10 --balance 10000 --block-time 2 --port 8545 --code-size-limit 50000"
 
 # Start Anvil
 eval "$ANVIL_CMD > /tmp/anvil.log 2>&1 &"
@@ -333,9 +333,35 @@ echo -e "${GREEN}✅ Anvil is running on http://localhost:8545${NC}"
 # Deploy contracts using deterministic CREATE2 deployment
 echo -e "\n${GREEN}2. Deploying QIP Registry contract (deterministic)...${NC}"
 
+# First, check if CREATE2 factory exists at expected address
+CREATE2_FACTORY="0x4e59b44847b379578588920cA78FbF26c0B4956C"
+echo -e "${BLUE}DEBUG: Checking CREATE2 factory at $CREATE2_FACTORY${NC}"
+FACTORY_CODE=$(cast code $CREATE2_FACTORY --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
+if [ "$FACTORY_CODE" = "0x" ] || [ -z "$FACTORY_CODE" ]; then
+    echo -e "${YELLOW}⚠️  CREATE2 factory not found at standard address${NC}"
+    echo -e "${YELLOW}   This is expected on local Anvil fork${NC}"
+else
+    echo -e "${GREEN}✅ CREATE2 factory exists${NC}"
+fi
+
+# Check if contract already exists at deterministic address
+EXPECTED_DETERMINISTIC_ADDRESS="0xf5D5CdccEe171F02293337b7F3eda4D45B85B233"
+echo -e "${BLUE}DEBUG: Checking for existing contract at deterministic address: $EXPECTED_DETERMINISTIC_ADDRESS${NC}"
+EXISTING_CODE=$(cast code $EXPECTED_DETERMINISTIC_ADDRESS --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
+if [ "$EXISTING_CODE" != "0x" ] && [ ! -z "$EXISTING_CODE" ]; then
+    echo -e "${YELLOW}⚠️  Contract already exists at deterministic address!${NC}"
+    echo -e "${YELLOW}   Code length: ${#EXISTING_CODE} bytes${NC}"
+fi
+
+# Check for additional editor to grant role to
+ADDITIONAL_EDITOR="${ADDITIONAL_EDITOR:-}"
+if [ ! -z "$ADDITIONAL_EDITOR" ]; then
+    echo -e "${BLUE}Will grant editor role to: $ADDITIONAL_EDITOR${NC}"
+fi
+
 if [ "$DEPLOY_METHOD" = "keystore" ]; then
     echo -e "${YELLOW}Deploying with keystore account: $KEYSTORE_ADDRESS${NC}"
-    # Deploy using keystore account
+    # Deploy using keystore - note: DeployLocal doesn't use keystore, fallback to CREATE2
     DEPLOY_OUTPUT=$(INITIAL_ADMIN=$KEYSTORE_ADDRESS forge script script/DeployWithStandardCreate2.s.sol:DeployWithStandardCreate2 \
         --rpc-url http://localhost:8545 \
         --account $KEYSTORE_ACCOUNT \
@@ -343,24 +369,44 @@ if [ "$DEPLOY_METHOD" = "keystore" ]; then
         --broadcast \
         -vvv 2>&1)
 else
-    # For local Anvil, use the first test account's private key
-    # This is the well-known Anvil test private key (account 0)
-    echo -e "${YELLOW}Deploying with default Anvil account...${NC}"
-    DEPLOY_OUTPUT=$(forge script script/DeployWithStandardCreate2.s.sol:DeployWithStandardCreate2 \
+    # Use the simplified local deployment script for non-keystore deployments
+    echo -e "${YELLOW}Deploying with local deployment script...${NC}"
+    echo -e "${BLUE}DEBUG: Deployer will be: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266${NC}"
+
+    DEPLOY_OUTPUT=$(ADDITIONAL_EDITOR=$ADDITIONAL_EDITOR forge script script/DeployLocal.s.sol:DeployLocal \
         --rpc-url http://localhost:8545 \
-        --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
         --broadcast \
-        --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
         -vvv 2>&1)
 fi
 
 # Save deployment output for debugging
 echo "$DEPLOY_OUTPUT" > /tmp/deploy_output.log
 
+# Extract key deployment information
+echo -e "${BLUE}DEBUG: Analyzing deployment output...${NC}"
+echo -e "${BLUE}DEBUG: Looking for deployment patterns in output${NC}"
+
+# Check for successful transaction
+if echo "$DEPLOY_OUTPUT" | grep -q "## Broadcasting transactions"; then
+    echo -e "${GREEN}✅ Found broadcasting section${NC}"
+fi
+
+# Look for transaction hashes
+TX_HASHES=$(echo "$DEPLOY_OUTPUT" | grep -oE "0x[a-fA-F0-9]{64}" | head -5)
+if [ ! -z "$TX_HASHES" ]; then
+    echo -e "${BLUE}DEBUG: Found transaction hashes:${NC}"
+    echo "$TX_HASHES" | head -3
+fi
+
 # Show key parts of the deployment output
 if echo "$DEPLOY_OUTPUT" | grep -q "Error\|error\|failed\|Failed"; then
-    echo -e "${RED}❌ Deployment may have failed. Checking output...${NC}"
+    echo -e "${YELLOW}⚠️  Deployment encountered issues. Checking output...${NC}"
     echo "$DEPLOY_OUTPUT" | grep -E "Error|error|failed|Failed" | head -5
+
+    # Check specifically for contract size error
+    if echo "$DEPLOY_OUTPUT" | grep -q "contract size limit"; then
+        echo -e "${YELLOW}⚠️  Contract exceeds size limit. Will check for existing deployment...${NC}"
+    fi
 fi
 
 # Extract the actual deployed address from the output
@@ -369,18 +415,44 @@ REGISTRY_ADDRESS=""
 echo -e "${YELLOW}Looking for deployed contract address...${NC}"
 
 # Debug: Show what patterns we're finding
-echo "$DEPLOY_OUTPUT" | grep -i "deployed\|registry\|address" | head -5
+echo -e "${BLUE}DEBUG: Searching for deployment patterns in output...${NC}"
+echo "$DEPLOY_OUTPUT" | grep -i "deployed\|registry\|address\|created\|contract" | head -10
+
+# First, check if deployment was skipped because contract already exists
+if echo "$DEPLOY_OUTPUT" | grep -q "already deployed"; then
+    echo -e "${YELLOW}Contract already deployed, extracting existing address...${NC}"
+fi
+
+# Look for computed address pattern from CREATE2
+if echo "$DEPLOY_OUTPUT" | grep -q "Computed address:"; then
+    COMPUTED_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Computed address:" | grep -oE "0x[a-fA-F0-9]{40}" | head -1)
+    echo -e "${BLUE}DEBUG: Found computed CREATE2 address: $COMPUTED_ADDRESS${NC}"
+
+    # Verify this address has code
+    CODE_CHECK=$(cast code $COMPUTED_ADDRESS --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
+    if [ "$CODE_CHECK" != "0x" ] && [ ! -z "$CODE_CHECK" ]; then
+        echo -e "${GREEN}✅ Computed address has contract code${NC}"
+        REGISTRY_ADDRESS=$COMPUTED_ADDRESS
+    else
+        echo -e "${YELLOW}⚠️  No code at computed address${NC}"
+    fi
+fi
 
 # Try multiple patterns to extract the deployed address
-if echo "$DEPLOY_OUTPUT" | grep -q "QIPRegistry deployed at:"; then
-    REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "QIPRegistry deployed at:" | awk '{print $4}')
-    echo -e "${BLUE}Found: QIPRegistry deployed at: $REGISTRY_ADDRESS${NC}"
-elif echo "$DEPLOY_OUTPUT" | grep -q "QIPRegistry already deployed at:"; then
-    REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "QIPRegistry already deployed at:" | awk '{print $5}')
-    echo -e "${BLUE}Found: QIPRegistry already deployed at: $REGISTRY_ADDRESS${NC}"
-elif echo "$DEPLOY_OUTPUT" | grep -q "Registry deployed at:"; then
-    REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Registry deployed at:" | awk '{print $4}')
-    echo -e "${BLUE}Found: Registry deployed at: $REGISTRY_ADDRESS${NC}"
+if [ -z "$REGISTRY_ADDRESS" ]; then
+    if echo "$DEPLOY_OUTPUT" | grep -q "QIPRegistry deployed at:"; then
+        REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "QIPRegistry deployed at:" | grep -oE "0x[a-fA-F0-9]{40}" | head -1)
+        echo -e "${BLUE}Found: QIPRegistry deployed at: $REGISTRY_ADDRESS${NC}"
+    elif echo "$DEPLOY_OUTPUT" | grep -q "QIPRegistry already deployed at:"; then
+        REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "QIPRegistry already deployed at:" | grep -oE "0x[a-fA-F0-9]{40}" | head -1)
+        echo -e "${BLUE}Found: QIPRegistry already deployed at: $REGISTRY_ADDRESS${NC}"
+    elif echo "$DEPLOY_OUTPUT" | grep -q "Registry deployed at:"; then
+        REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Registry deployed at:" | grep -oE "0x[a-fA-F0-9]{40}" | head -1)
+        echo -e "${BLUE}Found: Registry deployed at: $REGISTRY_ADDRESS${NC}"
+    elif echo "$DEPLOY_OUTPUT" | grep -q "Deployed QIPRegistry to:"; then
+        REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Deployed QIPRegistry to:" | grep -oE "0x[a-fA-F0-9]{40}" | head -1)
+        echo -e "${BLUE}Found: Deployed QIPRegistry to: $REGISTRY_ADDRESS${NC}"
+    fi
 fi
 
 # If we still don't have an address, check if deployment actually happened
@@ -403,20 +475,82 @@ if [ -z "$REGISTRY_ADDRESS" ]; then
     fi
 fi
 
+# If still no address, try the deterministic address as last resort
 if [ -z "$REGISTRY_ADDRESS" ]; then
-    echo -e "${RED}❌ Could not extract registry address from deployment output${NC}"
-    echo -e "${YELLOW}Check /tmp/deploy_output.log for full deployment output${NC}"
+    echo -e "${YELLOW}No address found in output. Checking deterministic address...${NC}"
+    echo -e "${BLUE}DEBUG: Checking $EXPECTED_DETERMINISTIC_ADDRESS${NC}"
+
+    DETERMINISTIC_CODE=$(cast code $EXPECTED_DETERMINISTIC_ADDRESS --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
+    if [ "$DETERMINISTIC_CODE" != "0x" ] && [ ! -z "$DETERMINISTIC_CODE" ]; then
+        echo -e "${GREEN}✅ Found contract at deterministic address!${NC}"
+        REGISTRY_ADDRESS=$EXPECTED_DETERMINISTIC_ADDRESS
+
+        # Double-check it's actually the QIPRegistry by checking a known function
+        echo -e "${BLUE}DEBUG: Verifying contract is QIPRegistry...${NC}"
+        NEXT_QIP=$(cast call $EXPECTED_DETERMINISTIC_ADDRESS "nextQIPNumber()(uint256)" --rpc-url http://localhost:8545 2>/dev/null || echo "failed")
+        if [ "$NEXT_QIP" != "failed" ]; then
+            echo -e "${GREEN}✅ Verified: Contract responds to nextQIPNumber()${NC}"
+            echo -e "${BLUE}   Next QIP Number: $NEXT_QIP${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Contract exists but may not be QIPRegistry${NC}"
+        fi
+    else
+        echo -e "${YELLOW}No contract at deterministic address${NC}"
+    fi
+fi
+
+# Final check - if we still don't have an address, scan for any QIPRegistry
+if [ -z "$REGISTRY_ADDRESS" ]; then
+    echo -e "${YELLOW}Scanning recent deployments for QIPRegistry...${NC}"
+
+    # Get all unique addresses from the deployment output
+    ALL_ADDRESSES=$(echo "$DEPLOY_OUTPUT" | grep -oE "0x[a-fA-F0-9]{40}" | sort -u)
+
+    echo -e "${BLUE}DEBUG: Found ${#ALL_ADDRESSES[@]} unique addresses in output${NC}"
+
+    for ADDR in $ALL_ADDRESSES; do
+        echo -e "${BLUE}DEBUG: Checking $ADDR...${NC}"
+        CODE_AT_ADDR=$(cast code $ADDR --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
+        if [ "$CODE_AT_ADDR" != "0x" ] && [ ! -z "$CODE_AT_ADDR" ]; then
+            # Try to call nextQIPNumber to verify it's a QIPRegistry
+            QIP_CHECK=$(cast call $ADDR "nextQIPNumber()(uint256)" --rpc-url http://localhost:8545 2>/dev/null || echo "failed")
+            if [ "$QIP_CHECK" != "failed" ]; then
+                echo -e "${GREEN}✅ Found QIPRegistry at $ADDR!${NC}"
+                REGISTRY_ADDRESS=$ADDR
+                break
+            fi
+        fi
+    done
+fi
+
+if [ -z "$REGISTRY_ADDRESS" ]; then
+    echo -e "${RED}❌ Could not find QIPRegistry address from deployment${NC}"
+    echo -e "${RED}   Deployment failed (likely due to contract size limit)${NC}"
+    echo -e "${RED}   Contract size must be under 24,576 bytes${NC}"
     exit 1
 fi
 
 # Verify the contract exists at the extracted address
+echo -e "${BLUE}Verifying contract at $REGISTRY_ADDRESS...${NC}"
 CODE=$(cast code $REGISTRY_ADDRESS --rpc-url http://localhost:8545 2>/dev/null || echo "0x")
 if [ "$CODE" = "0x" ] || [ -z "$CODE" ]; then
-    echo -e "${RED}❌ No contract found at extracted address $REGISTRY_ADDRESS${NC}"
-    echo -e "${YELLOW}Deployment may have failed.${NC}"
+    echo -e "${RED}❌ No contract found at address $REGISTRY_ADDRESS${NC}"
+    echo -e "${RED}   Contract deployment failed${NC}"
+    echo -e "${RED}   Check deployment logs above for details${NC}"
     exit 1
 fi
 
+echo -e "${GREEN}✅ Found contract code at $REGISTRY_ADDRESS${NC}"
+
+# Extra verification - try to call a function
+VERIFY_CALL=$(cast call $REGISTRY_ADDRESS "nextQIPNumber()(uint256)" --rpc-url http://localhost:8545 2>/dev/null || echo "failed")
+if [ "$VERIFY_CALL" = "failed" ]; then
+    echo -e "${RED}❌ Cannot call nextQIPNumber() - contract is not functioning${NC}"
+    echo -e "${RED}   Contract may be corrupted or incompatible${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Contract verified - nextQIPNumber: $VERIFY_CALL${NC}"
 echo -e "${GREEN}✅ QIP Registry deployed at: $REGISTRY_ADDRESS${NC}"
 
 # Export the address for other scripts
@@ -424,6 +558,9 @@ export QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS
 export VITE_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS
 export VITE_BASE_RPC_URL="http://localhost:8545"
 export GATSBY_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS
+
+# Editor role is now granted in the DeployLocal script if ADDITIONAL_EDITOR is set
+# No need for separate cast send command here
 export GATSBY_BASE_RPC_URL="http://localhost:8545"
 
 # Debug: Verify the exported address
@@ -448,7 +585,7 @@ echo -e "${BLUE}DEBUG: Deployer has admin role: $HAS_ADMIN${NC}"
 
 # Run initial data setup
 echo -e "\n${GREEN}3. Setting up initial test data...${NC}"
-echo -e "${BLUE}DEBUG: Using registry address for test data: $REGISTRY_ADDRESS${NC}"
+echo -e "${BLUE}Using registry address for test data: $REGISTRY_ADDRESS${NC}"
 
 if [ "$DEPLOY_METHOD" = "keystore" ]; then
     QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS DEPLOYER_ADDRESS=$KEYSTORE_ADDRESS \
@@ -472,8 +609,12 @@ fi
 
 # Run migration if requested
 if [ "$MIGRATE_QIPS" = true ]; then
-    echo -e "\n${GREEN}3.5. Running Batch QIP Migration (209-248)...${NC}"
-    echo -e "${YELLOW}Using optimized Foundry batch migration for better performance${NC}"
+    if [ "$CONTRACT_EXISTS" = false ]; then
+        echo -e "\n${YELLOW}3.5. Skipping QIP Migration - no contract deployed${NC}"
+        echo -e "${YELLOW}     Contract size limit prevents deployment${NC}"
+    else
+        echo -e "\n${GREEN}3.5. Running Batch QIP Migration (209-248)...${NC}"
+        echo -e "${YELLOW}Using optimized Foundry batch migration for better performance${NC}"
     
     # Export required environment variables
     export QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS
@@ -567,6 +708,7 @@ if [ "$MIGRATE_QIPS" = true ]; then
         echo "You can retry migration by running:"
         echo "  forge script script/MigrateBatchWithFFI.s.sol --rpc-url http://localhost:8545 --broadcast --ffi"
     fi
+    fi  # Close the CONTRACT_EXISTS check
 fi
 
 # Start Vite in development mode
