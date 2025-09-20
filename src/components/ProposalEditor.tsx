@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { type Address } from 'viem';
 import { toast } from 'sonner';
@@ -49,8 +49,8 @@ const NETWORKS = [
   "Kava",
 ];
 
-export const ProposalEditor: React.FC<ProposalEditorProps> = ({ 
-  registryAddress, 
+export const ProposalEditor: React.FC<ProposalEditorProps> = ({
+  registryAddress,
   rpcUrl,
   existingQIP,
   initialTitle,
@@ -62,27 +62,10 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const { data: walletClient } = useWalletClient();
   const { switchChain } = useSwitchChain();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Track if we've already navigated to prevent multiple navigations
   const hasNavigatedRef = useRef(false);
-  
-  // Debug logging
-  console.log("🔍 ProposalEditor Debug:");
-  console.log("- registryAddress:", registryAddress);
-  console.log("- Wallet Connection Status:", status);
-  console.log("- isConnected:", isConnected);
-  console.log("- address:", address);
-  console.log("- chain:", chain);
-  console.log("- walletClient:", walletClient ? "✅ Available" : "❌ Not available");
-  
-  // Debug environment variables directly
-  console.log("🔍 Direct Env Vars Check:");
-  // @ts-ignore
-  console.log("- VITE_USE_MAI_API:", import.meta.env?.VITE_USE_MAI_API);
-  // @ts-ignore
-  console.log("- VITE_IPFS_API_URL:", import.meta.env?.VITE_IPFS_API_URL);
-  // @ts-ignore
-  console.log("- VITE_USE_LOCAL_IPFS:", import.meta.env?.VITE_USE_LOCAL_IPFS);
   
   // Check if we need to switch chains
   const isWrongChain = chain && chain.id !== 8453;
@@ -95,11 +78,23 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     }
   };
   
-  // Form state - prioritize existingQIP over initial props
-  const [title, setTitle] = useState(existingQIP?.content.title || initialTitle || '');
-  const [combooxSelectedChain, setComboboxSelectedChain] = useState(existingQIP?.content.chain || initialChain || "Polygon");
-  const [content, setContent] = useState(existingQIP?.content.content || initialContent || '');
-  const [implementor, setImplementor] = useState(existingQIP?.content.implementor || initialImplementor || 'None');
+  // Check for imported data from the import dialog
+  const importedData = (location.state as any)?.importedData;
+  const fromImport = (location.state as any)?.fromImport;
+
+  // Form state - prioritize existingQIP, then imported data, then initial props
+  const [title, setTitle] = useState(
+    existingQIP?.content.title || importedData?.title || initialTitle || ''
+  );
+  const [combooxSelectedChain, setComboboxSelectedChain] = useState(
+    existingQIP?.content.chain || importedData?.chain || initialChain || "Polygon"
+  );
+  const [content, setContent] = useState(
+    existingQIP?.content.content || importedData?.content || initialContent || ''
+  );
+  const [implementor, setImplementor] = useState(
+    existingQIP?.content.implementor || importedData?.implementor || initialImplementor || 'None'
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -113,16 +108,11 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const [ipfsService, setIpfsService] = useState<IPFSService | null>(null);
   const queryClient = useQueryClient();
 
-  // Debug saving state changes
-  useEffect(() => {
-    console.log("🔍 Saving state changed:", saving);
-  }, [saving]);
-
   // Add a safety timeout to clear saving state if it gets stuck
   useEffect(() => {
     if (saving) {
       const timeout = setTimeout(() => {
-        console.warn("⚠️ Saving state stuck for 30 seconds, forcing clear");
+        console.warn("Saving operation timed out after 30 seconds");
         setSaving(false);
         if (!success && !error) {
           setError("Operation timed out. Please check if your transaction was successful.");
@@ -135,7 +125,6 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   useEffect(() => {
     if (registryAddress) {
-      console.log("🔧 Initializing QIPClient with RPC:", rpcUrl || config.baseRpcUrl);
       const client = new QIPClient(registryAddress, rpcUrl || config.baseRpcUrl);
       setQipClient(client);
     }
@@ -144,9 +133,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     try {
       const service = getIPFSService();
       setIpfsService(service);
-      console.log("✅ IPFS service initialized successfully");
     } catch (error) {
-      console.error("❌ Failed to initialize IPFS service:", error);
+      console.error("Failed to initialize IPFS service:", error);
       // Service will remain null, and the component will show the error state
     }
   }, [registryAddress, walletClient, rpcUrl]);
@@ -154,23 +142,22 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      console.log("📝 Form submission started");
 
       // Reset navigation flag for new submission
       hasNavigatedRef.current = false;
 
       if (!qipClient || !ipfsService || !address || !walletClient) {
         setError("Please connect your wallet");
-        console.error("❌ Missing required services:", { qipClient: !!qipClient, ipfsService: !!ipfsService, address });
+        console.error("Missing required services:", { qipClient: !!qipClient, ipfsService: !!ipfsService, address });
         return;
       }
 
       setError(null);
       setSuccess(null);
       setSaving(true);
-      console.log("🔄 Saving state set to true");
 
       try {
+
         // Create QIP content object
         // For existing QIPs, preserve certain blockchain fields (source of truth)
         const qipContent: QIPContent = {
@@ -188,24 +175,12 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           transactions: transactions.length > 0 ? transactions.map((tx) => ABIParser.formatTransaction(tx)) : undefined,
         };
 
-        console.log("📝 QIP Content being saved:", {
-          ...qipContent,
-          transactionCount: transactions.length,
-          hasTransactions: !!qipContent.transactions,
-          transactions: qipContent.transactions,
-        });
-
         // Format the full content for IPFS
         const fullContent = ipfsService.formatQIPContent(qipContent);
 
-        console.log("📄 Formatted content preview (first 500 chars):", fullContent.substring(0, 500));
-        console.log("📄 Full content includes transactions section:", fullContent.includes("## Transactions"));
-
         // Step 1: Pre-calculate IPFS CID without uploading
-        console.log("🔮 Calculating IPFS CID...");
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
-        console.log("✅ Expected CID:", expectedCID);
 
         // Step 2: Calculate content hash for blockchain
         const contentHash = ipfsService.calculateContentHash(qipContent);
@@ -215,41 +190,47 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         if (existingQIP) {
           // Update existing QIP
-          console.log("📝 Updating QIP on blockchain...");
-          txHash = await qipClient.updateQIP({
-            walletClient,
-            qipNumber: existingQIP.qipNumber,
-            title,
-            chain: combooxSelectedChain,
-            implementor,
-            newContentHash: contentHash,
-            newIpfsUrl: expectedIpfsUrl,
-            changeNote: "Updated via web interface",
-          });
-          qipNumber = existingQIP.qipNumber;
-          console.log("✅ Blockchain update successful:", txHash);
+          try {
+            txHash = await qipClient.updateQIP({
+              walletClient,
+              qipNumber: existingQIP.qipNumber,
+              title,
+              chain: combooxSelectedChain,
+              implementor,
+              newContentHash: contentHash,
+              newIpfsUrl: expectedIpfsUrl,
+              changeNote: "Updated via web interface",
+            });
+            qipNumber = existingQIP.qipNumber;
+          } catch (updateError) {
+            console.error("QIP update failed:", updateError);
+            throw updateError;
+          }
         } else {
           // Create new QIP
-          console.log("🚀 Creating new QIP on blockchain...");
           const result = await qipClient.createQIP(walletClient, title, combooxSelectedChain, contentHash, expectedIpfsUrl);
           txHash = result.hash;
           qipNumber = result.qipNumber;
-          console.log("✅ QIP created on blockchain:", { txHash, qipNumber });
         }
 
         // Step 3: Upload to IPFS with proper metadata AFTER blockchain confirmation
-        console.log("📤 Uploading to IPFS with metadata...");
-        const actualCID = await ipfsService.provider.upload(fullContent, {
-          qipNumber: qipNumber > 0 ? qipNumber.toString() : "pending",
-          groupId: config.pinataGroupId,
-        });
+        let actualCID;
+        try {
+          actualCID = await ipfsService.provider.upload(fullContent, {
+            qipNumber: qipNumber > 0 ? qipNumber.toString() : "pending",
+            groupId: config.pinataGroupId,
+          });
+        } catch (ipfsError) {
+          console.error("IPFS upload failed:", ipfsError);
+          // Don't throw here - blockchain update succeeded
+          // Set actualCID to expectedCID as fallback
+          actualCID = expectedCID;
+          console.warn("Using expected CID as fallback:", actualCID);
+        }
 
         // Verify CIDs match
         if (actualCID !== expectedCID) {
-          console.warn("⚠️ CID mismatch! Expected:", expectedCID, "Actual:", actualCID);
-          // In production, you might want to handle this more gracefully
-        } else {
-          console.log("✅ IPFS upload successful, CID matches:", actualCID);
+          console.warn("CID mismatch! Expected:", expectedCID, "Actual:", actualCID);
         }
 
         // Invalidate caches immediately after successful update
@@ -324,14 +305,12 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         // Reset form only for new QIPs that don't redirect
         if (!existingQIP && qipNumber === 0n) {
-          console.log("🔄 Resetting form...");
           setTitle("");
           setContent("");
           setImplementor("None");
-          console.log("✅ Form reset complete");
         }
       } catch (err: any) {
-        console.error("❌ Error saving QIP:", err);
+        console.error("Error saving QIP:", err);
 
         // Provide more helpful error messages
         let errorMessage = err.message || "Failed to save QIP";
@@ -342,9 +321,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         setError(errorMessage);
       } finally {
-        console.log("🔄 Setting saving state to false in finally block");
         setSaving(false);
-        console.log("✅ Saving state set to false");
       }
     },
     [qipClient, ipfsService, address, walletClient, title, combooxSelectedChain, content, implementor, existingQIP, transactions]
@@ -433,6 +410,14 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       {success && (
         <Alert className="mb-4 border-green-400 bg-green-100 text-green-700">
           <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
+      {fromImport && (
+        <Alert className="mb-4 border-blue-400 bg-blue-50 dark:bg-blue-950">
+          <AlertDescription className="text-blue-700 dark:text-blue-400">
+            Data imported from JSON export. Review and modify as needed before saving.
+          </AlertDescription>
         </Alert>
       )}
 

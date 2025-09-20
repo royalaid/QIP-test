@@ -12,6 +12,9 @@ import { QIPRegistryABI } from "../config/abis/QIPRegistry";
 import { QIPStatus, QIPClient } from '../services/qipClient'
 import { useMemo } from 'react'
 import { getIPFSGatewayUrl } from '../utils/ipfsGateway'
+import { MarkdownExportButton } from '../components/MarkdownExportButton'
+import { ExportMenu } from '../components/ExportMenu'
+import { ImportExportDialog } from '../components/ImportExportDialog'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -26,6 +29,7 @@ const QIPDetail: React.FC = () => {
   const [canSubmitSnapshot, setCanSubmitSnapshot] = useState(false)
   const [isAuthor, setIsAuthor] = useState(false)
   const [isEditor, setIsEditor] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
 
   // Use ref to track if we've already shown the toast for this transaction
   const toastShownRef = useRef<string | null>(null)
@@ -342,9 +346,20 @@ const QIPDetail: React.FC = () => {
           )}
         </div>
 
-        <h1 className="text-4xl font-bold mb-4">
-          QIP-{qipData.qipNumber}: {qipData.title}
-        </h1>
+        <div className="flex items-start justify-between mb-4">
+          <h1 className="text-4xl font-bold">
+            QIP-{qipData.qipNumber}: {qipData.title}
+          </h1>
+          <div className="flex items-center gap-2 mt-2">
+            <MarkdownExportButton qipData={qipData} />
+            <ExportMenu
+              qipData={qipData}
+              registryAddress={registryAddress}
+              rpcUrl={rpcUrl}
+              onImport={() => setShowImportDialog(true)}
+            />
+          </div>
+        </div>
 
         <div className="mb-8">
           <FrontmatterTable
@@ -501,6 +516,12 @@ const QIPDetail: React.FC = () => {
             </a>
           </div>
         )}
+
+        {/* Import Dialog */}
+        <ImportExportDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+        />
       </div>
     </div>
   );

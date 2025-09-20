@@ -44,7 +44,6 @@ export function useUpdateQIP({
         throw new Error('Wallet not connected');
       }
 
-
       try {
         // Ensure content has qip number set
         const qipContent: QIPContent = {
@@ -54,18 +53,14 @@ export function useUpdateQIP({
 
         // Format the full content for IPFS
         const fullContent = ipfsService.formatQIPContent(qipContent);
-        
+
         // Step 1: Pre-calculate IPFS CID without uploading
-        console.log('🔮 Calculating IPFS CID...');
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
-        console.log('✅ Expected CID:', expectedCID);
-        
+
         // Step 2: Calculate content hash for blockchain
         const contentHash = ipfsService.calculateContentHash(qipContent);
 
-        // Step 3: Update QIP on blockchain with pre-calculated IPFS URL
-        console.log('📝 Updating QIP on blockchain...');
         const txHash = await qipClient.updateQIP({
           walletClient,
           qipNumber,
@@ -76,20 +71,16 @@ export function useUpdateQIP({
           newIpfsUrl: expectedIpfsUrl,
           changeNote: "Updated via web interface",
         });
-        console.log('✅ Blockchain update successful:', txHash);
-        
+
         // Step 4: Upload to IPFS with proper metadata AFTER blockchain confirmation
-        console.log('📤 Uploading to IPFS with metadata...');
         const actualCID = await ipfsService.provider.upload(fullContent, {
           qipNumber: qipNumber.toString(),
           groupId: config.pinataGroupId
         });
-        
+
         // Verify CIDs match
         if (actualCID !== expectedCID) {
-          console.warn('⚠️ CID mismatch! Expected:', expectedCID, 'Actual:', actualCID);
-        } else {
-          console.log('✅ IPFS upload successful, CID matches:', actualCID);
+          console.warn('CID mismatch! Expected:', expectedCID, 'Actual:', actualCID);
         }
 
         // Update status if provided
@@ -97,7 +88,6 @@ export function useUpdateQIP({
           // Get current QIP to check status
           const currentQIP = await qipClient.getQIP(qipNumber);
           if (newStatus !== currentQIP.status) {
-            console.log('Updating QIP status...');
             await qipClient.updateQIPStatus(walletClient, qipNumber, newStatus);
           }
         }
@@ -113,6 +103,16 @@ export function useUpdateQIP({
         };
       } catch (error) {
         console.error('Error updating QIP:', error);
+        if (error instanceof Error) {
+          // Check for specific error patterns
+          if (error.message.includes('execution reverted')) {
+            console.error('Transaction reverted - possible causes:');
+            console.error('1. User does not have editor role');
+            console.error('2. QIP does not exist');
+            console.error('3. QIP status does not allow updates');
+            console.error('4. QIP already has snapshot ID');
+          }
+        }
         throw error;
       }
     },

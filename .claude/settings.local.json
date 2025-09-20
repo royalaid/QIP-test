@@ -46,7 +46,8 @@
       "Bash(cast:*)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "WebFetch(domain:ui.shadcn.com)"
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(ipfs cat:*)"
     ],
     "deny": [
       "Bash(rm-rf:*)"

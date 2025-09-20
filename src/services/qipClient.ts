@@ -60,17 +60,37 @@ export interface QIP {
   version: bigint;
 }
 
+export interface QIPVersion {
+  contentHash: Hash;
+  ipfsUrl: string;
+  timestamp: bigint;
+  changeNote: string;
+}
+
+export interface QIPExportData {
+  qipNumber: bigint;
+  author: Address;
+  title: string;
+  chain: string;
+  contentHash: Hash;
+  ipfsUrl: string;
+  createdAt: bigint;
+  lastUpdated: bigint;
+  statusName: string;
+  implementor: string;
+  implementationDate: bigint;
+  snapshotProposalId: string;
+  version: bigint;
+  versions: readonly QIPVersion[];
+  totalVersions: bigint;
+}
+
 export class QIPClient {
   private publicClient: PublicClient;
   private contractAddress: Address;
   private statusNamesCache: Map<number, string> | null = null;
 
   constructor(contractAddress: Address, rpcUrl?: string, testnet: boolean = false) {
-    console.log("🔧 QIPClient Debug:");
-    console.log("- contractAddress:", contractAddress);
-    console.log("- rpcUrl:", rpcUrl);
-    console.log("- testnet:", testnet);
-
     this.contractAddress = contractAddress;
 
     // For local development, use a custom chain configuration
@@ -89,14 +109,9 @@ export class QIPClient {
         ? baseSepolia
         : base;
 
-    console.log("- Using chain:", chain.name, "with ID:", chain.id);
-
     // Create load balanced transport with multiple RPC endpoints
     // Always use multiple endpoints for load balancing, even if one is provided
     const rpcEndpoints = getRPCEndpoints();
-    console.log(`- Using ${rpcEndpoints.length} RPC endpoints with load balancing`);
-    console.log(`- RPC endpoints:`, rpcEndpoints.slice(0, 3).join(", "), "...");
-
     const transport = rpcEndpoints.length > 1 ? loadBalance(rpcEndpoints.map((url) => http(url))) : http(rpcEndpoints[0]);
 
     this.publicClient = createPublicClient({
@@ -110,8 +125,6 @@ export class QIPClient {
       },
       pollingInterval: 4_000, // Poll every 4 seconds
     }) as any;
-
-    console.log("- PublicClient created:", !!this.publicClient);
   }
 
   /**
@@ -160,12 +173,8 @@ export class QIPClient {
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
     });
 
-    console.log("📝 Writing contract transaction...");
     const hash = await walletClient.writeContract(request);
-    console.log("✅ Transaction submitted:", hash);
-
-    // Wait for transaction and get QIP number from logs
-    console.log("⏳ Waiting for transaction receipt...");
+    console.log("Transaction submitted:", hash);
 
     // Add timeout for local development (Anvil sometimes doesn't auto-mine)
     const receipt = await this.publicClient
@@ -176,8 +185,6 @@ export class QIPClient {
         confirmations: 1,
       })
       .catch(async (error) => {
-        console.warn("⚠️ Receipt timeout, attempting to force mine...");
-
         // For local development, try to force mine a block
         if (this.isLocalDevelopment()) {
           try {
@@ -192,7 +199,6 @@ export class QIPClient {
                 id: 1,
               }),
             });
-            console.log("✅ Forced block mine");
 
             // Try again after mining
             return await this.publicClient.waitForTransactionReceipt({
@@ -201,31 +207,29 @@ export class QIPClient {
               confirmations: 1,
             });
           } catch (mineError) {
-            console.error("❌ Failed to force mine:", mineError);
+            console.error("Failed to force mine:", mineError);
           }
         }
 
         throw error;
       });
 
-    console.log("✅ Transaction confirmed:", receipt);
-
     if (!receipt) {
       // If we couldn't get a receipt, return a placeholder QIP number
-      console.warn("⚠️ No receipt available, returning transaction hash only");
+      console.warn("No receipt available, returning transaction hash only");
       return { hash, qipNumber: BigInt(0) };
     }
 
     const log = receipt.logs.find((log) => log.address.toLowerCase() === this.contractAddress.toLowerCase());
 
     if (!log) {
-      console.warn("⚠️ No event log found in receipt, transaction may still be pending");
+      console.warn("No event log found in receipt, transaction may still be pending");
       return { hash, qipNumber: BigInt(0) };
     }
 
     // Decode the QIP number from the event
     const qipNumber = BigInt(log.topics[1]!);
-    console.log("✅ QIP number decoded:", qipNumber);
+    console.log("QIP created:", qipNumber.toString());
 
     return { hash, qipNumber };
   }
@@ -252,27 +256,64 @@ export class QIPClient {
     newIpfsUrl: string;
     changeNote: string;
   }): Promise<Hash> {
-    if (!walletClient?.account) throw new Error("Wallet client with account required");
+    if (!walletClient?.account) {
+      throw new Error("Wallet client with account required");
+    }
 
     // First estimate gas
-    const estimatedGas = await this.publicClient.estimateContractGas({
-      address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "updateQIP",
-      args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
-      account: walletClient.account,
-    });
+    let estimatedGas;
+    try {
+      estimatedGas = await this.publicClient.estimateContractGas({
+        address: this.contractAddress,
+        abi: QIP_REGISTRY_ABI,
+        functionName: "updateQIP",
+        args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
+        account: walletClient.account,
+      });
+    } catch (gasError) {
+      console.error("Gas estimation failed:", gasError);
+      if (gasError instanceof Error) {
+        // Try to extract more details
+        const errorStr = gasError.message.toLowerCase();
+        if (errorStr.includes("revert")) {
+          console.error("Transaction would revert. Possible causes:");
+          console.error("1. User does not have editor role or is not the author");
+          console.error("2. QIP does not exist");
+          console.error("3. QIP status does not allow updates");
+          console.error("4. QIP already has a snapshot ID");
+          console.error("5. Wrong network selected in wallet");
+        }
+        if (errorStr.includes("insufficient funds")) {
+          console.error("Insufficient funds for gas");
+        }
+      }
+      throw gasError;
+    }
 
-    const { request } = await this.publicClient.simulateContract({
-      address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "updateQIP",
-      args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
-      account: walletClient.account,
-      gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
-    });
+    let request;
+    try {
+      const simulation = await this.publicClient.simulateContract({
+        address: this.contractAddress,
+        abi: QIP_REGISTRY_ABI,
+        functionName: "updateQIP",
+        args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
+        account: walletClient.account,
+        gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
+      });
+      request = simulation.request;
+    } catch (simError) {
+      console.error("Contract simulation failed:", simError);
+      throw simError;
+    }
 
-    return await walletClient.writeContract(request);
+    try {
+      const hash = await walletClient.writeContract(request);
+      console.log("QIP update transaction submitted:", hash);
+      return hash;
+    } catch (writeError) {
+      console.error("Write contract failed:", writeError);
+      throw writeError;
+    }
   }
 
   /**
@@ -377,7 +418,6 @@ ${qipData.content}`;
    * Get QIP details
    */
   async getQIP(qipNumber: bigint): Promise<QIP> {
-    console.log(`[QIPClient] Fetching QIP ${qipNumber} from blockchain at ${this.contractAddress}`);
     const result = (await this.publicClient.readContract({
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
@@ -387,7 +427,6 @@ ${qipData.content}`;
 
     // Status may come as bytes32 hash or uint8 depending on contract version
     const statusValue = result[8];
-    console.log(`[QIPClient] QIP ${qipNumber} status value from blockchain:`, statusValue);
 
     // Convert status to enum
     let status: QIPStatus;
@@ -399,10 +438,9 @@ ${qipData.content}`;
       status = statusValue as QIPStatus;
     } else {
       // Fallback to Draft
-      console.warn(`[QIPClient] Unknown status format for QIP ${qipNumber}:`, statusValue);
+      console.warn(`Unknown status format for QIP ${qipNumber}:`, statusValue);
       status = QIPStatus.Draft;
     }
-    console.log(`[QIPClient] QIP ${qipNumber} status enum:`, status, QIPStatus[status]);
 
     return {
       qipNumber: result[0],
@@ -764,7 +802,7 @@ ${qipData.content}`;
     }
 
     // Default to Draft if unknown
-    console.warn("[convertStatusHashToEnum] Unknown status hash:", statusHash);
+    console.warn("Unknown status hash:", statusHash);
     return QIPStatus.Draft;
   }
 
@@ -873,5 +911,63 @@ ${qipData.content}`;
     });
 
     return await walletClient.writeContract(request);
+  }
+
+  /**
+   * Export complete QIP data including all versions
+   */
+  async exportQIP(qipNumber: bigint): Promise<QIPExportData> {
+    try {
+      const data = (await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: QIP_REGISTRY_ABI,
+        functionName: "exportQIP",
+        args: [qipNumber],
+      })) as QIPExportData;
+
+      return data;
+    } catch (error) {
+      console.error(`Error exporting QIP ${qipNumber}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Export multiple QIPs in a single call
+   */
+  async exportMultipleQIPs(qipNumber: bigint): Promise<QIPExportData> {
+    try {
+      const data = await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: QIP_REGISTRY_ABI,
+        functionName: "exportQIP",
+        args: [qipNumber],
+      });
+
+      return data;
+    } catch (error) {
+      console.error(`Error exporting multiple QIPs:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get human-readable status name from contract
+   */
+  async getStatusName(statusId: Hash): Promise<string> {
+    try {
+      const statusName = (await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: QIP_REGISTRY_ABI,
+        functionName: "getStatusName",
+        args: [statusId],
+      })) as string;
+
+      return statusName;
+    } catch (error) {
+      console.error(`Error getting status name:`, error);
+      // Fallback to default mapping
+      return "Unknown";
+    }
   }
 }

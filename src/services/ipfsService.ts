@@ -72,12 +72,26 @@ export class LocalIPFSProvider implements IPFSProvider {
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
+    let finalContent: string;
+    if (content instanceof Blob) {
+      finalContent = await content.text();
+    } else {
+      finalContent = content;
+    }
+
+    // IMPORTANT: Match the wrapping behavior used in calculateCID
+    const isMarkdown = finalContent.trim().startsWith('---');
+    if (isMarkdown) {
+      const wrappedContent = { content: finalContent };
+      finalContent = JSON.stringify(wrappedContent);
+    }
+
     const formData = new FormData();
-    const blob = content instanceof Blob ? content : new Blob([content], { type: "text/plain" });
+    const blob = new Blob([finalContent], { type: "application/json" });
     formData.append("file", blob);
 
-    // Request CIDv1 from local IPFS daemon
-    const response = await fetch(`${this.apiUrl}/api/v0/add?cid-version=1`, {
+    // Request CIDv1 with raw codec to match calculateCID
+    const response = await fetch(`${this.apiUrl}/api/v0/add?cid-version=1&raw-leaves=true`, {
       method: "POST",
       body: formData,
     });
@@ -92,13 +106,19 @@ export class LocalIPFSProvider implements IPFSProvider {
 
   async fetch(cid: string): Promise<string> {
     // Use the API endpoint for fetching content in local development
-    const response = await fetch(`${this.apiUrl}/api/v0/cat?arg=${cid}`, {
+    const url = `${this.apiUrl}/api/v0/cat?arg=${cid}`;
+
+    const response = await fetch(url, {
       method: "POST",
     });
+
     if (!response.ok) {
+      console.error(`Local IPFS fetch failed: ${response.status} ${response.statusText}`);
       throw new Error(`Local IPFS fetch failed: ${response.statusText}. Ensure IPFS daemon is running at ${this.apiUrl}`);
     }
-    return response.text();
+
+    const content = await response.text();
+    return content;
   }
 }
 
@@ -480,24 +500,9 @@ export class MaiAPIProvider implements IPFSProvider {
       }
     } catch {
       // Not JSON - it's markdown/plain text
-      // For MaiAPIProvider, we DON'T wrap markdown in JSON
-      // The Mai API endpoint will handle this appropriately
-      // This matches how Pinata provider works
-      requestBody = {
-        pinataContent: contentString,  // Send raw content
-        pinataMetadata: {
-          name: `QIP-${metadata?.qipNumber || "content"}.md`,
-          keyvalues: {
-            type: "qip-content",
-            format: "markdown",
-            ...(metadata?.qipNumber && { qip: String(metadata.qipNumber) }),
-          },
-        },
-        pinataOptions: {
-          cidVersion: 1,
-          ...(metadata?.groupId && { groupId: metadata.groupId }),
-        },
-      };
+      // IMPORTANT: Send raw markdown - the API will wrap it in { content: "..." }
+      // to ensure consistent CID calculation
+      requestBody = contentString;
     }
 
     const response = await fetch(this.apiUrl, {
@@ -681,7 +686,7 @@ export class IPFSService {
         // Wrap markdown in JSON structure to match what the API does
         const wrappedContent = { content: content };
         contentToHash = JSON.stringify(wrappedContent);
-        console.debug(`[IPFSService] Wrapping markdown content in JSON for CID calculation`);
+        // Wrap markdown in JSON structure to match what the API does
       } else {
         // Already JSON or other format, use as-is
         contentToHash = content;
@@ -696,7 +701,6 @@ export class IPFSService {
         codec: 'raw'
       });
 
-      console.debug(`[IPFSService] Calculated CID for ${contentToHash.length} bytes: ${cid}`);
       return cid;
     } catch (error) {
       console.error("[IPFSService] Error calculating CID:", error);
@@ -830,6 +834,7 @@ ${qipData.content}`;
 
     const rawContent = await this.provider.fetch(cid);
     const processed = this.processIPFSContent(rawContent, cid);
+
     return processed;
   }
 
@@ -902,20 +907,14 @@ ${qipData.content}`;
    * Process IPFS content to handle various JSON wrapping formats
    */
   private processIPFSContent(rawContent: string, cid: string): string {
-    // Log for debugging
-    console.debug(`[IPFSService] Processing content for CID ${cid}, length: ${rawContent.length}`);
-
     // Try to parse as JSON
     try {
       const parsed = JSON.parse(rawContent);
 
       // Check if it's a valid JSON object
       if (typeof parsed === "object" && parsed !== null) {
-        console.debug(`[IPFSService] Content is JSON object with keys: ${Object.keys(parsed).join(', ')}`);
-
         // Case 1: Full QIP JSON structure (has qip, title, etc. - check this first)
         if ("qip" in parsed || "title" in parsed) {
-          console.debug(`[IPFSService] Converting full QIP JSON structure to markdown for CID: ${cid}`);
           // Convert the JSON structure to markdown format
           const frontmatter = [
             `qip: ${parsed.qip || "unknown"}`,
@@ -928,20 +927,18 @@ ${qipData.content}`;
             `proposal: ${parsed.proposal || "None"}`,
             `created: ${parsed.created || new Date().toISOString().split("T")[0]}`,
           ].join("\n");
-          
+
           const content = parsed.content || "";
           return `---\n${frontmatter}\n---\n\n${content}`;
         }
-        
+
         // Case 2: JSON with 'content' field and 'type' field (MaiAPIProvider format)
         if ("content" in parsed && "type" in parsed && parsed.type === "markdown") {
-          console.debug(`Unwrapping MaiAPI JSON-wrapped markdown for CID: ${cid}`);
           return parsed.content;
         }
-        
+
         // Case 3: Simple JSON with just 'content' field
         if ("content" in parsed && typeof parsed.content === "string") {
-          console.debug(`Unwrapping simple JSON-wrapped content for CID: ${cid}`);
           return parsed.content;
         }
       }
