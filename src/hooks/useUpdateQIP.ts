@@ -70,6 +70,8 @@ export function useUpdateQIP({
           walletClient,
           qipNumber,
           content.title,
+          content.chain,
+          content.implementor,
           contentHash,
           expectedIpfsUrl,
           'Updated via web interface'

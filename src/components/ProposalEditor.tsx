@@ -172,16 +172,18 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
       try {
         // Create QIP content object
+        // For existing QIPs, preserve certain blockchain fields (source of truth)
         const qipContent: QIPContent = {
           qip: existingQIP?.qipNumber ? Number(existingQIP.qipNumber) : 0, // Will be assigned by contract
           title,
-          chain: selectedChain,
-          status: "Draft",
-          author: address,
-          implementor,
-          "implementation-date": "None",
-          proposal: "None",
-          created: new Date().toISOString().split("T")[0],
+          chain: selectedChain,  // Allow updating in IPFS content
+          // Preserve critical blockchain fields for existing QIPs
+          status: existingQIP ? existingQIP.content.status : "Draft",
+          author: existingQIP ? existingQIP.content.author : address,  // Always preserve original author
+          implementor,  // Allow updating in IPFS content
+          "implementation-date": existingQIP ? existingQIP.content["implementation-date"] : "None",
+          proposal: existingQIP ? existingQIP.content.proposal : "None",
+          created: existingQIP ? existingQIP.content.created : new Date().toISOString().split("T")[0],  // Preserve original creation date
           content,
           transactions: transactions.length > 0 ? transactions.map(tx => ABIParser.formatTransaction(tx)) : undefined
         };
@@ -218,6 +220,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
             walletClient,
             existingQIP.qipNumber,
             title,
+            selectedChain,
+            implementor,
             contentHash,
             expectedIpfsUrl,
             "Updated via web interface"
@@ -447,7 +451,11 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         <div className="space-y-2">
           <Label htmlFor="chain">Chain *</Label>
-          <ChainCombobox value={selectedChain} onChange={setSelectedChain} placeholder="Select or type a chain..." />
+          <ChainCombobox
+            value={selectedChain}
+            onChange={setSelectedChain}
+            placeholder="Select or type a chain..."
+          />
         </div>
 
         <div className="space-y-2">

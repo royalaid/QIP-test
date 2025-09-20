@@ -80,7 +80,7 @@ contract QIPRegistryTest is Test {
         bytes32 newHash = keccak256("Updated content");
         string memory newUrl = "ipfs://updated";
         
-        registry.updateQIP(qipNumber, newTitle, newHash, newUrl, "Fixed typos");
+        registry.updateQIP(qipNumber, newTitle, "Polygon", "None", newHash, newUrl, "Fixed typos");
         
         // Verify update
         (,, string memory title,,bytes32 hash, string memory url,,,,,,,uint256 version) = registry.qips(qipNumber);
@@ -188,7 +188,7 @@ contract QIPRegistryTest is Test {
         
         // Cannot update after snapshot submission
         vm.expectRevert("Cannot update after posting to Snapshot");
-        registry.updateQIP(qipNumber, "New Title", keccak256("new"), "ipfs://new", "Should fail");
+        registry.updateQIP(qipNumber, "New Title", "Polygon", "None", keccak256("new"), "ipfs://new", "Should fail");
         
         vm.stopPrank();
     }

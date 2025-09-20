@@ -164,6 +164,8 @@ contract LocalQIPTest is Script {
         registry.updateQIP(
             249,
             "Implement Dynamic Interest Rates (Revised)",
+            "Polygon",
+            "Core Team",
             keccak256("QIP-249: Dynamic Interest Rate Model Implementation v2"),
             "ipfs://QmWYqKxQPcsAkTLvkGZmZP9oWAEeCYP8J7X5XvKeEHEeC1", // Using same CID for simplicity
             "Added more detailed implementation specs"

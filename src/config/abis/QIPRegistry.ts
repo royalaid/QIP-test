@@ -321,6 +321,8 @@ export const QIPRegistryABI = [
     inputs: [
       { name: "_qipNumber", type: "uint256", internalType: "uint256" },
       { name: "_title", type: "string", internalType: "string" },
+      { name: "_chain", type: "string", internalType: "string" },
+      { name: "_implementor", type: "string", internalType: "string" },
       { name: "_newContentHash", type: "bytes32", internalType: "bytes32" },
       { name: "_newIpfsUrl", type: "string", internalType: "string" },
       { name: "_changeNote", type: "string", internalType: "string" },

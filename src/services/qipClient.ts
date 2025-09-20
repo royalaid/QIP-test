@@ -237,6 +237,8 @@ export class QIPClient {
     walletClient: WalletClient,
     qipNumber: bigint,
     title: string,
+    chain: string,
+    implementor: string,
     newContentHash: Hash,
     newIpfsUrl: string,
     changeNote: string
@@ -248,7 +250,7 @@ export class QIPClient {
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
       functionName: "updateQIP",
-      args: [qipNumber, title, newContentHash, newIpfsUrl, changeNote],
+      args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
       account: walletClient.account,
     });
 
@@ -256,7 +258,7 @@ export class QIPClient {
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
       functionName: "updateQIP",
-      args: [qipNumber, title, newContentHash, newIpfsUrl, changeNote],
+      args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
       account: walletClient.account,
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
     });

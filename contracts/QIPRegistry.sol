@@ -211,6 +211,8 @@ contract QIPRegistry is AccessControl, Pausable {
     function updateQIP(
         uint256 _qipNumber,
         string memory _title,
+        string memory _chain,
+        string memory _implementor,
         bytes32 _newContentHash,
         string memory _newIpfsUrl,
         string memory _changeNote
@@ -224,18 +226,20 @@ contract QIPRegistry is AccessControl, Pausable {
         require(bytes(qip.snapshotProposalId).length == 0, "Already submitted to Snapshot");
         require(_newContentHash != bytes32(0), "Invalid content hash");
         require(contentHashToQIP[_newContentHash] == 0, "Content already exists");
-        
+
         // Update content hash mapping
         delete contentHashToQIP[qip.contentHash];
         contentHashToQIP[_newContentHash] = _qipNumber;
-        
-        // Update QIP
+
+        // Update QIP fields
         qip.title = _title;
+        qip.chain = _chain;
+        qip.implementor = _implementor;
         qip.contentHash = _newContentHash;
         qip.ipfsUrl = _newIpfsUrl;
         qip.lastUpdated = block.timestamp;
         qip.version++;
-        
+
         // Store new version
         qipVersions[_qipNumber][qip.version] = QIPVersion({
             contentHash: _newContentHash,
@@ -244,7 +248,7 @@ contract QIPRegistry is AccessControl, Pausable {
             changeNote: _changeNote
         });
         qipVersionCount[_qipNumber] = qip.version;
-        
+
         emit QIPUpdated(
             _qipNumber,
             qip.version,

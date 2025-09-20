@@ -20,6 +20,7 @@ interface ChainComboboxProps {
   onChange: (value: string) => void;
   placeholder?: string;
   networks?: string[];
+  disabled?: boolean;
 }
 
 const DEFAULT_NETWORKS = [
@@ -42,7 +43,8 @@ export function ChainCombobox({
   value,
   onChange,
   placeholder = "Select or type a chain...",
-  networks = DEFAULT_NETWORKS
+  networks = DEFAULT_NETWORKS,
+  disabled = false
 }: ChainComboboxProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
