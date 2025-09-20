@@ -97,7 +97,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   
   // Form state - prioritize existingQIP over initial props
   const [title, setTitle] = useState(existingQIP?.content.title || initialTitle || '');
-  const [selectedChain, setSelectedChain] = useState(existingQIP?.content.chain || initialChain || 'Polygon');
+  const [combooxSelectedChain, setComboboxSelectedChain] = useState(existingQIP?.content.chain || initialChain || "Polygon");
   const [content, setContent] = useState(existingQIP?.content.content || initialContent || '');
   const [implementor, setImplementor] = useState(existingQIP?.content.implementor || initialImplementor || 'None');
   const [saving, setSaving] = useState(false);
@@ -176,23 +176,23 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         const qipContent: QIPContent = {
           qip: existingQIP?.qipNumber ? Number(existingQIP.qipNumber) : 0, // Will be assigned by contract
           title,
-          chain: selectedChain,  // Allow updating in IPFS content
+          chain: combooxSelectedChain, // Allow updating in IPFS content
           // Preserve critical blockchain fields for existing QIPs
           status: existingQIP ? existingQIP.content.status : "Draft",
-          author: existingQIP ? existingQIP.content.author : address,  // Always preserve original author
-          implementor,  // Allow updating in IPFS content
+          author: existingQIP ? existingQIP.content.author : address, // Always preserve original author
+          implementor, // Allow updating in IPFS content
           "implementation-date": existingQIP ? existingQIP.content["implementation-date"] : "None",
           proposal: existingQIP ? existingQIP.content.proposal : "None",
-          created: existingQIP ? existingQIP.content.created : new Date().toISOString().split("T")[0],  // Preserve original creation date
+          created: existingQIP ? existingQIP.content.created : new Date().toISOString().split("T")[0], // Preserve original creation date
           content,
-          transactions: transactions.length > 0 ? transactions.map(tx => ABIParser.formatTransaction(tx)) : undefined
+          transactions: transactions.length > 0 ? transactions.map((tx) => ABIParser.formatTransaction(tx)) : undefined,
         };
 
         console.log("📝 QIP Content being saved:", {
           ...qipContent,
           transactionCount: transactions.length,
           hasTransactions: !!qipContent.transactions,
-          transactions: qipContent.transactions
+          transactions: qipContent.transactions,
         });
 
         // Format the full content for IPFS
@@ -200,50 +200,50 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         console.log("📄 Formatted content preview (first 500 chars):", fullContent.substring(0, 500));
         console.log("📄 Full content includes transactions section:", fullContent.includes("## Transactions"));
-        
+
         // Step 1: Pre-calculate IPFS CID without uploading
         console.log("🔮 Calculating IPFS CID...");
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
         console.log("✅ Expected CID:", expectedCID);
-        
+
         // Step 2: Calculate content hash for blockchain
         const contentHash = ipfsService.calculateContentHash(qipContent);
 
         let qipNumber: bigint;
         let txHash: string;
-        
+
         if (existingQIP) {
           // Update existing QIP
           console.log("📝 Updating QIP on blockchain...");
-          txHash = await qipClient.updateQIP(
+          txHash = await qipClient.updateQIP({
             walletClient,
-            existingQIP.qipNumber,
+            qipNumber: existingQIP.qipNumber,
             title,
-            selectedChain,
+            chain: combooxSelectedChain,
             implementor,
-            contentHash,
-            expectedIpfsUrl,
-            "Updated via web interface"
-          );
+            newContentHash: contentHash,
+            newIpfsUrl: expectedIpfsUrl,
+            changeNote: "Updated via web interface",
+          });
           qipNumber = existingQIP.qipNumber;
           console.log("✅ Blockchain update successful:", txHash);
         } else {
           // Create new QIP
           console.log("🚀 Creating new QIP on blockchain...");
-          const result = await qipClient.createQIP(walletClient, title, selectedChain, contentHash, expectedIpfsUrl);
+          const result = await qipClient.createQIP(walletClient, title, combooxSelectedChain, contentHash, expectedIpfsUrl);
           txHash = result.hash;
           qipNumber = result.qipNumber;
           console.log("✅ QIP created on blockchain:", { txHash, qipNumber });
         }
-        
+
         // Step 3: Upload to IPFS with proper metadata AFTER blockchain confirmation
         console.log("📤 Uploading to IPFS with metadata...");
         const actualCID = await ipfsService.provider.upload(fullContent, {
-          qipNumber: qipNumber > 0 ? qipNumber.toString() : 'pending',
-          groupId: config.pinataGroupId
+          qipNumber: qipNumber > 0 ? qipNumber.toString() : "pending",
+          groupId: config.pinataGroupId,
         });
-        
+
         // Verify CIDs match
         if (actualCID !== expectedCID) {
           console.warn("⚠️ CID mismatch! Expected:", expectedCID, "Actual:", actualCID);
@@ -251,35 +251,35 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         } else {
           console.log("✅ IPFS upload successful, CID matches:", actualCID);
         }
-        
+
         // Invalidate caches immediately after successful update
         if (existingQIP) {
           // Invalidate all related caches for the updated QIP
           const qipNum = Number(qipNumber);
 
           // Get current data to find IPFS URL
-          const currentData = queryClient.getQueryData<any>(['qip', qipNum, registryAddress]);
+          const currentData = queryClient.getQueryData<any>(["qip", qipNum, registryAddress]);
 
           // Invalidate QIP query
           queryClient.invalidateQueries({
-            queryKey: ['qip', qipNum, registryAddress]
+            queryKey: ["qip", qipNum, registryAddress],
           });
 
           // Invalidate blockchain cache
           queryClient.invalidateQueries({
-            queryKey: ['qip-blockchain', qipNum, registryAddress]
+            queryKey: ["qip-blockchain", qipNum, registryAddress],
           });
 
           // Invalidate old IPFS content if exists
           if (currentData?.ipfsUrl) {
             queryClient.invalidateQueries({
-              queryKey: ['ipfs', currentData.ipfsUrl]
+              queryKey: ["ipfs", currentData.ipfsUrl],
             });
           }
 
           // Also invalidate the new IPFS URL
           queryClient.invalidateQueries({
-            queryKey: ['ipfs', `ipfs://${actualCID}`]
+            queryKey: ["ipfs", `ipfs://${actualCID}`],
           });
         }
 
@@ -298,8 +298,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               state: {
                 txHash,
                 justUpdated: true,
-                timestamp: Date.now() // Force refresh with timestamp
-              }
+                timestamp: Date.now(), // Force refresh with timestamp
+              },
             });
           } else {
             // For new QIP, show success and reset form
@@ -312,8 +312,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                 state: {
                   txHash,
                   justCreated: true,
-                  timestamp: Date.now() // Force refresh with timestamp
-                }
+                  timestamp: Date.now(), // Force refresh with timestamp
+                },
               });
             } else {
               toast.success(`QIP submitted! Check transaction for QIP number.`);
@@ -347,7 +347,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         console.log("✅ Saving state set to false");
       }
     },
-    [qipClient, ipfsService, address, walletClient, title, selectedChain, content, implementor, existingQIP, transactions]
+    [qipClient, ipfsService, address, walletClient, title, combooxSelectedChain, content, implementor, existingQIP, transactions]
   );
 
   const handlePreview = () => {
@@ -451,11 +451,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         <div className="space-y-2">
           <Label htmlFor="chain">Chain *</Label>
-          <ChainCombobox
-            value={selectedChain}
-            onChange={setSelectedChain}
-            placeholder="Select or type a chain..."
-          />
+          <ChainCombobox value={combooxSelectedChain} onChange={setComboboxSelectedChain} placeholder="Select or type a chain..." />
         </div>
 
         <div className="space-y-2">
@@ -556,12 +552,10 @@ Implementation details...`}
           <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
             <h1 className="text-2xl font-bold mb-2">{title || "Untitled"}</h1>
             <div className="text-sm text-muted-foreground mb-4">
-              <span>Chain: {selectedChain}</span> •<span> Author: {address}</span> •<span> Status: Draft</span>
+              <span>Chain: {combooxSelectedChain}</span> •<span> Author: {address}</span> •<span> Status: Draft</span>
             </div>
             <div className="prose dark:prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {content}
-              </ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
             </div>
 
             {/* Show transactions in preview */}

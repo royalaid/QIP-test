@@ -233,16 +233,25 @@ export class QIPClient {
   /**
    * Update an existing QIP
    */
-  async updateQIP(
-    walletClient: WalletClient,
-    qipNumber: bigint,
-    title: string,
-    chain: string,
-    implementor: string,
-    newContentHash: Hash,
-    newIpfsUrl: string,
-    changeNote: string
-  ): Promise<Hash> {
+  async updateQIP({
+    walletClient,
+    qipNumber,
+    title,
+    chain,
+    implementor,
+    newContentHash,
+    newIpfsUrl,
+    changeNote,
+  }: {
+    walletClient: WalletClient;
+    qipNumber: bigint;
+    title: string;
+    chain: string;
+    implementor: string;
+    newContentHash: Hash;
+    newIpfsUrl: string;
+    changeNote: string;
+  }): Promise<Hash> {
     if (!walletClient?.account) throw new Error("Wallet client with account required");
 
     // First estimate gas
@@ -416,7 +425,7 @@ ${qipData.content}`;
    * Get the next QIP number (highest QIP + 1)
    */
   async getNextQIPNumber(): Promise<bigint> {
-    const result = await(this.publicClient as any).readContract({
+    const result = await (this.publicClient as any).readContract({
       address: this.contractAddress,
       abi: QIP_REGISTRY_ABI,
       functionName: "nextQIPNumber",
@@ -804,7 +813,16 @@ ${qipData.content}`;
     ipfsUrl: string
   ): Promise<{ version: bigint; transactionHash: string }> {
     const contentHash = keccak256(toBytes(content.content));
-    const hash = await this.updateQIP(walletClient, qipNumber, content.title, contentHash, ipfsUrl, "Updated via QIP Editor");
+    const hash = await this.updateQIP({
+      walletClient,
+      qipNumber,
+      title: content.title,
+      chain: content.chain,
+      implementor: content.implementor,
+      newContentHash: contentHash,
+      newIpfsUrl: ipfsUrl,
+      changeNote: "Updated via QIP Editor",
+    });
 
     // Get the updated QIP to return the new version
     const updatedQIP = await this.getQIP(qipNumber);

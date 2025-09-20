@@ -66,16 +66,16 @@ export function useUpdateQIP({
 
         // Step 3: Update QIP on blockchain with pre-calculated IPFS URL
         console.log('📝 Updating QIP on blockchain...');
-        const txHash = await qipClient.updateQIP(
+        const txHash = await qipClient.updateQIP({
           walletClient,
           qipNumber,
-          content.title,
-          content.chain,
-          content.implementor,
-          contentHash,
-          expectedIpfsUrl,
-          'Updated via web interface'
-        );
+          title: content.title,
+          chain: content.chain,
+          implementor: content.implementor,
+          newContentHash: contentHash,
+          newIpfsUrl: expectedIpfsUrl,
+          changeNote: "Updated via web interface",
+        });
         console.log('✅ Blockchain update successful:', txHash);
         
         // Step 4: Upload to IPFS with proper metadata AFTER blockchain confirmation
