@@ -1,31 +1,14 @@
 import { config } from '../config/env';
-import { 
-  IPFSService, 
-  PinataProvider, 
-  LocalIPFSProvider, 
-  MaiAPIProvider,
-  type IPFSProvider,
-  IPFS_GATEWAYS
-} from './ipfsService';
+import { IPFSService, PinataProvider, LocalIPFSProvider, MaiAPIProvider, type IPFSProvider } from "./ipfsService";
 
 /**
  * Get configured IPFS gateways from environment or use defaults
  */
-function getConfiguredGateways(): string[] {
-  // Check for multiple gateways configuration
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_IPFS_GATEWAYS) {
-    const gateways = import.meta.env.VITE_IPFS_GATEWAYS;
-    if (typeof gateways === 'string') {
-      return gateways.split(',').map(url => url.trim()).filter(Boolean);
-    }
+function getConfiguredGateway(): string {
+  if (typeof import.meta !== "undefined" && import.meta.env?.VITE_IPFS_GATEWAY) {
+    return import.meta.env.VITE_IPFS_GATEWAY;
   }
-  
-  // Check for single gateway and add to defaults
-  if (config.pinataGateway && !IPFS_GATEWAYS.includes(config.pinataGateway)) {
-    return [config.pinataGateway, ...IPFS_GATEWAYS];
-  }
-  
-  return IPFS_GATEWAYS;
+  return "https://gateway.pinata.cloud";
 }
 
 /**
@@ -37,35 +20,34 @@ export function getIPFSProvider(): IPFSProvider {
   // 2. Mai API (if enabled and URL configured)
   // 3. Pinata (if JWT provided)
   // 4. Mai API fallback (if URL configured, even without explicit flag)
-  
-  console.log('🔍 IPFS Provider Selection Debug:', {
+
+  console.log("🔍 IPFS Provider Selection Debug:", {
     localMode: config.localMode,
     useMaiApi: config.useMaiApi,
     ipfsApiUrl: config.ipfsApiUrl,
     useLocalIPFS: config.useLocalIPFS,
   });
-  
+
   // Get configured gateways
-  const gateways = getConfiguredGateways();
-  
+  const gateways = [getConfiguredGateway()];
+
   // In local mode, always use local IPFS
   if (config.localMode || config.useLocalIPFS) {
-    console.log('🏠 Using local IPFS node (localMode:', config.localMode, ', useLocalIPFS:', config.useLocalIPFS, ')');
-    return new LocalIPFSProvider(
-      config.localIPFSApi,
-      config.localIPFSGateway
-    );
+    console.log("🏠 Using local IPFS node (localMode:", config.localMode, ", useLocalIPFS:", config.useLocalIPFS, ")");
+    return new LocalIPFSProvider(config.localIPFSApi, config.localIPFSGateway);
   }
-  
+
   // Only use Mai API if explicitly enabled
   if (config.useMaiApi && config.ipfsApiUrl) {
-    console.log('🌐 Using Mai API for IPFS uploads:', config.ipfsApiUrl);
+    console.log("🌐 Using Mai API for IPFS uploads:", config.ipfsApiUrl);
     console.log(`📡 Using ${gateways.length} IPFS gateways for load balancing`);
     return new MaiAPIProvider(config.ipfsApiUrl);
   }
-  
+
   // No fallback to Mai API - require explicit configuration
-  throw new Error('No IPFS provider configured. Please set up local IPFS (VITE_USE_LOCAL_IPFS=true) or Mai API (VITE_USE_MAI_API=true with VITE_IPFS_API_URL).');
+  throw new Error(
+    "No IPFS provider configured. Please set up local IPFS (VITE_USE_LOCAL_IPFS=true) or Mai API (VITE_USE_MAI_API=true with VITE_IPFS_API_URL)."
+  );
 }
 
 /**

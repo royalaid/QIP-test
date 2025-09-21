@@ -123,44 +123,27 @@ export class LocalIPFSProvider implements IPFSProvider {
 }
 
 /**
- * Default IPFS gateways for load balancing
+ * Get IPFS gateway from environment or use default
  */
-export const IPFS_GATEWAYS = [
-  "https://gateway.pinata.cloud",
-  "https://ipfs.io",
-  "https://dweb.link",
-  "https://nftstorage.link",
-  "https://gateway.ipfs.io",
-];
+export const getIPFSGateway = (): string => {
+  // Check for environment variable
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_IPFS_GATEWAY) {
+    return import.meta.env.VITE_IPFS_GATEWAY;
+  }
+  // Fallback to default
+  return "https://gateway.pinata.cloud";
+};
 
 /**
- * Pinata implementation with load balanced gateways
+ * Pinata implementation with IPFS gateway
  */
 export class PinataProvider implements IPFSProvider {
   private jwt: string;
-  public readonly gateways: string[];
-  private currentGatewayIndex: number = 0;
+  public readonly gateway: string;
 
-  constructor(jwt: string, gateway?: string | string[]) {
+  constructor(jwt: string, gateway?: string) {
     this.jwt = jwt;
-    
-    // Support single gateway, array of gateways, or default to all gateways
-    if (Array.isArray(gateway)) {
-      this.gateways = gateway;
-    } else if (gateway) {
-      this.gateways = [gateway, ...IPFS_GATEWAYS.filter(g => g !== gateway)];
-    } else {
-      this.gateways = [...IPFS_GATEWAYS];
-    }
-  }
-
-  /**
-   * Get the next gateway in round-robin fashion
-   */
-  private getNextGateway(): string {
-    const gateway = this.gateways[this.currentGatewayIndex];
-    this.currentGatewayIndex = (this.currentGatewayIndex + 1) % this.gateways.length;
-    return gateway;
+    this.gateway = gateway || getIPFSGateway();
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
@@ -256,180 +239,75 @@ export class PinataProvider implements IPFSProvider {
   }
 
   async fetch(cid: string): Promise<string> {
-    // Race multiple gateways in parallel for fastest response
-    const gatewaysToRace = Math.min(3, this.gateways.length);
-    const usedGateways = new Set<string>();
 
-    // Don't use AbortController - let all requests complete
-    // This allows us to validate responses and use the best one
+    const url = `${this.gateway}/ipfs/${cid}`;
+    const startTime = Date.now();
 
-    const fetchFromGateway = async (gateway: string): Promise<{ content: string; gateway: string; time: number }> => {
-      const url = `${gateway}/ipfs/${cid}`;
-      const startTime = Date.now();
-
-      try {
-        console.debug(`[IPFS] Racing fetch from: ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout per gateway
-        });
-
-        if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error(`Rate limited on ${gateway}`);
-          }
-          throw new Error(`${gateway} failed: ${response.statusText}`);
-        }
-
-        const text = await response.text();
-        const fetchTime = Date.now() - startTime;
-
-        // Validate response content
-        if (!text || text.length === 0) {
-          throw new Error(`Empty response from ${gateway}`);
-        }
-
-        // Check if response looks like an error page (common with public gateways)
-        if (text.includes('404') || text.includes('Not Found') || text.includes('Gateway Timeout')) {
-          throw new Error(`Invalid response from ${gateway}: possibly an error page`);
-        }
-
-        console.debug(`[IPFS] ✅ Got response from ${gateway} in ${fetchTime}ms (${text.length} bytes)`);
-
-        return { content: text, gateway, time: fetchTime };
-      } catch (error: any) {
-        console.warn(`[IPFS] Failed to fetch from ${gateway}:`, error.message);
-        throw error;
-      }
-    };
-    
-    // Get unique gateways for racing
-    const gatewaysForRacing: string[] = [];
-    for (let i = 0; i < gatewaysToRace; i++) {
-      const gateway = this.getNextGateway();
-      if (!usedGateways.has(gateway)) {
-        usedGateways.add(gateway);
-        gatewaysForRacing.push(gateway);
-      }
-    }
     try {
-      // Race all gateways but collect all results
-      const results = await Promise.allSettled(
-        gatewaysForRacing.map(gateway => fetchFromGateway(gateway))
-      );
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
 
-      // Filter successful responses
-      const successfulResults = results
-        .filter((r): r is PromiseFulfilledResult<{ content: string; gateway: string; time: number }> =>
-          r.status === 'fulfilled'
-        )
-        .map(r => r.value);
+      console.log(`[IPFS-FETCH-DEBUG] Response status: ${response.status}`);
 
-      if (successfulResults.length > 0) {
-        // Sort by response time and pick the fastest valid response
-        successfulResults.sort((a, b) => a.time - b.time);
-        const best = successfulResults[0];
-        console.debug(`[IPFS] Using response from ${best.gateway} (${best.time}ms, ${best.content.length} bytes)`);
-        return best.content;
-      }
-
-      // All racing gateways failed
-      const errors = results
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map(r => r.reason);
-
-      console.warn('[IPFS] All racing gateways failed:', errors);
-    } catch (firstRaceError) {
-      console.warn('[IPFS] Error during gateway racing:', firstRaceError);
-    }
-
-    // If racing failed, try remaining gateways sequentially
-    let lastError: Error = new Error('All gateways failed');
-
-    for (const gateway of this.gateways) {
-      if (usedGateways.has(gateway)) continue;
-
-      try {
-        console.debug(`[IPFS] Trying backup gateway: ${gateway}`);
-        const url = `${gateway}/ipfs/${cid}`;
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(10000),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Fetch failed: ${response.statusText}`);
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`Rate limited on gateway`);
         }
-
-        return response.text();
-      } catch (error: any) {
-        lastError = error;
+        throw new Error(`Gateway failed: ${response.statusText}`);
       }
-    }
 
-    throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
+      const text = await response.text();
+      const fetchTime = Date.now() - startTime;
+
+      // Validate response content
+      if (!text || text.length === 0) {
+        throw new Error(`Empty response from gateway`);
+      }
+
+      // Check if response looks like an error page
+      if (text.includes("404") || text.includes("Not Found") || text.includes("Gateway Timeout")) {
+        throw new Error(`Invalid response from gateway: possibly an error page`);
+      }
+
+      console.log(`[IPFS-FETCH-DEBUG] ✅ Got response in ${fetchTime}ms (${text.length} bytes)`);
+      return text;
+
+    } catch (error: any) {
+      console.error(`[IPFS-FETCH-DEBUG] ❌ Failed to fetch from gateway:`, error.message);
+      throw error;
+    }
   }
 
   /**
-   * Fetch multiple CIDs concurrently using different gateways
+   * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[Pinata] Fetching ${cids.length} QIPs concurrently across ${this.gateways.length} gateways`);
-    
+    console.debug(`[Pinata] Fetching ${cids.length} QIPs`);
+
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
-    
-    // Create fetch promises with rotating gateways
-    const fetchPromises = cids.map(async (cid, index) => {
-      // Use a different gateway for each CID to spread the load
-      const gateway = this.gateways[index % this.gateways.length];
-      const url = `${gateway}/ipfs/${cid}`;
-      
+
+    // Create fetch promises
+    const fetchPromises = cids.map(async (cid) => {
       try {
-        console.debug(`[Pinata] Fetching CID ${cid} from gateway ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout per request
-        });
-        
-        if (!response.ok) {
-          throw new Error(`${gateway} returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const content = await response.text();
+        const content = await this.fetch(cid);
         results.set(cid, content);
-        console.debug(`[Pinata] ✅ Successfully fetched ${cid} from ${gateway}`);
+        console.debug(`[Pinata] ✅ Successfully fetched ${cid}`);
       } catch (error: any) {
-        console.warn(`[Pinata] Failed to fetch ${cid} from ${gateway}:`, error.message);
+        console.warn(`[Pinata] Failed to fetch ${cid}:`, error.message);
         errors.set(cid, error);
-        
-        // Retry with a different gateway
-        const retryGateway = this.gateways[(index + 1) % this.gateways.length];
-        const retryUrl = `${retryGateway}/ipfs/${cid}`;
-        
-        try {
-          console.debug(`[Pinata] Retrying ${cid} with ${retryGateway}`);
-          const response = await fetch(retryUrl, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (response.ok) {
-            const content = await response.text();
-            results.set(cid, content);
-            errors.delete(cid);
-            console.debug(`[Pinata] ✅ Retry successful for ${cid} from ${retryGateway}`);
-          }
-        } catch (retryError: any) {
-          console.error(`[Pinata] Retry failed for ${cid}:`, retryError.message);
-        }
       }
     });
-    
+
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
-    
+
     console.debug(`[Pinata] Fetched ${results.size}/${cids.length} QIPs successfully`);
     if (errors.size > 0) {
       console.warn(`[Pinata] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
     }
-    
+
     return results;
   }
 }
@@ -439,21 +317,11 @@ export class PinataProvider implements IPFSProvider {
  */
 export class MaiAPIProvider implements IPFSProvider {
   private apiUrl: string;
-  public readonly gateways: string[];
-  private currentGatewayIndex: number = 0;
+  public readonly gateway: string;
 
   constructor(apiUrl: string = "http://localhost:3001/v2/ipfs-upload") {
     this.apiUrl = apiUrl;
-    this.gateways = [...IPFS_GATEWAYS];
-  }
-
-  /**
-   * Get the next gateway in round-robin fashion
-   */
-  private getNextGateway(): string {
-    const gateway = this.gateways[this.currentGatewayIndex];
-    this.currentGatewayIndex = (this.currentGatewayIndex + 1) % this.gateways.length;
-    return gateway;
+    this.gateway = getIPFSGateway();
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
@@ -592,105 +460,58 @@ created: 2024-01-01
 This is placeholder content for development mode.`;
     }
 
-    // Try multiple gateways with load balancing
-    let lastError: Error | null = null;
-    const maxRetries = Math.min(3, this.gateways.length);
-    
-    for (let i = 0; i < maxRetries; i++) {
-      const gateway = this.getNextGateway();
-      const url = `${gateway}/ipfs/${cid}`;
-      
-      try {
-        console.debug(`MaiAPI: Fetching from IPFS gateway ${i + 1}/${maxRetries}: ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-        
-        if (!response.ok) {
-          if (response.status === 429) {
-            console.warn(`Rate limited on ${gateway}, trying next...`);
-            lastError = new Error(`Rate limited: ${response.statusText}`);
-            continue;
-          }
-          throw new Error(`Fetch failed: ${response.statusText}`);
+    // Fetch from the gateway
+    const url = `${this.gateway}/ipfs/${cid}`;
+
+    try {
+      console.debug(`MaiAPI: Fetching from IPFS gateway: ${this.gateway}`);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`Rate limited: ${response.statusText}`);
         }
-        
-        return response.text();
-      } catch (error: any) {
-        console.warn(`Failed to fetch from ${gateway}:`, error.message);
-        lastError = error;
-        
-        if (i < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        throw new Error(`Fetch failed: ${response.statusText}`);
       }
+
+      return response.text();
+    } catch (error: any) {
+      console.error(`Failed to fetch from gateway:`, error.message);
+      throw error;
     }
-    
-    throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
   }
 
   /**
-   * Fetch multiple CIDs concurrently using different gateways
+   * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[MaiAPI] Fetching ${cids.length} QIPs concurrently across ${this.gateways.length} gateways`);
-    
+    console.debug(`[MaiAPI] Fetching ${cids.length} QIPs`);
+
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
-    
-    // Create fetch promises with rotating gateways
-    const fetchPromises = cids.map(async (cid, index) => {
-      // Use a different gateway for each CID
-      const gateway = this.gateways[index % this.gateways.length];
-      const url = `${gateway}/ipfs/${cid}`;
-      
+
+    // Create fetch promises
+    const fetchPromises = cids.map(async (cid) => {
       try {
-        console.debug(`[MaiAPI] Fetching CID ${cid} from gateway ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout per request
-        });
-        
-        if (!response.ok) {
-          throw new Error(`${gateway} returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const content = await response.text();
+        const content = await this.fetch(cid);
         results.set(cid, content);
-        console.debug(`[MaiAPI] ✅ Successfully fetched ${cid} from ${gateway}`);
+        console.debug(`[MaiAPI] ✅ Successfully fetched ${cid}`);
       } catch (error: any) {
-        console.warn(`[MaiAPI] Failed to fetch ${cid} from ${gateway}:`, error.message);
+        console.warn(`[MaiAPI] Failed to fetch ${cid}:`, error.message);
         errors.set(cid, error);
-        
-        // Retry with a different gateway
-        const retryGateway = this.gateways[(index + 1) % this.gateways.length];
-        const retryUrl = `${retryGateway}/ipfs/${cid}`;
-        
-        try {
-          console.debug(`[MaiAPI] Retrying ${cid} with ${retryGateway}`);
-          const response = await fetch(retryUrl, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (response.ok) {
-            const content = await response.text();
-            results.set(cid, content);
-            errors.delete(cid);
-            console.debug(`[MaiAPI] ✅ Retry successful for ${cid} from ${retryGateway}`);
-          }
-        } catch (retryError: any) {
-          console.error(`[MaiAPI] Retry failed for ${cid}:`, retryError.message);
-        }
       }
     });
-    
+
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
-    
+
     console.debug(`[MaiAPI] Fetched ${results.size}/${cids.length} QIPs successfully`);
     if (errors.size > 0) {
       console.warn(`[MaiAPI] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
     }
-    
+
     return results;
   }
 
@@ -1110,8 +931,8 @@ ${qipData.content}`;
     if (this.provider instanceof Web3StorageProvider) {
       return `https://w3s.link/ipfs/${cid}`;
     } else if (this.provider instanceof PinataProvider || this.provider instanceof MaiAPIProvider) {
-      // Use the first available gateway from the provider's list
-      const gateway = this.provider.gateways?.[0] || 'https://gateway.pinata.cloud';
+      // Use the provider's gateway
+      const gateway = this.provider.gateway || getIPFSGateway();
       return `${gateway}/ipfs/${cid}`;
     } else if (this.provider instanceof LocalIPFSProvider) {
       return `http://localhost:8080/ipfs/${cid}`;

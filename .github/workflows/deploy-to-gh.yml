@@ -62,9 +62,7 @@ jobs:
           # Uncomment if you want to group uploads:
           # VITE_PINATA_GROUP_ID: ${{ secrets.PINATA_GROUP_ID }}
           
-          # Optional: Custom Pinata gateway (defaults to https://gateway.pinata.cloud)
-          # Uncomment if using a custom gateway:
-          VITE_PINATA_GATEWAY: ${{ secrets.PINATA_GATEWAY }}
+          VITE_IPFS_GATEWAY: ${{ secrets.IPFS_GATEWAY }}
           
           # Hardcoded production values (not sensitive)
           VITE_USE_TESTNET: 'false'
