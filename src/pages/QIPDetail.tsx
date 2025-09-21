@@ -14,7 +14,6 @@ import { useMemo } from 'react'
 import { getIPFSGatewayUrl } from '../utils/ipfsGateway'
 import { MarkdownExportButton } from '../components/MarkdownExportButton'
 import { ExportMenu } from '../components/ExportMenu'
-import { ImportExportDialog } from '../components/ImportExportDialog'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -29,7 +28,6 @@ const QIPDetail: React.FC = () => {
   const [canSubmitSnapshot, setCanSubmitSnapshot] = useState(false)
   const [isAuthor, setIsAuthor] = useState(false)
   const [isEditor, setIsEditor] = useState(false)
-  const [showImportDialog, setShowImportDialog] = useState(false)
 
   // Use ref to track if we've already shown the toast for this transaction
   const toastShownRef = useRef<string | null>(null)
@@ -356,7 +354,6 @@ const QIPDetail: React.FC = () => {
               qipData={qipData}
               registryAddress={registryAddress}
               rpcUrl={rpcUrl}
-              onImport={() => setShowImportDialog(true)}
             />
           </div>
         </div>
@@ -517,11 +514,6 @@ const QIPDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Import Dialog */}
-        <ImportExportDialog
-          open={showImportDialog}
-          onOpenChange={setShowImportDialog}
-        />
       </div>
     </div>
   );

@@ -1,13 +1,27 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ProposalEditor } from '../components/ProposalEditor'
 import { config } from '../config'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { templates, Template } from '../data/templates'
+import { ImportExportDialog } from '@/components/ImportExportDialog'
+import { Upload } from 'lucide-react'
 
 const CreateProposal: React.FC = () => {
+  const location = useLocation()
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [showTemplates, setShowTemplates] = useState(true)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importedData, setImportedData] = useState<any>(null)
+
+  useEffect(() => {
+    // Check if we have imported data from the dialog
+    if (location.state?.importedData) {
+      setImportedData(location.state.importedData)
+      setShowTemplates(false)
+    }
+  }, [location.state])
 
   const handleTemplateSelect = (template: Template) => {
     setSelectedTemplate(template)
@@ -53,7 +67,7 @@ const CreateProposal: React.FC = () => {
               </Card>
             ))}
             
-            <Card 
+            <Card
               className="hover:shadow-lg transition-shadow"
             >
               <CardHeader>
@@ -61,12 +75,31 @@ const CreateProposal: React.FC = () => {
                 <CardDescription>Create a proposal without a template</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
-                  variant="gradient-muted" 
+                <Button
+                  variant="gradient-muted"
                   className="w-full"
                   onClick={handleStartFromScratch}
                 >
                   Start Fresh
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-shadow border-primary/20"
+            >
+              <CardHeader>
+                <CardTitle>Import from JSON</CardTitle>
+                <CardDescription>Load a previously exported QIP</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowImportDialog(true)}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import QIP
                 </Button>
               </CardContent>
             </Card>
@@ -88,17 +121,30 @@ const CreateProposal: React.FC = () => {
               </p>
             </div>
           )}
+
+          {importedData && (
+            <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <p className="text-sm">
+                Imported QIP: <strong>{importedData.title || 'Untitled'}</strong>
+              </p>
+            </div>
+          )}
           
-          <ProposalEditor 
+          <ProposalEditor
             registryAddress={config.qipRegistryAddress}
             rpcUrl={config.baseRpcUrl}
-            initialTitle={selectedTemplate?.title}
-            initialChain={selectedTemplate?.chain}
-            initialContent={selectedTemplate?.content}
-            initialImplementor={selectedTemplate?.implementor}
+            initialTitle={importedData?.title || selectedTemplate?.title}
+            initialChain={importedData?.chain || selectedTemplate?.chain}
+            initialContent={importedData?.content || selectedTemplate?.content}
+            initialImplementor={importedData?.implementor || selectedTemplate?.implementor}
           />
         </div>
       )}
+
+      <ImportExportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+      />
     </div>
   )
 }

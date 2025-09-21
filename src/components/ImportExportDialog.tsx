@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileJson, AlertCircle } from 'lucide-react';
+import { Upload, FileJson, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   validateImportData,
   convertImportToEditorFormat,
@@ -34,6 +37,7 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [parsedData, setParsedData] = useState<QIPExportJSON | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,9 +123,15 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
     }
   };
 
+  // Generate markdown preview - only the content, no frontmatter
+  const generateMarkdownPreview = () => {
+    if (!parsedData) return '';
+    return parsedData.qip.content || '';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Import QIP from JSON</DialogTitle>
           <DialogDescription>
@@ -129,7 +139,15 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <Tabs defaultValue="import" className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="import">Import</TabsTrigger>
+            <TabsTrigger value="preview" disabled={!parsedData}>
+              Preview {parsedData && <Eye className="ml-2 h-3 w-3" />}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="import" className="space-y-4 overflow-y-auto flex-1">
           {/* File Upload */}
           <div>
             <Label htmlFor="file-upload">Upload JSON File</Label>
@@ -199,12 +217,10 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
                 <div className="space-y-1">
                   <p className="font-semibold">Valid QIP Data Found:</p>
                   <ul className="text-sm space-y-1">
-                    {parsedData.qip.qipNumber && (
-                      <li>• QIP Number: {parsedData.qip.qipNumber}</li>
-                    )}
                     <li>• Title: {parsedData.qip.title}</li>
                     <li>• Chain: {parsedData.qip.chain}</li>
                     <li>• Status: {parsedData.qip.status || 'Draft'}</li>
+                    <li>• Author: {parsedData.qip.author || 'Unknown'}</li>
                     {parsedData.versions && (
                       <li>• Versions: {parsedData.versions.length}</li>
                     )}
@@ -213,9 +229,36 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
               </AlertDescription>
             </Alert>
           )}
-        </div>
+          </TabsContent>
 
-        <DialogFooter>
+          <TabsContent value="preview" className="flex-1 overflow-hidden flex flex-col">
+            {parsedData && (
+              <div className="h-full flex flex-col overflow-hidden">
+                <div className="mb-3 p-3 bg-muted rounded-lg">
+                  <h3 className="font-semibold text-sm mb-2">Preview of Imported QIP</h3>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Review the content that will be imported. QIP number will be assigned automatically.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="font-medium">Title:</span> {parsedData.qip.title}</div>
+                    <div><span className="font-medium">Network:</span> {parsedData.qip.chain}</div>
+                    <div><span className="font-medium">Author:</span> {parsedData.qip.author || 'Unknown'}</div>
+                    <div><span className="font-medium">Status:</span> {parsedData.qip.status || 'Draft'}</div>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto border rounded-lg bg-card p-4">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {generateMarkdownPreview()}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-4">
           <Button variant="outline" onClick={handleReset}>
             Clear
           </Button>
