@@ -64,7 +64,7 @@ jobs:
           
           # Optional: Custom Pinata gateway (defaults to https://gateway.pinata.cloud)
           # Uncomment if using a custom gateway:
-          # VITE_PINATA_GATEWAY: ${{ secrets.PINATA_GATEWAY }}
+          VITE_PINATA_GATEWAY: ${{ secrets.PINATA_GATEWAY }}
           
           # Hardcoded production values (not sensitive)
           VITE_USE_TESTNET: 'false'
