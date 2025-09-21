@@ -466,9 +466,8 @@ export class MaiAPIProvider implements IPFSProvider {
       contentString = content;
     }
 
-    // IMPORTANT: For MaiAPIProvider, we upload content directly as-is
-    // The Mai API endpoint handles the wrapping/formatting
-    // This ensures consistency with how content is stored and retrieved
+    // IMPORTANT: Match the wrapping behavior used in calculateCID and LocalIPFSProvider
+    // This ensures consistent CID calculation across all providers
 
     let requestBody: any;
 
@@ -496,13 +495,51 @@ export class MaiAPIProvider implements IPFSProvider {
         };
       } else {
         // It's JSON but not QIP structure, send as-is
-        requestBody = jsonData;
+        requestBody = {
+          pinataContent: jsonData,
+          pinataMetadata: {
+            name: `QIP-${metadata?.qipNumber || "draft"}.json`,
+            keyvalues: {
+              type: "qip-proposal",
+              qip: String(metadata?.qipNumber || "draft"),
+            },
+          },
+        };
       }
     } catch {
-      // Not JSON - it's markdown/plain text
-      // IMPORTANT: Send raw markdown - the API will wrap it in { content: "..." }
-      // to ensure consistent CID calculation
-      requestBody = contentString;
+      // Not JSON - check if it's markdown that needs wrapping
+      const isMarkdown = contentString.trim().startsWith('---');
+
+      if (isMarkdown) {
+        // Wrap markdown in JSON structure to match LocalIPFSProvider and calculateCID
+        const wrappedContent = { content: contentString };
+        requestBody = {
+          pinataContent: wrappedContent,
+          pinataMetadata: {
+            name: `QIP-${metadata?.qipNumber || "draft"}.json`,
+            keyvalues: {
+              type: "qip-proposal",
+              qip: String(metadata?.qipNumber || "draft"),
+            },
+          },
+          pinataOptions: {
+            cidVersion: 1,
+            ...(metadata?.groupId && { groupId: metadata.groupId }),
+          },
+        };
+      } else {
+        // Plain text or other content - send as-is
+        requestBody = {
+          pinataContent: contentString,
+          pinataMetadata: {
+            name: `QIP-${metadata?.qipNumber || "draft"}.txt`,
+            keyvalues: {
+              type: "qip-proposal",
+              qip: String(metadata?.qipNumber || "draft"),
+            },
+          },
+        };
+      }
     }
 
     const response = await fetch(this.apiUrl, {
