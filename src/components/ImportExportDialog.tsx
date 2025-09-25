@@ -19,8 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   validateImportData,
   convertImportToEditorFormat,
-  type QIPExportJSON
-} from '@/utils/qipExport';
+  type QCIExportJSON
+} from '@/utils/qciExport';
 
 interface ImportExportDialogProps {
   open: boolean;
@@ -36,7 +36,7 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
   const [jsonContent, setJsonContent] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
-  const [parsedData, setParsedData] = useState<QIPExportJSON | null>(null);
+  const [parsedData, setParsedData] = useState<QCIExportJSON | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +61,7 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
       const validation = validateImportData(data);
 
       if (validation.valid) {
-        setParsedData(data as QIPExportJSON);
+        setParsedData(data as QCIExportJSON);
       } else {
         setErrors(validation.errors);
         setParsedData(null);
@@ -93,9 +93,9 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
     const editorData = convertImportToEditorFormat(parsedData);
 
     // Navigate to create or edit page with imported data
-    if (editorData.qipNumber) {
-      // If QIP number exists, go to edit page
-      navigate(`/edit-proposal?qip=${editorData.qipNumber}`, {
+    if (editorData.qciNumber) {
+      // If QCI number exists, go to edit page
+      navigate(`/edit-proposal?qci=${editorData.qciNumber}`, {
         state: {
           importedData: editorData,
           fromImport: true
@@ -126,16 +126,16 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
   // Generate markdown preview - only the content, no frontmatter
   const generateMarkdownPreview = () => {
     if (!parsedData) return '';
-    return parsedData.qip.content || '';
+    return parsedData.qci.content || '';
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import QIP from JSON</DialogTitle>
+          <DialogTitle>Import QCI from JSON</DialogTitle>
           <DialogDescription>
-            Upload or paste a JSON export file to import QIP data
+            Upload or paste a JSON export file to import QCI data
           </DialogDescription>
         </DialogHeader>
 
@@ -215,12 +215,12 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
               <FileJson className="h-4 w-4" />
               <AlertDescription>
                 <div className="space-y-1">
-                  <p className="font-semibold">Valid QIP Data Found:</p>
+                  <p className="font-semibold">Valid QCI Data Found:</p>
                   <ul className="text-sm space-y-1">
-                    <li>• Title: {parsedData.qip.title}</li>
-                    <li>• Chain: {parsedData.qip.chain}</li>
-                    <li>• Status: {parsedData.qip.status || 'Draft'}</li>
-                    <li>• Author: {parsedData.qip.author || 'Unknown'}</li>
+                    <li>• Title: {parsedData.qci.title}</li>
+                    <li>• Chain: {parsedData.qci.chain}</li>
+                    <li>• Status: {parsedData.qci.status || 'Draft'}</li>
+                    <li>• Author: {parsedData.qci.author || 'Unknown'}</li>
                     {parsedData.versions && (
                       <li>• Versions: {parsedData.versions.length}</li>
                     )}
@@ -235,15 +235,15 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
             {parsedData && (
               <div className="h-full flex flex-col overflow-hidden">
                 <div className="mb-3 p-3 bg-muted rounded-lg">
-                  <h3 className="font-semibold text-sm mb-2">Preview of Imported QIP</h3>
+                  <h3 className="font-semibold text-sm mb-2">Preview of Imported QCI</h3>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Review the content that will be imported. QIP number will be assigned automatically.
+                    Review the content that will be imported. QCI number will be assigned automatically.
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="font-medium">Title:</span> {parsedData.qip.title}</div>
-                    <div><span className="font-medium">Network:</span> {parsedData.qip.chain}</div>
-                    <div><span className="font-medium">Author:</span> {parsedData.qip.author || 'Unknown'}</div>
-                    <div><span className="font-medium">Status:</span> {parsedData.qip.status || 'Draft'}</div>
+                    <div><span className="font-medium">Title:</span> {parsedData.qci.title}</div>
+                    <div><span className="font-medium">Network:</span> {parsedData.qci.chain}</div>
+                    <div><span className="font-medium">Author:</span> {parsedData.qci.author || 'Unknown'}</div>
+                    <div><span className="font-medium">Status:</span> {parsedData.qci.status || 'Draft'}</div>
                   </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto border rounded-lg bg-card p-4">
@@ -269,7 +269,7 @@ export const ImportExportDialog: React.FC<ImportExportDialogProps> = ({
             onClick={handleImport}
             disabled={!parsedData || isValidating}
           >
-            Import QIP
+            Import QCI
           </Button>
         </DialogFooter>
       </DialogContent>

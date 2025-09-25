@@ -1,41 +1,41 @@
 import { useMutation, useQueryClient, UseMutationOptions } from '@tanstack/react-query';
 import { useWalletClient } from 'wagmi';
-import { QIPClient, type QIPContent } from '../services/qipClient';
+import { QCIClient, type QCIContent } from '../services/qciClient';
 import { IPFSService } from '../services/ipfsService';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 
-interface CreateQIPParams {
-  content: QIPContent;
+interface CreateQCIParams {
+  content: QCIContent;
 }
 
-interface CreateQIPResult {
-  qipNumber: bigint;
+interface CreateQCIResult {
+  qciNumber: bigint;
   ipfsUrl: string;
   transactionHash: string;
 }
 
-interface UseCreateQIPOptions {
+interface UseCreateQCIOptions {
   registryAddress: `0x${string}`;
-  mutationOptions?: Omit<UseMutationOptions<CreateQIPResult, Error, CreateQIPParams>, 'mutationFn'>;
+  mutationOptions?: Omit<UseMutationOptions<CreateQCIResult, Error, CreateQCIParams>, 'mutationFn'>;
 }
 
 /**
- * Hook to create a new QIP
+ * Hook to create a new QCI
  */
-export function useCreateQIP({
+export function useCreateQCI({
   registryAddress,
   mutationOptions = {},
-}: UseCreateQIPOptions) {
+}: UseCreateQCIOptions) {
   const { data: walletClient } = useWalletClient();
   const queryClient = useQueryClient();
 
-  const qipClient = new QIPClient(registryAddress, config.baseRpcUrl, false);
+  const qciClient = new QCIClient(registryAddress, config.baseRpcUrl, false);
   
   // Use centralized IPFS service selection
   const ipfsService = getIPFSService();
 
-  return useMutation<CreateQIPResult, Error, CreateQIPParams>({
+  return useMutation<CreateQCIResult, Error, CreateQCIParams>({
     mutationFn: async ({ content }) => {
       if (!walletClient) {
         throw new Error('Wallet not connected');
@@ -44,7 +44,7 @@ export function useCreateQIP({
 
       try {
         // Format the full content for IPFS
-        const fullContent = ipfsService.formatQIPContent(content);
+        const fullContent = ipfsService.formatQCIContent(content);
         
         // Step 1: Pre-calculate IPFS CID without uploading
         console.log('🔮 Calculating IPFS CID...');
@@ -55,9 +55,9 @@ export function useCreateQIP({
         // Step 2: Calculate content hash for blockchain
         const contentHash = ipfsService.calculateContentHash(content);
 
-        // Step 3: Create QIP on blockchain with pre-calculated IPFS URL
-        console.log('🚀 Creating new QIP on blockchain...');
-        const result = await qipClient.createQIP(
+        // Step 3: Create QCI on blockchain with pre-calculated IPFS URL
+        console.log('🚀 Creating new QCI on blockchain...');
+        const result = await qciClient.createQCI(
           walletClient,
           content.title,
           content.chain,
@@ -65,13 +65,13 @@ export function useCreateQIP({
           expectedIpfsUrl
         );
         const txHash = result.hash;
-        const qipNumber = result.qipNumber;
-        console.log('✅ QIP created on blockchain:', { txHash, qipNumber });
+        const qciNumber = result.qciNumber;
+        console.log('✅ QCI created on blockchain:', { txHash, qciNumber });
         
         // Step 4: Upload to IPFS with proper metadata AFTER blockchain confirmation
         console.log('📤 Uploading to IPFS with metadata...');
         const actualCID = await ipfsService.provider.upload(fullContent, {
-          qipNumber: qipNumber > 0 ? qipNumber.toString() : 'pending',
+          qciNumber: qciNumber > 0 ? qciNumber.toString() : 'pending',
           groupId: config.pinataGroupId
         });
         
@@ -83,22 +83,22 @@ export function useCreateQIP({
         }
 
         return {
-          qipNumber: qipNumber,
+          qciNumber: qciNumber,
           ipfsUrl: expectedIpfsUrl,
           transactionHash: txHash,
         };
       } catch (error) {
-        console.error('Error creating QIP:', error);
+        console.error('Error creating QCI:', error);
         throw error;
       }
     },
     onSuccess: (data) => {
-      // Invalidate QIP list queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ['qips'] });
+      // Invalidate QCI list queries to refetch updated data
+      queryClient.invalidateQueries({ queryKey: ['qcis'] });
       
-      // Prefetch the new QIP data
-      queryClient.setQueryData(['qip', Number(data.qipNumber), registryAddress], {
-        qipNumber: Number(data.qipNumber),
+      // Prefetch the new QCI data
+      queryClient.setQueryData(['qci', Number(data.qciNumber), registryAddress], {
+        qciNumber: Number(data.qciNumber),
         ipfsUrl: data.ipfsUrl,
         source: 'blockchain',
         lastUpdated: Date.now(),

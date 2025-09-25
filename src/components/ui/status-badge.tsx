@@ -1,9 +1,9 @@
 import React from 'react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { QIPStatus, DEFAULT_STATUSES } from '@/services/qipClient';
+import { QCIStatus, DEFAULT_STATUSES } from '@/services/qciClient';
 
-export type StatusType = QIPStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot';
+export type StatusType = QCIStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot';
 
 interface StatusBadgeProps extends Omit<BadgeProps, 'variant'> {
   status: StatusType | string;

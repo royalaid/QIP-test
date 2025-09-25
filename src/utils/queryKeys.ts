@@ -4,59 +4,59 @@
  */
 
 /**
- * Normalize QIP number to ensure consistent type
+ * Normalize QCI number to ensure consistent type
  * Always returns a number type for cache key consistency
  */
-const normalizeQIPNumber = (qipNumber: string | number): number => {
-  return typeof qipNumber === 'string' ? parseInt(qipNumber, 10) : qipNumber;
+const normalizeQCINumber = (qciNumber: string | number): number => {
+  return typeof qciNumber === 'string' ? parseInt(qciNumber, 10) : qciNumber;
 };
 
 /**
- * Query key factory for all QIP-related queries
+ * Query key factory for all QCI-related queries
  */
 export const queryKeys = {
-  // Individual QIP queries
-  qip: (qipNumber: string | number, registryAddress: string | undefined) => 
-    ['qip', normalizeQIPNumber(qipNumber), registryAddress] as const,
+  // Individual QCI queries
+  qci: (qciNumber: string | number, registryAddress: string | undefined) => 
+    ['qci', normalizeQCINumber(qciNumber), registryAddress] as const,
   
   // Blockchain data queries
-  qipBlockchain: (qipNumber: string | number, registryAddress: string | undefined) => 
-    ['qip-blockchain', normalizeQIPNumber(qipNumber), registryAddress] as const,
+  qciBlockchain: (qciNumber: string | number, registryAddress: string | undefined) => 
+    ['qci-blockchain', normalizeQCINumber(qciNumber), registryAddress] as const,
   
   // IPFS content queries
   ipfs: (ipfsUrl: string) => 
     ['ipfs', ipfsUrl] as const,
   
   // List and pagination queries
-  qipsList: (registryAddress: string | undefined) => 
-    ['qips', 'blockchain', registryAddress] as const,
+  qcisList: (registryAddress: string | undefined) => 
+    ['qcis', 'blockchain', registryAddress] as const,
   
-  qipsPage: (registryAddress: string | undefined, page: number, pageSize: number) => 
-    ['qips-page', registryAddress, page, pageSize] as const,
+  qcisPage: (registryAddress: string | undefined, page: number, pageSize: number) => 
+    ['qcis-page', registryAddress, page, pageSize] as const,
   
-  qipsPaginationState: (registryAddress: string | undefined) => 
-    ['qips-pagination-state', registryAddress] as const,
+  qcisPaginationState: (registryAddress: string | undefined) => 
+    ['qcis-pagination-state', registryAddress] as const,
   
-  qipNumbers: (registryAddress: string | undefined) => 
-    ['qip-numbers', registryAddress] as const,
+  qciNumbers: (registryAddress: string | undefined) => 
+    ['qci-numbers', registryAddress] as const,
   
   // Status-based queries
-  qipsByStatus: (registryAddress: string | undefined, status?: number) => 
+  qcisByStatus: (registryAddress: string | undefined, status?: number) => 
     status !== undefined 
-      ? ['qips', 'status', registryAddress, status] as const
-      : ['qips', 'status', registryAddress] as const,
+      ? ['qcis', 'status', registryAddress, status] as const
+      : ['qcis', 'status', registryAddress] as const,
   
   // Author-based queries
-  qipsByAuthor: (registryAddress: string | undefined, author: string) => 
-    ['qips', 'author', registryAddress, author] as const,
+  qcisByAuthor: (registryAddress: string | undefined, author: string) => 
+    ['qcis', 'author', registryAddress, author] as const,
   
   // Version history queries
-  qipVersions: (qipNumber: string | number, registryAddress: string | undefined) => 
-    ['qip', 'versions', normalizeQIPNumber(qipNumber), registryAddress] as const,
+  qciVersions: (qciNumber: string | number, registryAddress: string | undefined) => 
+    ['qci', 'versions', normalizeQCINumber(qciNumber), registryAddress] as const,
   
   // Filtered list queries
-  qipsFiltered: (registryAddress: string | undefined, filters: { status?: string; author?: string; network?: string }) => 
-    ['qips', 'list', registryAddress, filters] as const,
+  qcisFiltered: (registryAddress: string | undefined, filters: { status?: string; author?: string; network?: string }) => 
+    ['qcis', 'list', registryAddress, filters] as const,
   
   // Snapshot proposal queries
   proposals: (snapshotSpace: string) => 
@@ -72,19 +72,19 @@ export const queryKeys = {
  * Use these with queryClient.invalidateQueries({ queryKey: pattern })
  */
 export const queryKeyPatterns = {
-  // Invalidate all QIP-related queries
-  allQips: ['qips'] as const,
+  // Invalidate all QCI-related queries
+  allQips: ['qcis'] as const,
   
-  // Invalidate specific QIP and its related data
-  singleQip: (qipNumber: string | number) => 
-    ['qip', normalizeQIPNumber(qipNumber)] as const,
+  // Invalidate specific QCI and its related data
+  singleQip: (qciNumber: string | number) => 
+    ['qci', normalizeQCINumber(qciNumber)] as const,
   
   // Invalidate all IPFS content
   allIpfs: ['ipfs'] as const,
   
   // Invalidate all pagination states
-  allPagination: ['qips-pagination-state'] as const,
+  allPagination: ['qcis-pagination-state'] as const,
   
   // Invalidate all pages
-  allPages: ['qips-page'] as const,
+  allPages: ['qcis-page'] as const,
 } as const;

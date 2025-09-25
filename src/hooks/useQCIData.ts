@@ -1,19 +1,19 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicClient } from 'wagmi';
-import { QIPClient, QIPStatus } from '../services/qipClient';
+import { QCIClient, QCIStatus } from '../services/qciClient';
 import { IPFSService } from '../services/ipfsService';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
-import { useQIPsFromAPI } from './useQIPsFromAPI';
-import { useQIPList } from './useQIPList';
+import { useQCIsFromAPI } from './useQCIsFromAPI';
+import { useQCIList } from './useQCIList';
 
-export interface QIPData {
-  qipNumber: number;
+export interface QCIData {
+  qciNumber: number;
   title: string;
   chain: string;
   status: string; // On-chain status (source of truth)
-  statusEnum: QIPStatus; // On-chain status enum value
+  statusEnum: QCIStatus; // On-chain status enum value
   ipfsStatus?: string; // Status from IPFS frontmatter (may be outdated)
   author: string;
   implementor: string;
@@ -28,7 +28,7 @@ export interface QIPData {
   lastUpdated: number;
 }
 
-interface UseQIPDataOptions {
+interface UseQCIDataOptions {
   registryAddress?: `0x${string}`;
   pollingInterval?: number;
   enabled?: boolean;
@@ -36,9 +36,9 @@ interface UseQIPDataOptions {
 }
 
 /**
- * Data fetching for QIPs using Mai API
+ * Data fetching for QCIs using Mai API
  */
-export function useQIPData(options: UseQIPDataOptions = {}) {
+export function useQCIData(options: UseQCIDataOptions = {}) {
   const {
     registryAddress,
     pollingInterval = 5 * 60 * 1000, // 5 minutes default (was 30 seconds)
@@ -50,7 +50,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
   // In local mode, never use API
   const shouldUseAPI = config.localMode ? false : (config.useMaiApi && config.maiApiUrl);
   
-  console.log('[useQIPData] Config:', {
+  console.log('[useQCIData] Config:', {
     useMaiApi: config.useMaiApi,
     maiApiUrl: config.maiApiUrl,
     localMode: config.localMode,
@@ -59,7 +59,7 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
   });
   
   // API result (only used when shouldUseAPI is true)
-  const apiResult = useQIPsFromAPI({
+  const apiResult = useQCIsFromAPI({
     apiUrl: config.maiApiUrl,
     enabled: enabled && Boolean(shouldUseAPI),
     pollingInterval,
@@ -68,28 +68,28 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
   });
 
   // Blockchain result (only used when shouldUseAPI is false)
-  const blockchainResult = useQIPList({
+  const blockchainResult = useQCIList({
     registryAddress: registryAddress || config.registryAddress as `0x${string}`,
     enabled: enabled && !shouldUseAPI,
     pollingInterval,
   });
   
-  console.log('[useQIPData] Blockchain result enabled:', enabled && !shouldUseAPI);
-  console.log('[useQIPData] Registry being used:', registryAddress || config.registryAddress);
+  console.log('[useQCIData] Blockchain result enabled:', enabled && !shouldUseAPI);
+  console.log('[useQCIData] Registry being used:', registryAddress || config.registryAddress);
 
   // Choose which data source to use based on configuration
   if (shouldUseAPI) {
     return {
       // Map API result to expected interface
-      blockchainQIPs: apiResult.qips,
+      blockchainQCIs: apiResult.qcis,
       isLoading: apiResult.isLoading,
       isError: apiResult.isError,
       error: apiResult.error,
 
       // Methods
-      getQIP: apiResult.getQIP,
-      invalidateQIPs: apiResult.refreshQIPs || apiResult.invalidateQIPs, // Use refreshQIPs if available for force refresh
-      prefetchQIP: apiResult.prefetchQIP,
+      getQCI: apiResult.getQCI,
+      invalidateQCIs: apiResult.refreshQCIs || apiResult.invalidateQCIs, // Use refreshQCIs if available for force refresh
+      prefetchQCI: apiResult.prefetchQCI,
 
       // Status
       isFetching: apiResult.isFetching,
@@ -100,25 +100,25 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
     // Use blockchain data
     return {
       // Map blockchain result to expected interface
-      blockchainQIPs: blockchainResult.data || [],
+      blockchainQCIs: blockchainResult.data || [],
       isLoading: blockchainResult.isLoading,
       isError: blockchainResult.isError,
       error: blockchainResult.error,
 
       // Methods (some need to be stubbed for blockchain mode)
-      getQIP: (qipNumber: number) => {
-        // Return a hook that finds the QIP from the list
+      getQCI: (qciNumber: number) => {
+        // Return a hook that finds the QCI from the list
         return {
-          data: blockchainResult.data?.find(q => q.qipNumber === qipNumber) || null,
+          data: blockchainResult.data?.find(q => q.qciNumber === qciNumber) || null,
           isLoading: blockchainResult.isLoading,
           isError: blockchainResult.isError,
           error: blockchainResult.error,
         };
       },
-      invalidateQIPs: () => blockchainResult.refetch(),
-      prefetchQIP: async (qipNumber: number) => {
+      invalidateQCIs: () => blockchainResult.refetch(),
+      prefetchQCI: async (qciNumber: number) => {
         // No-op for blockchain mode as we fetch all at once
-        console.log(`[useQIPData] Prefetch not needed in blockchain mode for QIP ${qipNumber}`);
+        console.log(`[useQCIData] Prefetch not needed in blockchain mode for QCI ${qciNumber}`);
       },
 
       // Status
@@ -130,45 +130,45 @@ export function useQIPData(options: UseQIPDataOptions = {}) {
 }
 
 /**
- * Hook for getting QIPs by status with real-time updates
+ * Hook for getting QCIs by status with real-time updates
  */
-export function useQIPsByStatus(status: QIPStatus, options: UseQIPDataOptions = {}) {
-  const { blockchainQIPs, isLoading, isError, error } = useQIPData(options);
+export function useQCIsByStatus(status: QCIStatus, options: UseQCIDataOptions = {}) {
+  const { blockchainQCIs, isLoading, isError, error } = useQCIData(options);
   
-  const filteredQIPs = blockchainQIPs.filter(qip => {
+  const filteredQCIs = blockchainQCIs.filter(qci => {
     // Map status string back to enum for comparison
-    const statusMap: Record<string, QIPStatus> = {
-      Draft: QIPStatus.Draft,
-      "Ready for Snapshot": QIPStatus.ReadyForSnapshot,
-      "Posted to Snapshot": QIPStatus.PostedToSnapshot,
+    const statusMap: Record<string, QCIStatus> = {
+      Draft: QCIStatus.Draft,
+      "Ready for Snapshot": QCIStatus.ReadyForSnapshot,
+      "Posted to Snapshot": QCIStatus.PostedToSnapshot,
     };
     
-    return statusMap[qip.status] === status;
+    return statusMap[qci.status] === status;
   });
 
   return {
-    qips: filteredQIPs,
+    qcis: filteredQCIs,
     isLoading,
     isError,
     error,
-    count: filteredQIPs.length,
+    count: filteredQCIs.length,
   };
 }
 
 /**
- * Hook for real-time QIP count by status
+ * Hook for real-time QCI count by status
  */
-export function useQIPCounts(options: UseQIPDataOptions = {}) {
-  const { blockchainQIPs, isLoading } = useQIPData(options);
+export function useQCICounts(options: UseQCIDataOptions = {}) {
+  const { blockchainQCIs, isLoading } = useQCIData(options);
   
-  const counts = blockchainQIPs.reduce((acc, qip) => {
-    acc[qip.status] = (acc[qip.status] || 0) + 1;
+  const counts = blockchainQCIs.reduce((acc, qci) => {
+    acc[qci.status] = (acc[qci.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   return {
     counts,
-    total: blockchainQIPs.length,
+    total: blockchainQCIs.length,
     isLoading,
   };
 }

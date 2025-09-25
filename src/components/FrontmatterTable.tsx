@@ -3,7 +3,7 @@ import { format } from "date-fns";
 
 import Author from "./Author";
 import InlineStatusEditor from "./InlineStatusEditor";
-import { QIPStatus } from "../services/qipClient";
+import { QCIStatus } from "../services/qciClient";
 
 // Status color mapping
 const statusColor: any = {
@@ -15,8 +15,8 @@ const statusColor: any = {
 interface Props {
   frontmatter: any;
   // Optional editing props
-  qipNumber?: number;
-  statusEnum?: QIPStatus;
+  qciNumber?: number;
+  statusEnum?: QCIStatus;
   isAuthor?: boolean;
   isEditor?: boolean;
   onStatusUpdate?: () => void;
@@ -27,7 +27,7 @@ interface Props {
 
 const FrontmatterTable: React.FC<Props> = ({
   frontmatter,
-  qipNumber,
+  qciNumber,
   statusEnum,
   isAuthor = false,
   isEditor = false,
@@ -48,9 +48,9 @@ const FrontmatterTable: React.FC<Props> = ({
         <tr>
           <th className="py-3 px-6 text-left font-bold">Status</th>
           <td className="py-3 px-6">
-            {enableStatusEdit && qipNumber && registryAddress ? (
+            {enableStatusEdit && qciNumber && registryAddress ? (
               <InlineStatusEditor
-                qipNumber={qipNumber}
+                qciNumber={qciNumber}
                 currentStatus={frontmatter.status}
                 currentStatusEnum={statusEnum}
                 isAuthor={isAuthor}

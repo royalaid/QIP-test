@@ -1,9 +1,9 @@
 {
-  "name": "qips",
+  "name": "qcis",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "qips",
+  "description": "qcis",
   "author": "Tekrajs & Publu",
   "keywords": [],
   "scripts": {

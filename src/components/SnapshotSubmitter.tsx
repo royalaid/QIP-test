@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Button } from "./ui/button";
 import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 import { useWalletClient, usePublicClient } from "wagmi";
-import { QIPRegistryABI } from "../config/abis/QIPRegistry";
+import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 
 interface SnapshotSubmitterProps {
   frontmatter: any;
@@ -110,7 +110,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       const proposalOptions: Proposal = {
         space,
         type: "basic",
-        title: `QIP${frontmatter.qip}: ${frontmatter.title}`,
+        title: `QCI${frontmatter.qci}: ${frontmatter.title}`,
         body: formatProposalBody(rawMarkdown, frontmatter),
         choices: ["For", "Against", "Abstain"],
         start: now + startOffset,
@@ -250,9 +250,9 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
         const estimatedGas = await publicClient.estimateContractGas({
           address: registryAddress,
-          abi: QIPRegistryABI,
+          abi: QCIRegistryABI,
           functionName: "linkSnapshotProposal",
-          args: [BigInt(frontmatter.qip), proposalId],
+          args: [BigInt(frontmatter.qci), proposalId],
           account: walletClient.account,
         });
 
@@ -262,9 +262,9 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
         const { request } = await publicClient.simulateContract({
           address: registryAddress,
-          abi: QIPRegistryABI,
+          abi: QCIRegistryABI,
           functionName: "linkSnapshotProposal",
-          args: [BigInt(frontmatter.qip), proposalId],
+          args: [BigInt(frontmatter.qci), proposalId],
           account: walletClient.account,
           gas: gasWithBuffer,
         });
@@ -287,14 +287,14 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           contractParams: {
             address: registryAddress,
             functionName: "linkSnapshotProposal",
-            args: [BigInt(frontmatter.qip), proposalId],
+            args: [BigInt(frontmatter.qci), proposalId],
           },
         });
 
         // Provide more helpful error messages
         if (isSimulationError) {
           console.error("[SnapshotSubmitter] Simulation failed - possible reasons:", [
-            "1. QIP status is not 'Ready for Snapshot'",
+            "1. QCI status is not 'Ready for Snapshot'",
             "2. Proposal ID is invalid or already linked",
             "3. User lacks permission to link proposal",
             "4. Contract state doesn't allow this operation",
@@ -321,7 +321,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         currentState: {
           registryAddress,
           proposalId,
-          qipNumber: frontmatter.qip,
+          qciNumber: frontmatter.qci,
         },
       });
 
@@ -429,7 +429,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
                 <div>
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100">Link Snapshot Proposal?</h4>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Your proposal has been successfully submitted to Snapshot. Would you like to link this Snapshot proposal to the QIP and
+                    Your proposal has been successfully submitted to Snapshot. Would you like to link this Snapshot proposal to the QCI and
                     update the status to "Posted to Snapshot"?
                   </p>
                   {proposalId && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">Proposal ID: {proposalId}</p>}

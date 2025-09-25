@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Author from './Author';
 import { useQueryClient } from '@tanstack/react-query';
-import { QIPClient } from '../services/qipClient';
+import { QCIClient } from '../services/qciClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 import { CACHE_TIMES } from '../config/queryClient';
@@ -23,117 +23,117 @@ const ProposalListItem = (props: any) => {
     // Track ongoing prefetches to avoid duplicates
     const prefetchingRef = React.useRef<Set<number>>(new Set());
     
-    // Prefetch QIP data on hover
-    const handleMouseEnter = async (qipNumber: number) => {
-        const registryAddress = config.qipRegistryAddress;
+    // Prefetch QCI data on hover
+    const handleMouseEnter = async (qciNumber: number) => {
+        const registryAddress = config.qciRegistryAddress;
         if (!registryAddress) return;
         
         // Avoid duplicate prefetches
-        if (prefetchingRef.current.has(qipNumber)) {
-            console.log('[ProposalListItem] Already prefetching QIP:', qipNumber);
+        if (prefetchingRef.current.has(qciNumber)) {
+            console.log('[ProposalListItem] Already prefetching QCI:', qciNumber);
             return;
         }
         
         // Check if already cached
-        const cacheKey = ['qip', qipNumber, registryAddress];
+        const cacheKey = ['qci', qciNumber, registryAddress];
         const cached = queryClient.getQueryData(cacheKey);
         
         if (!cached) {
-            console.debug(`[ProposalListItem] Prefetching QIP ${qipNumber} on hover`);
-            prefetchingRef.current.add(qipNumber);
+            console.debug(`[ProposalListItem] Prefetching QCI ${qciNumber} on hover`);
+            prefetchingRef.current.add(qciNumber);
             
-            // Prefetch the QIP data
+            // Prefetch the QCI data
             try {
                 await queryClient.prefetchQuery({
                     queryKey: cacheKey,
                     queryFn: async () => {
-                        const qipClient = new QIPClient(registryAddress, config.baseRpcUrl, false);
+                        const qciClient = new QCIClient(registryAddress, config.baseRpcUrl, false);
                         
-                        let qip;
+                        let qci;
                         try {
-                            qip = await qipClient.getQIP(BigInt(qipNumber));
+                            qci = await qciClient.getQCI(BigInt(qciNumber));
                         } catch (error: any) {
-                            // Handle non-existent QIPs gracefully
+                            // Handle non-existent QCIs gracefully
                             if (error?.message?.includes('returned no data') || error?.message?.includes('0x')) {
-                                console.debug(`[ProposalListItem] QIP ${qipNumber} does not exist in contract`);
+                                console.debug(`[ProposalListItem] QCI ${qciNumber} does not exist in contract`);
                                 return null;
                             }
                             throw error;
                         }
                         
-                        if (!qip || qip.qipNumber === 0n) return null;
+                        if (!qci || qci.qciNumber === 0n) return null;
                         
                         // Also prefetch IPFS content
-                        const ipfsContent = await ipfsService.fetchQIP(qip.ipfsUrl);
-                        const { frontmatter, content } = ipfsService.parseQIPMarkdown(ipfsContent);
+                        const ipfsContent = await ipfsService.fetchQCI(qci.ipfsUrl);
+                        const { frontmatter, content } = ipfsService.parseQCIMarkdown(ipfsContent);
                         
                         // Cache IPFS separately
-                        queryClient.setQueryData(['ipfs', qip.ipfsUrl], {
+                        queryClient.setQueryData(['ipfs', qci.ipfsUrl], {
                             raw: ipfsContent,
                             frontmatter,
                             body: content,
-                            cid: qip.ipfsUrl,
+                            cid: qci.ipfsUrl,
                         });
                         
-                        const implDate = qip.implementationDate > 0n 
-                            ? new Date(Number(qip.implementationDate) * 1000).toISOString().split('T')[0]
+                        const implDate = qci.implementationDate > 0n 
+                            ? new Date(Number(qci.implementationDate) * 1000).toISOString().split('T')[0]
                             : 'None';
                         
                         return {
-                            qipNumber,
-                            title: qip.title,
-                            chain: qip.chain,
-                            status: qipClient.getStatusString(qip.status),
-                            author: frontmatter.author || qip.author,
-                            implementor: qip.implementor,
+                            qciNumber,
+                            title: qci.title,
+                            chain: qci.chain,
+                            status: qciClient.getStatusString(qci.status),
+                            author: frontmatter.author || qci.author,
+                            implementor: qci.implementor,
                             implementationDate: implDate,
                             // Filter out TBU and other placeholders
-                            proposal: (qip.snapshotProposalId && 
-                                      qip.snapshotProposalId !== 'TBU' && 
-                                      qip.snapshotProposalId !== 'tbu' &&
-                                      qip.snapshotProposalId !== 'None') 
-                                      ? qip.snapshotProposalId 
+                            proposal: (qci.snapshotProposalId && 
+                                      qci.snapshotProposalId !== 'TBU' && 
+                                      qci.snapshotProposalId !== 'tbu' &&
+                                      qci.snapshotProposalId !== 'None') 
+                                      ? qci.snapshotProposalId 
                                       : 'None',
-                            created: frontmatter.created || new Date(Number(qip.createdAt) * 1000).toISOString().split('T')[0],
+                            created: frontmatter.created || new Date(Number(qci.createdAt) * 1000).toISOString().split('T')[0],
                             content,
-                            ipfsUrl: qip.ipfsUrl,
-                            contentHash: qip.contentHash,
-                            version: Number(qip.version),
+                            ipfsUrl: qci.ipfsUrl,
+                            contentHash: qci.contentHash,
+                            version: Number(qci.version),
                             source: 'blockchain' as const,
                             lastUpdated: Date.now()
                         };
                     },
-                    staleTime: CACHE_TIMES.STALE_TIME.QIP_DETAIL,
-                    gcTime: CACHE_TIMES.GC_TIME.QIP_DETAIL,
+                    staleTime: CACHE_TIMES.STALE_TIME.QCI_DETAIL,
+                    gcTime: CACHE_TIMES.GC_TIME.QCI_DETAIL,
                 });
             } catch (error) {
-                console.error('[ProposalListItem] Prefetch error for QIP:', qipNumber, error);
+                console.error('[ProposalListItem] Prefetch error for QCI:', qciNumber, error);
             } finally {
                 // Remove from prefetching set
-                prefetchingRef.current.delete(qipNumber);
+                prefetchingRef.current.delete(qciNumber);
             }
         } else {
-            console.log('[ProposalListItem] QIP already cached:', qipNumber);
+            console.log('[ProposalListItem] QCI already cached:', qciNumber);
         }
     };
 
     // Helper function to get data from proposal (handles both markdown and blockchain structures)
     const getProposalData = (proposal: any) => {
-        // Check if this is a blockchain QIP (has qipNumber) or markdown QIP (has frontmatter)
-        const isBlockchainQIP = proposal.qipNumber !== undefined;
+        // Check if this is a blockchain QCI (has qciNumber) or markdown QCI (has frontmatter)
+        const isBlockchainQCI = proposal.qciNumber !== undefined;
         
-        if (isBlockchainQIP) {
+        if (isBlockchainQCI) {
             return {
-                qip: proposal.qipNumber,
+                qci: proposal.qciNumber,
                 title: proposal.title,
                 author: proposal.author,
                 status: proposal.status,
                 shortDescription: proposal.content?.substring(0, 200) || ''
             };
         } else {
-            // Markdown QIP structure
+            // Markdown QCI structure
             return {
-                qip: proposal.frontmatter?.qip,
+                qci: proposal.frontmatter?.qci,
                 title: proposal.frontmatter?.title,
                 author: proposal.frontmatter?.author,
                 status: proposal.frontmatter?.status,
@@ -149,11 +149,11 @@ const ProposalListItem = (props: any) => {
                 
                 return (
                   <Card key={index} className="hover:shadow-lg transition-all duration-200 cursor-pointer">
-                    <Link to={`/qips/${data.qip}`} className="block" onMouseEnter={() => handleMouseEnter(data.qip)}>
+                    <Link to={`/qcis/${data.qci}`} className="block" onMouseEnter={() => handleMouseEnter(data.qci)}>
                       <CardHeader>
                         <div className="flex items-center justify-between mb-2">
                           <CardDescription className="text-sm font-medium">
-                            QIP-{data.qip}
+                            QCI-{data.qci}
                           </CardDescription>
                           <span
                             style={{ backgroundColor: statusColor[data.status] }}

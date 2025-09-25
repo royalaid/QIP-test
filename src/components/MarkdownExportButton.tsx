@@ -2,18 +2,18 @@ import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { copyToClipboard, formatQIPAsMarkdown } from '@/utils/qipExport';
-import { type QIPData } from '@/hooks/useQIPData';
+import { copyToClipboard, formatQCIAsMarkdown } from '@/utils/qciExport';
+import { type QCIData } from '@/hooks/useQCIData';
 
 interface MarkdownExportButtonProps {
-  qipData: QIPData | null;
+  qciData: QCIData | null;
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
 }
 
 export const MarkdownExportButton: React.FC<MarkdownExportButtonProps> = ({
-  qipData,
+  qciData,
   variant = 'ghost',
   size = 'icon',
   className = ''
@@ -21,9 +21,9 @@ export const MarkdownExportButton: React.FC<MarkdownExportButtonProps> = ({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    if (!qipData) return;
+    if (!qciData) return;
 
-    const markdown = formatQIPAsMarkdown(qipData, true);
+    const markdown = formatQCIAsMarkdown(qciData, true);
     const success = await copyToClipboard(markdown);
 
     if (success) {
@@ -32,7 +32,7 @@ export const MarkdownExportButton: React.FC<MarkdownExportButtonProps> = ({
     }
   };
 
-  if (!qipData) return null;
+  if (!qciData) return null;
 
   return (
     <TooltipProvider>
@@ -43,7 +43,7 @@ export const MarkdownExportButton: React.FC<MarkdownExportButtonProps> = ({
             variant={variant}
             size={size}
             className={className}
-            aria-label="Copy QIP as Markdown"
+            aria-label="Copy QCI as Markdown"
           >
             {copied ? (
               <Check className="h-4 w-4 text-green-500" />

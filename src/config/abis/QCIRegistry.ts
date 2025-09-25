@@ -1,9 +1,9 @@
-export const QIPRegistryABI = [
+export const QCIRegistryABI = [
   {
     type: "constructor",
     inputs: [
       {
-        name: "_startingQIPNumber",
+        name: "_startingQCINumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -65,7 +65,7 @@ export const QIPRegistryABI = [
     name: "clearInvalidSnapshotId",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -75,7 +75,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "contentHashToQIP",
+    name: "contentHashToQCI",
     inputs: [
       {
         name: "",
@@ -94,7 +94,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "createQIP",
+    name: "createQCI",
     inputs: [
       {
         name: "_title",
@@ -135,10 +135,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "exportQIP",
+    name: "exportQCI",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -147,10 +147,10 @@ export const QIPRegistryABI = [
       {
         name: "",
         type: "tuple",
-        internalType: "struct QIPRegistry.QIPExportData",
+        internalType: "struct QCIRegistry.QCIExportData",
         components: [
           {
-            name: "qipNumber",
+            name: "qciNumber",
             type: "uint256",
             internalType: "uint256",
           },
@@ -217,7 +217,7 @@ export const QIPRegistryABI = [
           {
             name: "versions",
             type: "tuple[]",
-            internalType: "struct QIPRegistry.QIPVersion[]",
+            internalType: "struct QCIRegistry.QCIVersion[]",
             components: [
               {
                 name: "contentHash",
@@ -253,22 +253,22 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "getQIPWithVersions",
+    name: "getQCIWithVersions",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
     ],
     outputs: [
       {
-        name: "qip",
+        name: "qci",
         type: "tuple",
-        internalType: "struct QIPRegistry.QIP",
+        internalType: "struct QCIRegistry.QCI",
         components: [
           {
-            name: "qipNumber",
+            name: "qciNumber",
             type: "uint256",
             internalType: "uint256",
           },
@@ -337,7 +337,7 @@ export const QIPRegistryABI = [
       {
         name: "versions",
         type: "tuple[]",
-        internalType: "struct QIPRegistry.QIPVersion[]",
+        internalType: "struct QCIRegistry.QCIVersion[]",
         components: [
           {
             name: "contentHash",
@@ -366,7 +366,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "getQIPsByAuthor",
+    name: "getQCIsByAuthor",
     inputs: [
       {
         name: "_author",
@@ -385,7 +385,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "getQIPsByStatus",
+    name: "getQCIsByStatus",
     inputs: [
       {
         name: "_status",
@@ -487,7 +487,7 @@ export const QIPRegistryABI = [
     name: "linkSnapshotProposal",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -502,10 +502,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "migrateQIP",
+    name: "migrateQCI",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -578,7 +578,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "nextQIPNumber",
+    name: "nextQCINumber",
     inputs: [],
     outputs: [
       {
@@ -611,7 +611,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "qipVersionCount",
+    name: "qciVersionCount",
     inputs: [
       {
         name: "",
@@ -630,7 +630,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "qipVersions",
+    name: "qciVersions",
     inputs: [
       {
         name: "",
@@ -669,7 +669,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "qips",
+    name: "qcis",
     inputs: [
       {
         name: "",
@@ -679,7 +679,7 @@ export const QIPRegistryABI = [
     ],
     outputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -818,7 +818,7 @@ export const QIPRegistryABI = [
     name: "setImplementation",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -927,7 +927,7 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "syncNextQIPNumber",
+    name: "syncNextQCINumber",
     inputs: [],
     outputs: [],
     stateMutability: "nonpayable",
@@ -954,10 +954,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "function",
-    name: "updateQIP",
+    name: "updateQCI",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -1000,7 +1000,7 @@ export const QIPRegistryABI = [
     name: "updateStatus",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -1018,7 +1018,7 @@ export const QIPRegistryABI = [
     name: "verifyContent",
     inputs: [
       {
-        name: "_qipNumber",
+        name: "_qciNumber",
         type: "uint256",
         internalType: "uint256",
       },
@@ -1042,7 +1042,7 @@ export const QIPRegistryABI = [
     name: "MigrationWarning",
     inputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         indexed: true,
         internalType: "uint256",
@@ -1071,10 +1071,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "event",
-    name: "QIPCreated",
+    name: "QCICreated",
     inputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         indexed: true,
         internalType: "uint256",
@@ -1114,10 +1114,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "event",
-    name: "QIPStatusChanged",
+    name: "QCIStatusChanged",
     inputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         indexed: true,
         internalType: "uint256",
@@ -1139,10 +1139,10 @@ export const QIPRegistryABI = [
   },
   {
     type: "event",
-    name: "QIPUpdated",
+    name: "QCIUpdated",
     inputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         indexed: true,
         internalType: "uint256",
@@ -1254,7 +1254,7 @@ export const QIPRegistryABI = [
     name: "SnapshotProposalLinked",
     inputs: [
       {
-        name: "qipNumber",
+        name: "qciNumber",
         type: "uint256",
         indexed: true,
         internalType: "uint256",
@@ -1412,22 +1412,22 @@ export const QIPRegistryABI = [
   },
   {
     type: "error",
-    name: "QIPAlreadyExists",
+    name: "QCIAlreadyExists",
     inputs: [],
   },
   {
     type: "error",
-    name: "QIPDoesNotExist",
+    name: "QCIDoesNotExist",
     inputs: [],
   },
   {
     type: "error",
-    name: "QIPMustBeReadyForSnapshot",
+    name: "QCIMustBeReadyForSnapshot",
     inputs: [],
   },
   {
     type: "error",
-    name: "QIPSlotAlreadyUsed",
+    name: "QCISlotAlreadyUsed",
     inputs: [],
   },
   {

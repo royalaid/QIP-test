@@ -1,17 +1,17 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-interface QIPSkeletonProps {
+interface QCISkeletonProps {
   className?: string;
   count?: number;
   variant?: 'card' | 'list' | 'detail';
 }
 
 /**
- * Skeleton loader for QIP cards
+ * Skeleton loader for QCI cards
  * Shows a pulsing placeholder while data is loading
  */
-export const QIPSkeleton: React.FC<QIPSkeletonProps> = ({
+export const QCISkeleton: React.FC<QCISkeletonProps> = ({
   className,
   count = 1,
   variant = 'card'
@@ -94,11 +94,11 @@ export const StatusGroupSkeleton: React.FC<{ className?: string }> = ({ classNam
           <div className="h-8 bg-gray-700/30 dark:bg-gray-600/30 rounded w-32"></div>
           <div className="h-6 bg-gray-700/20 dark:bg-gray-600/20 rounded-full px-2 w-12"></div>
         </div>
-        {/* QIP items */}
-        <QIPSkeleton variant="list" count={2} />
+        {/* QCI items */}
+        <QCISkeleton variant="list" count={2} />
       </div>
     </div>
   );
 };
 
-export default QIPSkeleton;
+export default QCISkeleton;

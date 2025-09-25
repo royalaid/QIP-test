@@ -1,26 +1,26 @@
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Hash, keccak256, toBytes, type Address } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { loadBalance, getRPCEndpoints } from '../utils/loadBalance';
-import { QIPRegistryABI } from "../config/abis/QIPRegistry";
+import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 
 // Use the full ABI from the JSON file
-const QIP_REGISTRY_ABI = QIPRegistryABI;
+const QCI_REGISTRY_ABI = QCIRegistryABI;
 
 // Status enum - only three statuses supported
-export enum QIPStatus {
+export enum QCIStatus {
   Draft = 0,
   ReadyForSnapshot = 1,
   PostedToSnapshot = 2,
 }
 
 // Map bytes32 status hashes to enum values
-const STATUS_HASH_TO_ENUM: Record<string, QIPStatus> = {
+const STATUS_HASH_TO_ENUM: Record<string, QCIStatus> = {
   // keccak256("Draft")
-  "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382": QIPStatus.Draft,
+  "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382": QCIStatus.Draft,
   // keccak256("Ready for Snapshot")
-  "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb": QIPStatus.ReadyForSnapshot,
+  "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb": QCIStatus.ReadyForSnapshot,
   // keccak256("Posted to Snapshot")
-  "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c": QIPStatus.PostedToSnapshot,
+  "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c": QCIStatus.PostedToSnapshot,
 };
 
 // Default status IDs (initialized in contract constructor)
@@ -30,8 +30,8 @@ export const DEFAULT_STATUSES = {
   PostedToSnapshot: 2,
 } as const;
 
-export interface QIPContent {
-  qip: number;
+export interface QCIContent {
+  qci: number;
   title: string;
   chain: string;
   status: string;
@@ -44,8 +44,8 @@ export interface QIPContent {
   transactions?: string[]; // Optional array of formatted transaction strings
 }
 
-export interface QIP {
-  qipNumber: bigint;
+export interface QCI {
+  qciNumber: bigint;
   author: Address;
   title: string;
   chain: string;
@@ -53,22 +53,22 @@ export interface QIP {
   ipfsUrl: string;
   createdAt: bigint;
   lastUpdated: bigint;
-  status: QIPStatus;
+  status: QCIStatus;
   implementor: string;
   implementationDate: bigint;
   snapshotProposalId: string;
   version: bigint;
 }
 
-export interface QIPVersion {
+export interface QCIVersion {
   contentHash: Hash;
   ipfsUrl: string;
   timestamp: bigint;
   changeNote: string;
 }
 
-export interface QIPExportData {
-  qipNumber: bigint;
+export interface QCIExportData {
+  qciNumber: bigint;
   author: Address;
   title: string;
   chain: string;
@@ -81,11 +81,11 @@ export interface QIPExportData {
   implementationDate: bigint;
   snapshotProposalId: string;
   version: bigint;
-  versions: readonly QIPVersion[];
+  versions: readonly QCIVersion[];
   totalVersions: bigint;
 }
 
-export class QIPClient {
+export class QCIClient {
   private publicClient: PublicClient;
   private contractAddress: Address;
   private statusNamesCache: Map<number, string> | null = null;
@@ -144,30 +144,30 @@ export class QIPClient {
   }
 
   /**
-   * Create a new QIP
+   * Create a new QCI
    */
-  async createQIP(
+  async createQCI(
     walletClient: WalletClient,
     title: string,
     chain: string,
     contentHash: Hash,
     ipfsUrl: string
-  ): Promise<{ hash: Hash; qipNumber: bigint }> {
+  ): Promise<{ hash: Hash; qciNumber: bigint }> {
     if (!walletClient?.account) throw new Error("Wallet client with account required");
 
     // First estimate gas
     const estimatedGas = await this.publicClient.estimateContractGas({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "createQIP",
+      abi: QCI_REGISTRY_ABI,
+      functionName: "createQCI",
       args: [title, chain, contentHash, ipfsUrl],
       account: walletClient.account,
     });
 
     const { request } = await this.publicClient.simulateContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "createQIP",
+      abi: QCI_REGISTRY_ABI,
+      functionName: "createQCI",
       args: [title, chain, contentHash, ipfsUrl],
       account: walletClient.account,
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
@@ -215,31 +215,31 @@ export class QIPClient {
       });
 
     if (!receipt) {
-      // If we couldn't get a receipt, return a placeholder QIP number
+      // If we couldn't get a receipt, return a placeholder QCI number
       console.warn("No receipt available, returning transaction hash only");
-      return { hash, qipNumber: BigInt(0) };
+      return { hash, qciNumber: BigInt(0) };
     }
 
     const log = receipt.logs.find((log) => log.address.toLowerCase() === this.contractAddress.toLowerCase());
 
     if (!log) {
       console.warn("No event log found in receipt, transaction may still be pending");
-      return { hash, qipNumber: BigInt(0) };
+      return { hash, qciNumber: BigInt(0) };
     }
 
-    // Decode the QIP number from the event
-    const qipNumber = BigInt(log.topics[1]!);
-    console.log("QIP created:", qipNumber.toString());
+    // Decode the QCI number from the event
+    const qciNumber = BigInt(log.topics[1]!);
+    console.log("QCI created:", qciNumber.toString());
 
-    return { hash, qipNumber };
+    return { hash, qciNumber };
   }
 
   /**
-   * Update an existing QIP
+   * Update an existing QCI
    */
-  async updateQIP({
+  async updateQCI({
     walletClient,
-    qipNumber,
+    qciNumber,
     title,
     chain,
     implementor,
@@ -248,7 +248,7 @@ export class QIPClient {
     changeNote,
   }: {
     walletClient: WalletClient;
-    qipNumber: bigint;
+    qciNumber: bigint;
     title: string;
     chain: string;
     implementor: string;
@@ -265,9 +265,9 @@ export class QIPClient {
     try {
       estimatedGas = await this.publicClient.estimateContractGas({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "updateQIP",
-        args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
+        abi: QCI_REGISTRY_ABI,
+        functionName: "updateQCI",
+        args: [qciNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
         account: walletClient.account,
       });
     } catch (gasError) {
@@ -278,9 +278,9 @@ export class QIPClient {
         if (errorStr.includes("revert")) {
           console.error("Transaction would revert. Possible causes:");
           console.error("1. User does not have editor role or is not the author");
-          console.error("2. QIP does not exist");
-          console.error("3. QIP status does not allow updates");
-          console.error("4. QIP already has a snapshot ID");
+          console.error("2. QCI does not exist");
+          console.error("3. QCI status does not allow updates");
+          console.error("4. QCI already has a snapshot ID");
           console.error("5. Wrong network selected in wallet");
         }
         if (errorStr.includes("insufficient funds")) {
@@ -294,9 +294,9 @@ export class QIPClient {
     try {
       const simulation = await this.publicClient.simulateContract({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "updateQIP",
-        args: [qipNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
+        abi: QCI_REGISTRY_ABI,
+        functionName: "updateQCI",
+        args: [qciNumber, title, chain, implementor, newContentHash, newIpfsUrl, changeNote],
         account: walletClient.account,
         gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
       });
@@ -308,7 +308,7 @@ export class QIPClient {
 
     try {
       const hash = await walletClient.writeContract(request);
-      console.log("QIP update transaction submitted:", hash);
+      console.log("QCI update transaction submitted:", hash);
       return hash;
     } catch (writeError) {
       console.error("Write contract failed:", writeError);
@@ -317,25 +317,25 @@ export class QIPClient {
   }
 
   /**
-   * Link a Snapshot proposal to a QIP
+   * Link a Snapshot proposal to a QCI
    */
-  async linkSnapshotProposal(walletClient: WalletClient, qipNumber: bigint, snapshotProposalId: string): Promise<Hash> {
+  async linkSnapshotProposal(walletClient: WalletClient, qciNumber: bigint, snapshotProposalId: string): Promise<Hash> {
     if (!walletClient?.account) throw new Error("Wallet client with account required");
 
     // First estimate gas
     const estimatedGas = await this.publicClient.estimateContractGas({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
+      abi: QCI_REGISTRY_ABI,
       functionName: "linkSnapshotProposal",
-      args: [qipNumber, snapshotProposalId],
+      args: [qciNumber, snapshotProposalId],
       account: walletClient.account,
     });
 
     const { request } = await this.publicClient.simulateContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
+      abi: QCI_REGISTRY_ABI,
       functionName: "linkSnapshotProposal",
-      args: [qipNumber, snapshotProposalId],
+      args: [qciNumber, snapshotProposalId],
       account: walletClient.account,
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
     });
@@ -344,38 +344,38 @@ export class QIPClient {
   }
 
   /**
-   * Calculate content hash for QIP content
+   * Calculate content hash for QCI content
    */
   calculateContentHash(content: string): Hash {
     return keccak256(toBytes(content));
   }
 
   /**
-   * Format QIP content for hashing and storage
+   * Format QCI content for hashing and storage
    */
-  formatQIPContent(qipData: QIPContent): string {
+  formatQCIContent(qciData: QCIContent): string {
     // Create YAML frontmatter
     let frontmatter = `---
-qip: ${qipData.qip}
-title: ${qipData.title}
-chain: ${qipData.chain}
-status: ${qipData.status}
-author: ${qipData.author}
-implementor: ${qipData.implementor}
-implementation-date: ${qipData["implementation-date"]}
-proposal: ${qipData.proposal}
-created: ${qipData.created}
+qci: ${qciData.qci}
+title: ${qciData.title}
+chain: ${qciData.chain}
+status: ${qciData.status}
+author: ${qciData.author}
+implementor: ${qciData.implementor}
+implementation-date: ${qciData["implementation-date"]}
+proposal: ${qciData.proposal}
+created: ${qciData.created}
 ---
 
-${qipData.content}`;
+${qciData.content}`;
 
     // Append transactions if they exist
-    if (qipData.transactions && qipData.transactions.length > 0) {
+    if (qciData.transactions && qciData.transactions.length > 0) {
       frontmatter += "\n\n## Transactions\n\n";
       frontmatter += "```json\n";
 
       // Convert all transactions to proper JSON format
-      const jsonTransactions = qipData.transactions
+      const jsonTransactions = qciData.transactions
         .map((tx) => {
           if (typeof tx === "string") {
             // Try to parse if it's already JSON
@@ -401,49 +401,49 @@ ${qipData.content}`;
   }
 
   /**
-   * Verify QIP content matches on-chain hash
+   * Verify QCI content matches on-chain hash
    */
-  async verifyContent(qipNumber: bigint, content: string): Promise<boolean> {
+  async verifyContent(qciNumber: bigint, content: string): Promise<boolean> {
     const result = await this.publicClient.readContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
+      abi: QCI_REGISTRY_ABI,
       functionName: "verifyContent",
-      args: [qipNumber, content],
+      args: [qciNumber, content],
     });
 
     return result;
   }
 
   /**
-   * Get QIP details
+   * Get QCI details
    */
-  async getQIP(qipNumber: bigint): Promise<QIP> {
+  async getQCI(qciNumber: bigint): Promise<QCI> {
     const result = (await this.publicClient.readContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "qips",
-      args: [qipNumber],
+      abi: QCI_REGISTRY_ABI,
+      functionName: "qcis",
+      args: [qciNumber],
     })) as any;
 
     // Status may come as bytes32 hash or uint8 depending on contract version
     const statusValue = result[8];
 
     // Convert status to enum
-    let status: QIPStatus;
+    let status: QCIStatus;
     if (typeof statusValue === "string" && statusValue.startsWith("0x")) {
       // It's a bytes32 hash, convert to enum
       status = this.convertStatusHashToEnum(statusValue);
     } else if (typeof statusValue === "number") {
       // It's already a number
-      status = statusValue as QIPStatus;
+      status = statusValue as QCIStatus;
     } else {
       // Fallback to Draft
-      console.warn(`Unknown status format for QIP ${qipNumber}:`, statusValue);
-      status = QIPStatus.Draft;
+      console.warn(`Unknown status format for QCI ${qciNumber}:`, statusValue);
+      status = QCIStatus.Draft;
     }
 
     return {
-      qipNumber: result[0],
+      qciNumber: result[0],
       author: result[1],
       title: result[2],
       chain: result[3],
@@ -460,50 +460,50 @@ ${qipData.content}`;
   }
 
   /**
-   * Get the next QIP number (highest QIP + 1)
+   * Get the next QCI number (highest QCI + 1)
    */
-  async getNextQIPNumber(): Promise<bigint> {
+  async getNextQCINumber(): Promise<bigint> {
     const result = await (this.publicClient as any).readContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "nextQIPNumber",
+      abi: QCI_REGISTRY_ABI,
+      functionName: "nextQCINumber",
     });
 
     return result as bigint;
   }
 
   /**
-   * Get multiple QIPs using multicall for efficiency
+   * Get multiple QCIs using multicall for efficiency
    */
-  async getQIPsBatch(qipNumbers: bigint[]): Promise<QIP[]> {
-    if (qipNumbers.length === 0) return [];
+  async getQCIsBatch(qciNumbers: bigint[]): Promise<QCI[]> {
+    if (qciNumbers.length === 0) return [];
 
     // Limit batch size to avoid gas limits and rate limits
     const MAX_BATCH_SIZE = 3; // Reduced to avoid rate limits
 
-    if (qipNumbers.length > MAX_BATCH_SIZE) {
+    if (qciNumbers.length > MAX_BATCH_SIZE) {
       // Split into smaller batches if needed
-      const results: QIP[] = [];
-      for (let i = 0; i < qipNumbers.length; i += MAX_BATCH_SIZE) {
-        const batch = qipNumbers.slice(i, Math.min(i + MAX_BATCH_SIZE, qipNumbers.length));
+      const results: QCI[] = [];
+      for (let i = 0; i < qciNumbers.length; i += MAX_BATCH_SIZE) {
+        const batch = qciNumbers.slice(i, Math.min(i + MAX_BATCH_SIZE, qciNumbers.length));
 
         // Add small delay between recursive calls to avoid rate limits
         if (i > 0) {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
-        const batchResults = await this.getQIPsBatch(batch);
+        const batchResults = await this.getQCIsBatch(batch);
         results.push(...batchResults);
       }
       return results;
     }
 
     // Create contract calls for multicall
-    const calls = qipNumbers.map((qipNumber) => ({
+    const calls = qciNumbers.map((qciNumber) => ({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "qips",
-      args: [qipNumber],
+      abi: QCI_REGISTRY_ABI,
+      functionName: "qcis",
+      args: [qciNumber],
       // gas removed - not supported in multicall parameters
     }));
 
@@ -515,16 +515,16 @@ ${qipData.content}`;
         // gas removed - not supported in multicall parameters
       });
 
-      const qips: QIP[] = [];
+      const qcis: QCI[] = [];
 
       for (let i = 0; i < results.length; i++) {
         const result = results[i] as any;
         if (result.status === "success" && result.result) {
           const data = result.result as any;
-          // Only include QIPs that actually exist (qipNumber > 0)
+          // Only include QCIs that actually exist (qciNumber > 0)
           if (data[0] > 0n) {
             // The contract is actually returning bytes32 hash for status, not uint8!
-            let status: QIPStatus;
+            let status: QCIStatus;
 
             // data[8] could be a bigint, string, or already converted to number
             // We need to handle the bytes32 hash properly
@@ -536,13 +536,13 @@ ${qipData.content}`;
 
               // Map known status hashes to enum values
               if (statusHex === "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c") {
-                status = QIPStatus.PostedToSnapshot; // 2
+                status = QCIStatus.PostedToSnapshot; // 2
               } else if (statusHex === "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb") {
-                status = QIPStatus.ReadyForSnapshot; // 1
+                status = QCIStatus.ReadyForSnapshot; // 1
               } else if (statusHex === "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382") {
-                status = QIPStatus.Draft; // 0
+                status = QCIStatus.Draft; // 0
               } else {
-                status = QIPStatus.Draft; // Default to Draft
+                status = QCIStatus.Draft; // Default to Draft
               }
             }
             // If it's a string (hex), convert directly
@@ -550,18 +550,18 @@ ${qipData.content}`;
               const statusHex = statusValue.toLowerCase();
 
               if (statusHex === "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c") {
-                status = QIPStatus.PostedToSnapshot; // 2
+                status = QCIStatus.PostedToSnapshot; // 2
               } else if (statusHex === "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb") {
-                status = QIPStatus.ReadyForSnapshot; // 1
+                status = QCIStatus.ReadyForSnapshot; // 1
               } else if (statusHex === "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382") {
-                status = QIPStatus.Draft; // 0
+                status = QCIStatus.Draft; // 0
               } else {
-                status = QIPStatus.Draft; // Default to Draft
+                status = QCIStatus.Draft; // Default to Draft
               }
             }
             // If it's a small number (0, 1, 2), it's already the correct enum value
             else if (typeof statusValue === "number" && statusValue <= 2) {
-              status = statusValue as QIPStatus;
+              status = statusValue as QCIStatus;
             }
             // Otherwise something went wrong - it's been converted to a large number
             else {
@@ -570,25 +570,25 @@ ${qipData.content}`;
 
               // Match based on the string representation of scientific notation
               if (strValue.includes("3.557884566192312e+76")) {
-                status = QIPStatus.PostedToSnapshot; // This is the most common in migration
+                status = QCIStatus.PostedToSnapshot; // This is the most common in migration
               } else if (strValue.includes("8.683815104298986e+76")) {
-                status = QIPStatus.Draft;
+                status = QCIStatus.Draft;
               } else if (strValue.includes("5.069118969180783e+76")) {
                 // This is the Ready for Snapshot hash in scientific notation
-                status = QIPStatus.ReadyForSnapshot;
+                status = QCIStatus.ReadyForSnapshot;
               } else {
-                // Default based on QIP number range from migration
-                const qipNum = Number(data[0]);
-                if (qipNum >= 246) {
-                  status = QIPStatus.Draft; // QIPs 246-247 are Draft
+                // Default based on QCI number range from migration
+                const qciNum = Number(data[0]);
+                if (qciNum >= 246) {
+                  status = QCIStatus.Draft; // QCIs 246-247 are Draft
                 } else {
-                  status = QIPStatus.PostedToSnapshot; // QIPs 209-245 are Posted
+                  status = QCIStatus.PostedToSnapshot; // QCIs 209-245 are Posted
                 }
               }
             }
 
-            qips.push({
-              qipNumber: data[0],
+            qcis.push({
+              qciNumber: data[0],
               author: data[1],
               title: data[2],
               chain: data[3],
@@ -606,33 +606,33 @@ ${qipData.content}`;
         }
       }
 
-      return qips;
+      return qcis;
     } catch (error) {
       console.error("Error in multicall batch:", error);
       // Fallback to individual calls if multicall fails
-      const qips: QIP[] = [];
-      for (const qipNumber of qipNumbers) {
+      const qcis: QCI[] = [];
+      for (const qciNumber of qciNumbers) {
         try {
-          const qip = await this.getQIP(qipNumber);
-          qips.push(qip);
+          const qci = await this.getQCI(qciNumber);
+          qcis.push(qci);
         } catch (e) {
-          console.error(`Failed to fetch QIP ${qipNumber}:`, e);
+          console.error(`Failed to fetch QCI ${qciNumber}:`, e);
         }
       }
-      return qips;
+      return qcis;
     }
   }
 
   /**
-   * Get all QIPs by status using multicall for efficiency
+   * Get all QCIs by status using multicall for efficiency
    */
-  async getAllQIPsByStatusBatch(): Promise<Map<QIPStatus, bigint[]>> {
+  async getAllQCIsByStatusBatch(): Promise<Map<QCIStatus, bigint[]>> {
     // Only use the 3 actual statuses from the contract
-    const statuses: QIPStatus[] = [QIPStatus.Draft, QIPStatus.ReadyForSnapshot, QIPStatus.PostedToSnapshot];
+    const statuses: QCIStatus[] = [QCIStatus.Draft, QCIStatus.ReadyForSnapshot, QCIStatus.PostedToSnapshot];
 
     // Split status queries into smaller batches to avoid gas limits
-    const BATCH_SIZE = 4; // Each getQIPsByStatus can return many items, so keep batch small
-    const statusMap = new Map<QIPStatus, bigint[]>();
+    const BATCH_SIZE = 4; // Each getQCIsByStatus can return many items, so keep batch small
+    const statusMap = new Map<QCIStatus, bigint[]>();
 
     for (let i = 0; i < statuses.length; i += BATCH_SIZE) {
       const batchStatuses = statuses.slice(i, Math.min(i + BATCH_SIZE, statuses.length));
@@ -640,9 +640,9 @@ ${qipData.content}`;
       // Create calls for this batch of statuses
       const calls = batchStatuses.map((status) => ({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "getQIPsByStatus",
-        args: [status], // Status is already a number (QIPStatus enum value)
+        abi: QCI_REGISTRY_ABI,
+        functionName: "getQCIsByStatus",
+        args: [status], // Status is already a number (QCIStatus enum value)
         // gas removed - not supported in multicall parameters
       }));
 
@@ -669,8 +669,8 @@ ${qipData.content}`;
         // Fallback to individual calls for this batch
         for (const status of batchStatuses) {
           try {
-            const qips = await this.getQIPsByStatus(status);
-            statusMap.set(status, qips);
+            const qcis = await this.getQCIsByStatus(status);
+            statusMap.set(status, qcis);
           } catch (e) {
             statusMap.set(status, []);
           }
@@ -682,27 +682,27 @@ ${qipData.content}`;
   }
 
   /**
-   * Get QIPs by status
+   * Get QCIs by status
    */
-  async getQIPsByStatus(status: QIPStatus | string): Promise<bigint[]> {
+  async getQCIsByStatus(status: QCIStatus | string): Promise<bigint[]> {
     try {
       // Convert to numeric status value
       let statusValue: number;
       if (typeof status === "string") {
         const statusMap: Record<string, number> = {
-          Draft: QIPStatus.Draft,
-          "Ready for Snapshot": QIPStatus.ReadyForSnapshot,
-          "Posted to Snapshot": QIPStatus.PostedToSnapshot,
+          Draft: QCIStatus.Draft,
+          "Ready for Snapshot": QCIStatus.ReadyForSnapshot,
+          "Posted to Snapshot": QCIStatus.PostedToSnapshot,
         };
-        statusValue = statusMap[status] ?? QIPStatus.Draft;
+        statusValue = statusMap[status] ?? QCIStatus.Draft;
       } else {
         statusValue = status;
       }
 
       const result = await this.publicClient.readContract({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "getQIPsByStatus",
+        abi: QCI_REGISTRY_ABI,
+        functionName: "getQCIsByStatus",
         args: [statusValue.toString()],
       });
 
@@ -722,13 +722,13 @@ ${qipData.content}`;
   }
 
   /**
-   * Get QIPs by author
+   * Get QCIs by author
    */
-  async getQIPsByAuthor(author: Address): Promise<bigint[]> {
+  async getQCIsByAuthor(author: Address): Promise<bigint[]> {
     const result = await this.publicClient.readContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      functionName: "getQIPsByAuthor",
+      abi: QCI_REGISTRY_ABI,
+      functionName: "getQCIsByAuthor",
       args: [author],
     });
 
@@ -736,20 +736,20 @@ ${qipData.content}`;
   }
 
   /**
-   * Watch for new QIPs
+   * Watch for new QCIs
    */
-  watchQIPs(
-    callback: (qip: { qipNumber: bigint; author: Address; title: string; chain: string; contentHash: Hash; ipfsUrl: string }) => void
+  watchQCIs(
+    callback: (qci: { qciNumber: bigint; author: Address; title: string; chain: string; contentHash: Hash; ipfsUrl: string }) => void
   ) {
     return this.publicClient.watchContractEvent({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
-      eventName: "QIPCreated",
+      abi: QCI_REGISTRY_ABI,
+      eventName: "QCICreated",
       onLogs: (logs) => {
         logs.forEach((log) => {
           const args = log.args as any;
           callback({
-            qipNumber: BigInt(log.topics[1]!),
+            qciNumber: BigInt(log.topics[1]!),
             author: log.topics[2] as Address,
             title: args?.title || "",
             chain: args?.chain || "",
@@ -789,10 +789,10 @@ ${qipData.content}`;
   /**
    * Convert bytes32 status hash to enum value
    */
-  private convertStatusHashToEnum(statusHash: string | number): QIPStatus {
+  private convertStatusHashToEnum(statusHash: string | number): QCIStatus {
     // Handle if it's already a number (for compatibility)
     if (typeof statusHash === "number") {
-      return statusHash as QIPStatus;
+      return statusHash as QCIStatus;
     }
 
     // Convert bytes32 hash to enum
@@ -803,78 +803,78 @@ ${qipData.content}`;
 
     // Default to Draft if unknown
     console.warn("Unknown status hash:", statusHash);
-    return QIPStatus.Draft;
+    return QCIStatus.Draft;
   }
 
   /**
    * Get status string from ID (synchronous - uses predefined mappings)
    */
-  getStatusString(status: QIPStatus | string): string {
+  getStatusString(status: QCIStatus | string): string {
     // If it's a string (bytes32 hash), convert to enum first
     if (typeof status === "string") {
       status = this.convertStatusHashToEnum(status);
     }
 
     const statusMap: Record<number, string> = {
-      [QIPStatus.Draft]: "Draft",
-      [QIPStatus.ReadyForSnapshot]: "Ready for Snapshot",
-      [QIPStatus.PostedToSnapshot]: "Posted to Snapshot",
+      [QCIStatus.Draft]: "Draft",
+      [QCIStatus.ReadyForSnapshot]: "Ready for Snapshot",
+      [QCIStatus.PostedToSnapshot]: "Posted to Snapshot",
     };
 
     return statusMap[status] || "Unknown";
   }
 
   /**
-   * Helper method to create QIP from QIPContent
+   * Helper method to create QCI from QCIContent
    */
-  async createQIPFromContent(
+  async createQCIFromContent(
     walletClient: WalletClient,
-    content: QIPContent,
+    content: QCIContent,
     ipfsUrl: string
-  ): Promise<{ qipNumber: bigint; transactionHash: string }> {
+  ): Promise<{ qciNumber: bigint; transactionHash: string }> {
     const contentHash = keccak256(toBytes(content.content));
-    const result = await this.createQIP(walletClient, content.title, content.chain, contentHash, ipfsUrl);
+    const result = await this.createQCI(walletClient, content.title, content.chain, contentHash, ipfsUrl);
 
     return {
-      qipNumber: result.qipNumber,
+      qciNumber: result.qciNumber,
       transactionHash: result.hash,
     };
   }
 
   /**
-   * Helper method to update QIP from QIPContent
+   * Helper method to update QCI from QCIContent
    */
-  async updateQIPFromContent(
+  async updateQCIFromContent(
     walletClient: WalletClient,
-    qipNumber: bigint,
-    content: QIPContent,
+    qciNumber: bigint,
+    content: QCIContent,
     ipfsUrl: string
   ): Promise<{ version: bigint; transactionHash: string }> {
     const contentHash = keccak256(toBytes(content.content));
-    const hash = await this.updateQIP({
+    const hash = await this.updateQCI({
       walletClient,
-      qipNumber,
+      qciNumber,
       title: content.title,
       chain: content.chain,
       implementor: content.implementor,
       newContentHash: contentHash,
       newIpfsUrl: ipfsUrl,
-      changeNote: "Updated via QIP Editor",
+      changeNote: "Updated via QCI Editor",
     });
 
-    // Get the updated QIP to return the new version
-    const updatedQIP = await this.getQIP(qipNumber);
+    // Get the updated QCI to return the new version
+    const updatedQCI = await this.getQCI(qciNumber);
 
     return {
-      version: updatedQIP.version,
+      version: updatedQCI.version,
       transactionHash: hash,
     };
   }
 
   /**
-   * Update QIP status
+   * Update QCI status
    */
-  async updateQIPStatus(walletClient: WalletClient, qipNumber: bigint, newStatus: QIPStatus | string): Promise<Hash> {
+  async updateQCIStatus(walletClient: WalletClient, qciNumber: bigint, newStatus: QCIStatus | string): Promise<Hash> {
     if (!walletClient?.account) throw new Error("Wallet client with account required");
 
     // Convert enum to string status name if needed
@@ -885,9 +885,9 @@ ${qipData.content}`;
     } else {
       // Convert enum value to status string
       const statusNames: Record<number, string> = {
-        [QIPStatus.Draft]: "Draft",
-        [QIPStatus.ReadyForSnapshot]: "Ready for Snapshot",
-        [QIPStatus.PostedToSnapshot]: "Posted to Snapshot",
+        [QCIStatus.Draft]: "Draft",
+        [QCIStatus.ReadyForSnapshot]: "Ready for Snapshot",
+        [QCIStatus.PostedToSnapshot]: "Posted to Snapshot",
       };
       statusString = statusNames[newStatus] ?? "Draft";
     }
@@ -895,17 +895,17 @@ ${qipData.content}`;
     // First estimate gas
     const estimatedGas = await this.publicClient.estimateContractGas({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
+      abi: QCI_REGISTRY_ABI,
       functionName: "updateStatus",
-      args: [qipNumber, statusString], // Pass the status string, not the enum value
+      args: [qciNumber, statusString], // Pass the status string, not the enum value
       account: walletClient.account,
     });
 
     const { request } = await this.publicClient.simulateContract({
       address: this.contractAddress,
-      abi: QIP_REGISTRY_ABI,
+      abi: QCI_REGISTRY_ABI,
       functionName: "updateStatus",
-      args: [qipNumber, statusString], // Pass the status string, not the enum value
+      args: [qciNumber, statusString], // Pass the status string, not the enum value
       account: walletClient.account,
       gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
     });
@@ -914,39 +914,39 @@ ${qipData.content}`;
   }
 
   /**
-   * Export complete QIP data including all versions
+   * Export complete QCI data including all versions
    */
-  async exportQIP(qipNumber: bigint): Promise<QIPExportData> {
+  async exportQCI(qciNumber: bigint): Promise<QCIExportData> {
     try {
       const data = (await this.publicClient.readContract({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "exportQIP",
-        args: [qipNumber],
-      })) as QIPExportData;
+        abi: QCI_REGISTRY_ABI,
+        functionName: "exportQCI",
+        args: [qciNumber],
+      })) as QCIExportData;
 
       return data;
     } catch (error) {
-      console.error(`Error exporting QIP ${qipNumber}:`, error);
+      console.error(`Error exporting QCI ${qciNumber}:`, error);
       throw error;
     }
   }
 
   /**
-   * Export multiple QIPs in a single call
+   * Export multiple QCIs in a single call
    */
-  async exportMultipleQIPs(qipNumber: bigint): Promise<QIPExportData> {
+  async exportMultipleQCIs(qciNumber: bigint): Promise<QCIExportData> {
     try {
       const data = await this.publicClient.readContract({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
-        functionName: "exportQIP",
-        args: [qipNumber],
+        abi: QCI_REGISTRY_ABI,
+        functionName: "exportQCI",
+        args: [qciNumber],
       });
 
       return data;
     } catch (error) {
-      console.error(`Error exporting multiple QIPs:`, error);
+      console.error(`Error exporting multiple QCIs:`, error);
       throw error;
     }
   }
@@ -958,7 +958,7 @@ ${qipData.content}`;
     try {
       const statusName = (await this.publicClient.readContract({
         address: this.contractAddress,
-        abi: QIP_REGISTRY_ABI,
+        abi: QCI_REGISTRY_ABI,
         functionName: "getStatusName",
         args: [statusId],
       })) as string;

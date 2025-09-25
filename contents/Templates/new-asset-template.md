@@ -1,5 +1,5 @@
 ---
-qip: 000
+qci: 000
 title: New Asset
 network: <CHAIN NAME>
 status: <Draft>

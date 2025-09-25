@@ -1,6 +1,6 @@
-# Workflow for building and deploying QIPs site to GitHub Pages (Vite)
+# Workflow for building and deploying QCIs site to GitHub Pages (Vite)
 # This workflow builds the static site with Vite and publishes the dist/ folder to Pages
-name: Deploy QIPs site to Pages (Vite)
+name: Deploy QCIs site to Pages (Vite)
 
 on:
   # Runs on pushes targeting the default branch
@@ -45,20 +45,20 @@ jobs:
       - name: Build with Vite
         env:
           # Required secrets for blockchain and Web3 functionality
-          VITE_QIP_REGISTRY_ADDRESS: ${{ secrets.QIP_REGISTRY_ADDRESS }}
+          VITE_QCI_REGISTRY_ADDRESS: ${{ secrets.QCI_REGISTRY_ADDRESS }}
           VITE_BASE_RPC_URL: ${{ secrets.BASE_RPC_URL }}
           VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
           
           # Required for IPFS uploads via Mai API
           VITE_IPFS_API_URL: ${{ secrets.IPFS_API_URL }}
           
-          # Mai API endpoint for fetching QIPs (24x performance improvement)
+          # Mai API endpoint for fetching QCIs (24x performance improvement)
           VITE_MAI_API_URL: ${{ vars.VITE_MAI_API_URL || secrets.MAI_API_URL || 'https://api.mai.finance' }}
           
           # Optional: Snapshot governance space (defaults to qidao.eth)
           VITE_SNAPSHOT_SPACE: ${{ secrets.SNAPSHOT_SPACE || 'qidao.eth' }}
           
-          # Optional: Pinata group ID for organizing QIP uploads
+          # Optional: Pinata group ID for organizing QCI uploads
           # Uncomment if you want to group uploads:
           # VITE_PINATA_GROUP_ID: ${{ secrets.PINATA_GROUP_ID }}
           

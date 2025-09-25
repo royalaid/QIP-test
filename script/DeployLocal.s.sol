@@ -2,10 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {QIPRegistry} from "../contracts/QIPRegistry.sol";
+import {QCIRegistry} from "../contracts/QCIRegistry.sol";
 
 /**
- * @title Deploy Local QIP Registry
+ * @title Deploy Local QCI Registry
  * @notice Simple deployment for local development
  */
 contract DeployLocal is Script {
@@ -20,10 +20,10 @@ contract DeployLocal is Script {
         // The deployer address from the private key
         address deployer = vm.addr(deployerPrivateKey);
 
-        // Deploy QIPRegistry with deployer as initial admin
-        QIPRegistry registry = new QIPRegistry(209, deployer);
+        // Deploy QCIRegistry with deployer as initial admin
+        QCIRegistry registry = new QCIRegistry(209, deployer);
 
-        console.log("QIPRegistry deployed at:", address(registry));
+        console.log("QCIRegistry deployed at:", address(registry));
         console.log("Admin set to:", deployer);
 
         // Grant editor role to additional address if provided

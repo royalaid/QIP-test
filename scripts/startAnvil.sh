@@ -6,7 +6,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Starting QIP Registry Local Testing Environment${NC}"
+echo -e "${BLUE}🚀 Starting QCI Registry Local Testing Environment${NC}"
 echo "================================================"
 
 # Check if anvil is installed
@@ -93,11 +93,11 @@ fi
 echo -e "${GREEN}✅ Anvil is running on http://localhost:8545${NC}"
 
 # Deploy contracts
-echo -e "\n${GREEN}2. Deploying QIP Registry contract...${NC}"
-DEPLOY_OUTPUT=$(forge script script/LocalQIPTest.s.sol:LocalQIPTest --rpc-url http://localhost:8545 --broadcast -vvv 2>&1)
+echo -e "\n${GREEN}2. Deploying QCI Registry contract...${NC}"
+DEPLOY_OUTPUT=$(forge script script/LocalQCITest.s.sol:LocalQCITest --rpc-url http://localhost:8545 --broadcast -vvv 2>&1)
 
 # Extract registry address from output
-REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -o "QIPRegistry deployed at: 0x[a-fA-F0-9]\{40\}" | grep -o "0x[a-fA-F0-9]\{40\}")
+REGISTRY_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -o "QCIRegistry deployed at: 0x[a-fA-F0-9]\{40\}" | grep -o "0x[a-fA-F0-9]\{40\}")
 
 if [ -z "$REGISTRY_ADDRESS" ]; then
     echo -e "${YELLOW}❌ Failed to deploy contracts${NC}"
@@ -107,12 +107,12 @@ if [ -z "$REGISTRY_ADDRESS" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}✅ QIP Registry deployed at: $REGISTRY_ADDRESS${NC}"
+echo -e "${GREEN}✅ QCI Registry deployed at: $REGISTRY_ADDRESS${NC}"
 
 # Update the TypeScript file with the correct address
 echo -e "\n${GREEN}3. Updating TypeScript client with contract address...${NC}"
-sed -i.bak "s/const REGISTRY_ADDRESS = '0x[a-fA-F0-9]*'/const REGISTRY_ADDRESS = '$REGISTRY_ADDRESS'/" src/localQIPTest.ts
-rm src/localQIPTest.ts.bak
+sed -i.bak "s/const REGISTRY_ADDRESS = '0x[a-fA-F0-9]*'/const REGISTRY_ADDRESS = '$REGISTRY_ADDRESS'/" src/localQCITest.ts
+rm src/localQCITest.ts.bak
 
 # Display test accounts
 echo -e "\n${BLUE}📋 Test Accounts:${NC}"
@@ -123,25 +123,25 @@ echo "Author1:    0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC (10000 ETH)"
 echo "Author2:    0x90F79bf6EB2c4f870365E785982E1f101E93b906 (10000 ETH)"
 echo "Author3:    0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 (10000 ETH)"
 
-echo -e "\n${BLUE}📊 Initial QIP State:${NC}"
+echo -e "\n${BLUE}📊 Initial QCI State:${NC}"
 echo "================================================"
-echo "QIP-249: Dynamic Interest Rates (Draft → Implemented)"
-echo "QIP-250: Multi-Collateral Support (Draft → ReviewPending)"
-echo "QIP-251: Staking Rewards (Draft → Withdrawn)"
-echo "QIP-100: Historical - Protocol Launch (Implemented)"
-echo "QIP-150: Historical - Rejected Proposal (Rejected)"
-echo "QIP-200: Historical - Superseded Update (Superseded)"
+echo "QCI-249: Dynamic Interest Rates (Draft → Implemented)"
+echo "QCI-250: Multi-Collateral Support (Draft → ReviewPending)"
+echo "QCI-251: Staking Rewards (Draft → Withdrawn)"
+echo "QCI-100: Historical - Protocol Launch (Implemented)"
+echo "QCI-150: Historical - Rejected Proposal (Rejected)"
+echo "QCI-200: Historical - Superseded Update (Superseded)"
 
 echo -e "\n${GREEN}✅ Setup Complete!${NC}"
 echo "================================================"
 echo -e "${YELLOW}To run the TypeScript test client:${NC}"
-echo "  bun run src/localQIPTest.ts"
+echo "  bun run src/localQCITest.ts"
 echo ""
 echo -e "${YELLOW}To interact with the contract using cast:${NC}"
-echo "  # Get next QIP number"
-echo "  cast call $REGISTRY_ADDRESS \"nextQIPNumber()\" --rpc-url http://localhost:8545"
+echo "  # Get next QCI number"
+echo "  cast call $REGISTRY_ADDRESS \"nextQCINumber()\" --rpc-url http://localhost:8545"
 echo ""
-echo "  # Get QIP details (e.g., QIP-249)"
+echo "  # Get QCI details (e.g., QCI-249)"
 echo "  cast call $REGISTRY_ADDRESS \"qips(uint256)\" 249 --rpc-url http://localhost:8545"
 echo ""
 echo -e "${YELLOW}To stop Anvil:${NC}"

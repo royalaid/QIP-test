@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../contracts/QIPRegistry.sol";
+import "../contracts/QCIRegistry.sol";
 
 contract Deploy is Script {
     function setUp() public {}
@@ -16,11 +16,11 @@ contract Deploy is Script {
         
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy QIPRegistry with starting QIP number
-        // Start at 209 to allow migration of existing QIPs (209-248)
-        QIPRegistry registry = new QIPRegistry(209, deployer);
-        console.log("QIPRegistry deployed to:", address(registry));
-        console.log("Starting QIP number:", registry.nextQIPNumber());
+        // Deploy QCIRegistry with starting QCI number
+        // Start at 209 to allow migration of existing QCIs (209-248)
+        QCIRegistry registry = new QCIRegistry(209, deployer);
+        console.log("QCIRegistry deployed to:", address(registry));
+        console.log("Starting QCI number:", registry.nextQCINumber());
 
         // Optional: grant initial editor roles
         // vm.startBroadcast(deployerPrivateKey);
@@ -31,7 +31,7 @@ contract Deploy is Script {
 
         // Log deployment info for frontend
         console.log("\n=== Deployment Complete ===");
-        console.log("QIP_REGISTRY_ADDRESS=", address(registry));
+        console.log("QCI_REGISTRY_ADDRESS=", address(registry));
         console.log("\nAdd this address to your .env file");
     }
 }

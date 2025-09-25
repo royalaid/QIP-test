@@ -17,7 +17,7 @@ const Navigation = () => {
     <nav className="navbar bg-background border-b border-border w-full fixed top-0 p-4 flex justify-between items-center z-50">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
-          <img src={logoIcon} alt="QIP Logo" className="h-8 w-8" />
+          <img src={logoIcon} alt="QCI Logo" className="h-8 w-8" />
           <Link to="/" className="text-xl font-bold">
             Proposals
           </Link>

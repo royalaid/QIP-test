@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-# QIP Batch Migration Script using Foundry FFI
+# QCI Batch Migration Script using Foundry FFI
 # ============================================
 # Fast batch migration using Foundry's FFI capabilities with keystore authentication
 
@@ -53,7 +53,7 @@ for arg in "$@"; do
             echo "  1. Deploy the registry: ./scripts/deploy-production.sh"
             echo "  2. Import keystore account: cast wallet import <name> --interactive"
             echo "  3. Set environment variables in .env.production:"
-            echo "     - VITE_QIP_REGISTRY_ADDRESS"
+            echo "     - VITE_QCI_REGISTRY_ADDRESS"
             echo "     - VITE_BASE_RPC_URL or BASE_RPC_URL"
             echo "     - PINATA_JWT (required for IPFS uploads)"
             echo ""
@@ -65,7 +65,7 @@ done
 
 clear
 echo -e "${BOLD}${CYAN}============================================${NC}"
-echo -e "${BOLD}${CYAN}📦 QIP Batch Migration with Foundry FFI${NC}"
+echo -e "${BOLD}${CYAN}📦 QCI Batch Migration with Foundry FFI${NC}"
 echo -e "${BOLD}${CYAN}============================================${NC}"
 echo ""
 
@@ -84,14 +84,14 @@ else
 fi
 
 # Set variables with fallbacks
-REGISTRY="${VITE_QIP_REGISTRY_ADDRESS:-$QIP_REGISTRY_ADDRESS}"
+REGISTRY="${VITE_QCI_REGISTRY_ADDRESS:-$QCI_REGISTRY_ADDRESS}"
 RPC_URL="${VITE_BASE_RPC_URL:-${BASE_RPC_URL:-https://mainnet.base.org}}"
 
 # Validate configuration
 echo -e "${YELLOW}Validating configuration...${NC}"
 
 if [ -z "$REGISTRY" ]; then
-    echo -e "${RED}❌ QIP_REGISTRY_ADDRESS not set${NC}"
+    echo -e "${RED}❌ QCI_REGISTRY_ADDRESS not set${NC}"
     echo "   Run deployment first: ./scripts/deploy-production.sh"
     exit 1
 fi
@@ -142,7 +142,7 @@ HAS_ROLE=$(cast call $REGISTRY \
 
 if [ "$HAS_ROLE" != "true" ]; then
     echo -e "${RED}❌ Account does not have admin role${NC}"
-    echo "   Only the contract admin can migrate QIPs"
+    echo "   Only the contract admin can migrate QCIs"
     exit 1
 fi
 echo -e "${GREEN}✅ Admin role confirmed${NC}"
@@ -156,28 +156,28 @@ if ! command -v forge &> /dev/null; then
 fi
 echo -e "${GREEN}  ✅ Forge installed${NC}"
 
-# Quick check for QIP files
-QIP_COUNT=$(ls contents/QIP/QIP-*.md 2>/dev/null | wc -l | tr -d ' ')
-if [ "$QIP_COUNT" -eq 0 ]; then
-    echo -e "${YELLOW}No QIP files found to migrate${NC}"
+# Quick check for QCI files
+QCI_COUNT=$(ls contents/QCI/QCI-*.md 2>/dev/null | wc -l | tr -d ' ')
+if [ "$QCI_COUNT" -eq 0 ]; then
+    echo -e "${YELLOW}No QCI files found to migrate${NC}"
     exit 0
 fi
 
-echo -e "\n${BOLD}${BLUE}Found $QIP_COUNT QIP files${NC}"
+echo -e "\n${BOLD}${BLUE}Found $QCI_COUNT QCI files${NC}"
 
 # Show range
-FIRST_QIP=$(ls contents/QIP/QIP-*.md 2>/dev/null | head -1 | grep -oE 'QIP-([0-9]+)' | cut -d'-' -f2)
-LAST_QIP=$(ls contents/QIP/QIP-*.md 2>/dev/null | tail -1 | grep -oE 'QIP-([0-9]+)' | cut -d'-' -f2)
-echo -e "Range: QIP-${FIRST_QIP} to QIP-${LAST_QIP}"
+FIRST_QCI=$(ls contents/QCI/QCI-*.md 2>/dev/null | head -1 | grep -oE 'QCI-([0-9]+)' | cut -d'-' -f2)
+LAST_QCI=$(ls contents/QCI/QCI-*.md 2>/dev/null | tail -1 | grep -oE 'QCI-([0-9]+)' | cut -d'-' -f2)
+echo -e "Range: QCI-${FIRST_QCI} to QCI-${LAST_QCI}"
 
 # Dry run mode
 if [ "$DRY_RUN" = true ]; then
     echo -e "\n${YELLOW}🔍 DRY RUN MODE${NC}"
-    echo -e "\nWould migrate $QIP_COUNT QIP files using Foundry FFI batch migration"
+    echo -e "\nWould migrate $QCI_COUNT QCI files using Foundry FFI batch migration"
     echo "This would:"
-    echo "  • Read QIP files using FFI"
+    echo "  • Read QCI files using FFI"
     echo "  • Upload to IPFS with JSON wrapper"
-    echo "  • Batch migrate to blockchain (5 QIPs per transaction)"
+    echo "  • Batch migrate to blockchain (5 QCIs per transaction)"
     exit 0
 fi
 
@@ -186,12 +186,12 @@ if [ "$SKIP_CONFIRMATION" = false ]; then
     echo -e "\n${BOLD}${YELLOW}⚠️  BATCH MIGRATION CONFIRMATION${NC}"
     echo "----------------------------------------"
     echo "This will:"
-    echo "  1. Use Foundry FFI to read QIP files"
+    echo "  1. Use Foundry FFI to read QCI files"
     echo "  2. Upload content to IPFS (JSON-wrapped)"
-    echo "  3. Batch migrate to blockchain (5 QIPs per tx)"
+    echo "  3. Batch migrate to blockchain (5 QCIs per tx)"
     echo "  4. Consume gas (~0.005 ETH per batch)"
     echo ""
-    BATCH_COUNT=$(( (QIP_COUNT + 4) / 5 ))
+    BATCH_COUNT=$(( (QCI_COUNT + 4) / 5 ))
     echo -e "${BOLD}Estimated: $BATCH_COUNT batches, ~$(echo "scale=3; $BATCH_COUNT * 0.005" | bc) ETH total${NC}"
     echo ""
     read -p "Type 'MIGRATE' to proceed: " CONFIRM
@@ -220,7 +220,7 @@ fi
 echo -e "${YELLOW}🔐 You will be prompted for keystore password${NC}"
 echo ""
 
-QIP_REGISTRY_ADDRESS="$REGISTRY" \
+QCI_REGISTRY_ADDRESS="$REGISTRY" \
 DEPLOYER_ADDRESS="$ADMIN_ADDRESS" \
 PINATA_JWT="$PINATA_JWT" \
 forge script script/MigrateBatchWithFFI.s.sol \
@@ -244,14 +244,14 @@ if [ $MIGRATION_RESULT -eq 0 ]; then
     echo "     https://basescan.org/address/$REGISTRY"
     echo ""
     echo "  2. Check migration status:"
-    echo "     cast call $REGISTRY \"nextQIPNumber()(uint256)\" --rpc-url $RPC_URL"
+    echo "     cast call $REGISTRY \"nextQCINumber()(uint256)\" --rpc-url $RPC_URL"
     echo ""
     echo "  3. Consider disabling migration mode:"
     echo "     cast send $REGISTRY \"setMigrationMode(bool)\" false \\"
     echo "       --account $KEYSTORE_ACCOUNT --rpc-url $RPC_URL"
     echo ""
-    echo "  4. Sync nextQIPNumber if needed:"
-    echo "     cast send $REGISTRY \"syncNextQIPNumber()\" \\"
+    echo "  4. Sync nextQCINumber if needed:"
+    echo "     cast send $REGISTRY \"syncNextQCINumber()\" \\"
     echo "       --account $KEYSTORE_ACCOUNT --rpc-url $RPC_URL"
 else
     echo -e "\n${RED}❌ Migration failed${NC}"
@@ -264,7 +264,7 @@ else
     echo "  • Contract permissions"
     echo ""
     echo "You can retry the migration by running this script again."
-    echo "Already migrated QIPs will be automatically skipped."
+    echo "Already migrated QCIs will be automatically skipped."
     exit 1
 fi
 

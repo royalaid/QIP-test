@@ -3,17 +3,17 @@ pragma solidity ^0.8.30;
 
 import "forge-std/Test.sol";
 import {IAccessControl} from "@openzeppelin/access/IAccessControl.sol";
-import "../contracts/QIPRegistry.sol";
+import "../contracts/QCIRegistry.sol";
 
-contract QIPRegistryTest is Test {
-    QIPRegistry public registry;
+contract QCIRegistryTest is Test {
+    QCIRegistry public registry;
     
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
     address public charlie = makeAddr("charlie");
     
-    event QIPCreated(
-        uint256 indexed qipNumber,
+    event QCICreated(
+        uint256 indexed qciNumber,
         address indexed author,
         string title,
         string network,
@@ -22,11 +22,11 @@ contract QIPRegistryTest is Test {
     );
     
     function setUp() public {
-        // Start QIP numbers at 209 and set this test contract as governance
-        registry = new QIPRegistry(209, address(this));
+        // Start QCI numbers at 209 and set this test contract as governance
+        registry = new QCIRegistry(209, address(this));
     }
     
-    function test_CreateQIP() public {
+    function test_CreateQCI() public {
         vm.startPrank(alice);
         
         string memory title = "Improve QiDAO Collateral Framework";
@@ -35,12 +35,12 @@ contract QIPRegistryTest is Test {
         string memory ipfsUrl = "ipfs://QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco";
         
         vm.expectEmit(true, true, false, true);
-        emit QIPCreated(209, alice, title, network, contentHash, ipfsUrl);
+        emit QCICreated(209, alice, title, network, contentHash, ipfsUrl);
         
-        uint256 qipNumber = registry.createQIP(title, network, contentHash, ipfsUrl);
-        assertEq(qipNumber, 209);
+        uint256 qciNumber = registry.createQCI(title, network, contentHash, ipfsUrl);
+        assertEq(qciNumber, 209);
         
-        // Verify QIP details
+        // Verify QCI details
         (
             uint256 returnedNumber,
             address author,
@@ -50,7 +50,7 @@ contract QIPRegistryTest is Test {
             string memory returnedUrl,,,
             bytes32 status,,,,
             uint256 version
-        ) = registry.qips(qipNumber);
+        ) = registry.qcis(qciNumber);
         
         assertEq(returnedNumber, 209);
         assertEq(author, alice);
@@ -64,26 +64,26 @@ contract QIPRegistryTest is Test {
         vm.stopPrank();
     }
     
-    function test_UpdateQIP() public {
+    function test_UpdateQCI() public {
         vm.startPrank(alice);
         
-        // Create QIP
-        uint256 qipNumber = registry.createQIP(
+        // Create QCI
+        uint256 qciNumber = registry.createQCI(
             "Original Title",
             "Polygon",
             keccak256("Original content"),
             "ipfs://original"
         );
         
-        // Update QIP
+        // Update QCI
         string memory newTitle = "Updated Title";
         bytes32 newHash = keccak256("Updated content");
         string memory newUrl = "ipfs://updated";
         
-        registry.updateQIP(qipNumber, newTitle, "Polygon", "None", newHash, newUrl, "Fixed typos");
+        registry.updateQCI(qciNumber, newTitle, "Polygon", "None", newHash, newUrl, "Fixed typos");
         
         // Verify update
-        (,, string memory title,,bytes32 hash, string memory url,,,,,,,uint256 version) = registry.qips(qipNumber);
+        (,, string memory title,,bytes32 hash, string memory url,,,,,,,uint256 version) = registry.qcis(qciNumber);
         assertEq(title, newTitle);
         assertEq(hash, newHash);
         assertEq(url, newUrl);
@@ -96,9 +96,9 @@ contract QIPRegistryTest is Test {
         // Grant editor role to Bob (only governance can call)
         registry.setEditor(bob, true);
 
-        // Alice creates a QIP
+        // Alice creates a QCI
         vm.startPrank(alice);
-        uint256 qipNumber = registry.createQIP(
+        uint256 qciNumber = registry.createQCI(
             "Test Proposal",
             "Base",
             keccak256("content"),
@@ -108,7 +108,7 @@ contract QIPRegistryTest is Test {
 
         // Bob (editor) can update status
         vm.startPrank(bob);
-        registry.updateStatus(qipNumber, "Ready for Snapshot");
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
         vm.stopPrank();
 
         // Charlie (non-editor) cannot update status
@@ -120,22 +120,22 @@ contract QIPRegistryTest is Test {
                 registry.EDITOR_ROLE()
             )
         );
-        registry.updateStatus(qipNumber, "Posted to Snapshot");
+        registry.updateStatus(qciNumber, "Posted to Snapshot");
         vm.stopPrank();
     }
     
-    function test_MigrateExistingQIP() public {
+    function test_MigrateExistingQCI() public {
         // Grant editor role
         registry.setEditor(alice, true);
         
-        // Migrate an existing QIP
+        // Migrate an existing QCI
         vm.startPrank(alice);
         
         uint256 existingQipNumber = 123;
-        registry.migrateQIP(
+        registry.migrateQCI(
             existingQipNumber,
             bob, // original author
-            "Historical QIP Title",
+            "Historical QCI Title",
             "Ethereum",
             keccak256("historical content"),
             "ipfs://historical",
@@ -153,7 +153,7 @@ contract QIPRegistryTest is Test {
             , , , , , ,
             bytes32 status,
             , , ,
-        ) = registry.qips(existingQipNumber);
+        ) = registry.qcis(existingQipNumber);
         assertEq(num, existingQipNumber);
         assertEq(author, bob);
         assertEq(status, keccak256(bytes("Posted to Snapshot")));
@@ -164,7 +164,7 @@ contract QIPRegistryTest is Test {
     function test_SnapshotIntegration() public {
         vm.startPrank(alice);
         
-        uint256 qipNumber = registry.createQIP(
+        uint256 qciNumber = registry.createQCI(
             "Snapshot Test",
             "Polygon",
             keccak256("content"),
@@ -175,20 +175,20 @@ contract QIPRegistryTest is Test {
         vm.stopPrank();
         registry.setEditor(alice, true);
         vm.startPrank(alice);
-        registry.updateStatus(qipNumber, "Ready for Snapshot");
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
 
         // Now link snapshot proposal
         string memory snapshotId = "0x1234567890abcdef";
-        registry.linkSnapshotProposal(qipNumber, snapshotId);
+        registry.linkSnapshotProposal(qciNumber, snapshotId);
         
         // Verify status changed and snapshot linked
-        (,,,,,,,, bytes32 status,,, string memory linkedId,) = registry.qips(qipNumber);
+        (,,,,,,,, bytes32 status,,, string memory linkedId,) = registry.qcis(qciNumber);
         assertEq(status, keccak256(bytes("Posted to Snapshot")));
         assertEq(linkedId, snapshotId);
         
         // Cannot update after snapshot submission
         vm.expectRevert("Cannot update after posting to Snapshot");
-        registry.updateQIP(qipNumber, "New Title", "Polygon", "None", keccak256("new"), "ipfs://new", "Should fail");
+        registry.updateQCI(qciNumber, "New Title", "Polygon", "None", keccak256("new"), "ipfs://new", "Should fail");
         
         vm.stopPrank();
     }
@@ -199,7 +199,7 @@ contract QIPRegistryTest is Test {
 
         // Create and submit for review
         vm.startPrank(alice);
-        uint256 qipNumber = registry.createQIP(
+        uint256 qciNumber = registry.createQCI(
             "Review Test",
             "Base",
             keccak256("content"),
@@ -210,18 +210,18 @@ contract QIPRegistryTest is Test {
         vm.stopPrank();
         // Editor moves status to ReviewPending
         vm.prank(bob);
-        registry.updateStatus(qipNumber, "Ready for Snapshot");
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
         
         // Editor moves status to VotePending
         vm.prank(bob);
-        registry.updateStatus(qipNumber, "Posted to Snapshot");
+        registry.updateStatus(qciNumber, "Posted to Snapshot");
         
         // Status should now be VotePending
         (
             , , , , , , , ,
             bytes32 status,
             , , ,
-        ) = registry.qips(qipNumber);
+        ) = registry.qcis(qciNumber);
         assertEq(status, keccak256(bytes("Posted to Snapshot")));
     }
 
@@ -229,11 +229,11 @@ contract QIPRegistryTest is Test {
         // Pause by admin (DEFAULT_ADMIN_ROLE granted to this test via constructor argument)
         registry.pause();
 
-        // Creating a QIP should revert while paused
+        // Creating a QCI should revert while paused
         vm.prank(alice);
         // OZ Pausable uses custom error EnforcedPause(); expect revert on create
         vm.expectRevert();
-        registry.createQIP(
+        registry.createQCI(
             "Paused Test",
             "Base",
             keccak256("content"),
@@ -243,12 +243,12 @@ contract QIPRegistryTest is Test {
         // Unpause and try again
         registry.unpause();
         vm.prank(alice);
-        uint256 qipNumber = registry.createQIP(
+        uint256 qciNumber = registry.createQCI(
             "Unpaused Test",
             "Base",
             keccak256("content"),
             "ipfs://ok"
         );
-        assertEq(qipNumber, 209);
+        assertEq(qciNumber, 209);
     }
 }

@@ -6,11 +6,11 @@ import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 import "./EditableEnumLib.sol";
 
 /**
- * @title QIPRegistry
- * @notice On-chain registry for QiDAO Improvement Proposals stored on IPFS
- * @dev Manages QIP metadata, versioning, and status transitions
+ * @title QCIRegistry
+ * @notice On-chain registry for Qidao Community Ideas stored on IPFS
+ * @dev Manages QCI metadata, versioning, and status transitions
  */
-contract QIPRegistry is AccessControl, Pausable {
+contract QCIRegistry is AccessControl, Pausable {
     using EditableEnumLib for EditableEnumLib.Data;
 
     // Custom errors for gas optimization
@@ -19,18 +19,18 @@ contract QIPRegistry is AccessControl, Pausable {
     error InvalidContentHash();
     error IPFSURLRequired();
     error ContentAlreadyExists();
-    error QIPSlotAlreadyUsed();
-    error QIPDoesNotExist();
+    error QCISlotAlreadyUsed();
+    error QCIDoesNotExist();
     error AlreadySubmittedToSnapshot();
     error InvalidStatus();
     error SnapshotAlreadyLinked();
     error InvalidSnapshotID();
-    error QIPMustBeReadyForSnapshot();
+    error QCIMustBeReadyForSnapshot();
     error NoSnapshotIDToClear();
     error InvalidAddress();
     error OnlyAuthorOrEditor();
     error MigrationModeDisabled();
-    error QIPAlreadyExists();
+    error QCIAlreadyExists();
     error OnlyPlaceholderCanBeCleared();
 
     bytes32 public constant EDITOR_ROLE = keccak256("EDITOR_ROLE");
@@ -39,8 +39,8 @@ contract QIPRegistry is AccessControl, Pausable {
     bytes32 internal constant STATUS_DRAFT = keccak256("Draft");
     bytes32 internal constant STATUS_READY_SNAPSHOT = keccak256("Ready for Snapshot");
     bytes32 internal constant STATUS_POSTED_SNAPSHOT = keccak256("Posted to Snapshot");
-    struct QIP {
-        uint256 qipNumber;
+    struct QCI {
+        uint256 qciNumber;
         address author;
         string title;
         string chain;
@@ -55,16 +55,16 @@ contract QIPRegistry is AccessControl, Pausable {
         uint256 version;        // Version number for tracking edits
     }
 
-    struct QIPVersion {
+    struct QCIVersion {
         bytes32 contentHash;
         string ipfsUrl;
         uint256 timestamp;
         string changeNote;
     }
 
-    struct QIPExportData {
-        // Core QIP data
-        uint256 qipNumber;
+    struct QCIExportData {
+        // Core QCI data
+        uint256 qciNumber;
         address author;
         string title;
         string chain;
@@ -78,27 +78,27 @@ contract QIPRegistry is AccessControl, Pausable {
         string snapshotProposalId;
         uint256 version;
         // Version history
-        QIPVersion[] versions;
+        QCIVersion[] versions;
         // Additional metadata
         uint256 totalVersions;
     }
 
 
-    mapping(uint256 => QIP) public qips;
-    mapping(uint256 => mapping(uint256 => QIPVersion)) public qipVersions;
-    mapping(uint256 => uint256) public qipVersionCount;
-    mapping(bytes32 => uint256) public contentHashToQIP;
-    mapping(address => uint256[]) private authorQIPs;
+    mapping(uint256 => QCI) public qcis;
+    mapping(uint256 => mapping(uint256 => QCIVersion)) public qciVersions;
+    mapping(uint256 => uint256) public qciVersionCount;
+    mapping(bytes32 => uint256) public contentHashToQCI;
+    mapping(address => uint256[]) private authorQCIs;
 
     // Editable status system
     EditableEnumLib.Data private _statuses;
 
-    uint256 public nextQIPNumber;
+    uint256 public nextQCINumber;
     // No persistent governance address; rely on roles
     bool public migrationMode = true;
 
-    event QIPCreated(
-        uint256 indexed qipNumber,
+    event QCICreated(
+        uint256 indexed qciNumber,
         address indexed author,
         string title,
         string network,
@@ -106,16 +106,16 @@ contract QIPRegistry is AccessControl, Pausable {
         string ipfsUrl
     );
 
-    event QIPUpdated(
-        uint256 indexed qipNumber,
+    event QCIUpdated(
+        uint256 indexed qciNumber,
         uint256 version,
         bytes32 newContentHash,
         string newIpfsUrl,
         string changeNote
     );
 
-    event QIPStatusChanged(
-        uint256 indexed qipNumber,
+    event QCIStatusChanged(
+        uint256 indexed qciNumber,
         bytes32 oldStatus,
         bytes32 newStatus
     );
@@ -131,38 +131,38 @@ contract QIPRegistry is AccessControl, Pausable {
     );
 
     event SnapshotProposalLinked(
-        uint256 indexed qipNumber,
+        uint256 indexed qciNumber,
         string snapshotProposalId
     );
 
     event MigrationWarning(
-        uint256 indexed qipNumber,
+        uint256 indexed qciNumber,
         string warning
     );
 
     // Debug events for troubleshooting
     event DebugUpdateAttempt(
-        uint256 indexed qipNumber,
+        uint256 indexed qciNumber,
         address caller,
         string stage
     );
 
     event DebugValidation(
-        uint256 indexed qipNumber,
+        uint256 indexed qciNumber,
         string check,
         bool passed,
         string reason
     );
 
     event DebugStorage(
-        uint256 indexed qipNumber,
+        uint256 indexed qciNumber,
         bytes32 oldHash,
         bytes32 newHash,
         uint256 version
     );
 
-    modifier onlyAuthorOrEditor(uint256 _qipNumber) {
-        if (!(qips[_qipNumber].author == msg.sender ||
+    modifier onlyAuthorOrEditor(uint256 _qciNumber) {
+        if (!(qcis[_qciNumber].author == msg.sender ||
             hasRole(EDITOR_ROLE, msg.sender) ||
             hasRole(DEFAULT_ADMIN_ROLE, msg.sender))) {
             revert OnlyAuthorOrEditor();
@@ -170,8 +170,8 @@ contract QIPRegistry is AccessControl, Pausable {
         _;
     }
 
-    constructor(uint256 _startingQIPNumber, address _initialAdmin) {
-        nextQIPNumber = _startingQIPNumber;
+    constructor(uint256 _startingQCINumber, address _initialAdmin) {
+        nextQCINumber = _startingQCINumber;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _initialAdmin);
         _grantRole(EDITOR_ROLE, _initialAdmin);
@@ -188,13 +188,13 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Create a new QIP
-     * @param _title QIP title
+     * @dev Create a new QCI
+     * @param _title QCI title
      * @param _chain Target network (Polygon, Ethereum, Base, etc.)
      * @param _contentHash keccak256 hash of the full proposal content
      * @param _ipfsUrl IPFS URL where content is stored
      */
-    function createQIP(
+    function createQCI(
         string memory _title,
         string memory _chain,
         bytes32 _contentHash,
@@ -204,17 +204,17 @@ contract QIPRegistry is AccessControl, Pausable {
         if (bytes(_chain).length == 0) revert ChainRequired();
         if (_contentHash == bytes32(0)) revert InvalidContentHash();
         if (bytes(_ipfsUrl).length == 0) revert IPFSURLRequired();
-        if (contentHashToQIP[_contentHash] != 0) revert ContentAlreadyExists();
+        if (contentHashToQCI[_contentHash] != 0) revert ContentAlreadyExists();
 
 
-        while (qips[nextQIPNumber].qipNumber != 0) {
-            unchecked { nextQIPNumber++; }
+        while (qcis[nextQCINumber].qciNumber != 0) {
+            unchecked { nextQCINumber++; }
         }
-        uint256 qipNumber = nextQIPNumber++;
-        if (qips[qipNumber].qipNumber != 0) revert QIPSlotAlreadyUsed();
+        uint256 qciNumber = nextQCINumber++;
+        if (qcis[qciNumber].qciNumber != 0) revert QCISlotAlreadyUsed();
         
-        qips[qipNumber] = QIP({
-            qipNumber: qipNumber,
+        qcis[qciNumber] = QCI({
+            qciNumber: qciNumber,
             author: msg.sender,
             title: _title,
             chain: _chain,
@@ -230,19 +230,19 @@ contract QIPRegistry is AccessControl, Pausable {
         });
         
         // Store initial version
-        qipVersions[qipNumber][1] = QIPVersion({
+        qciVersions[qciNumber][1] = QCIVersion({
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
             timestamp: block.timestamp,
             changeNote: "Initial version"
         });
-        qipVersionCount[qipNumber] = 1;
+        qciVersionCount[qciNumber] = 1;
         
-        contentHashToQIP[_contentHash] = qipNumber;
-        authorQIPs[msg.sender].push(qipNumber);
+        contentHashToQCI[_contentHash] = qciNumber;
+        authorQCIs[msg.sender].push(qciNumber);
         
-        emit QIPCreated(
-            qipNumber,
+        emit QCICreated(
+            qciNumber,
             msg.sender,
             _title,
             _chain,
@@ -250,102 +250,102 @@ contract QIPRegistry is AccessControl, Pausable {
             _ipfsUrl
         );
         
-        return qipNumber;
+        return qciNumber;
     }
 
     /**
-     * @dev Pause new QIP creation. Editors and admins may still manage existing QIPs.
+     * @dev Pause new QCI creation. Editors and admins may still manage existing QCIs.
      */
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _pause();
     }
 
     /**
-     * @dev Unpause new QIP creation.
+     * @dev Unpause new QCI creation.
      */
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
 
     /**
-     * @dev Update QIP content (only allowed before snapshot submission)
+     * @dev Update QCI content (only allowed before snapshot submission)
      */
-    function updateQIP(
-        uint256 _qipNumber,
+    function updateQCI(
+        uint256 _qciNumber,
         string memory _title,
         string memory _chain,
         string memory _implementor,
         bytes32 _newContentHash,
         string memory _newIpfsUrl,
         string memory _changeNote
-    ) external onlyAuthorOrEditor(_qipNumber) {
-        emit DebugUpdateAttempt(_qipNumber, msg.sender, "start");
+    ) external onlyAuthorOrEditor(_qciNumber) {
+        emit DebugUpdateAttempt(_qciNumber, msg.sender, "start");
 
-        QIP storage qip = qips[_qipNumber];
-        if (qip.qipNumber == 0) {
-            emit DebugValidation(_qipNumber, "exists", false, "QIP does not exist");
-            revert QIPDoesNotExist();
+        QCI storage qci = qcis[_qciNumber];
+        if (qci.qciNumber == 0) {
+            emit DebugValidation(_qciNumber, "exists", false, "QCI does not exist");
+            revert QCIDoesNotExist();
         }
 
-        emit DebugValidation(_qipNumber, "exists", true, "QIP found");
+        emit DebugValidation(_qciNumber, "exists", true, "QCI found");
 
-        if (!(qip.status == STATUS_DRAFT || qip.status == STATUS_READY_SNAPSHOT)) {
-            emit DebugValidation(_qipNumber, "status", false, "Invalid status for update");
+        if (!(qci.status == STATUS_DRAFT || qci.status == STATUS_READY_SNAPSHOT)) {
+            emit DebugValidation(_qciNumber, "status", false, "Invalid status for update");
             revert AlreadySubmittedToSnapshot();
         }
 
-        emit DebugValidation(_qipNumber, "status", true, "Status allows update");
+        emit DebugValidation(_qciNumber, "status", true, "Status allows update");
 
-        if (bytes(qip.snapshotProposalId).length != 0) {
-            emit DebugValidation(_qipNumber, "snapshot", false, "Has snapshot ID");
+        if (bytes(qci.snapshotProposalId).length != 0) {
+            emit DebugValidation(_qciNumber, "snapshot", false, "Has snapshot ID");
             revert AlreadySubmittedToSnapshot();
         }
 
         if (_newContentHash == bytes32(0)) {
-            emit DebugValidation(_qipNumber, "contentHash", false, "Empty content hash");
+            emit DebugValidation(_qciNumber, "contentHash", false, "Empty content hash");
             revert InvalidContentHash();
         }
 
-        if (contentHashToQIP[_newContentHash] != 0) {
-            emit DebugValidation(_qipNumber, "uniqueHash", false, "Content hash exists");
+        if (contentHashToQCI[_newContentHash] != 0) {
+            emit DebugValidation(_qciNumber, "uniqueHash", false, "Content hash exists");
             revert ContentAlreadyExists();
         }
 
-        emit DebugUpdateAttempt(_qipNumber, msg.sender, "validation_passed");
+        emit DebugUpdateAttempt(_qciNumber, msg.sender, "validation_passed");
 
         // Store old values for debugging
-        bytes32 oldHash = qip.contentHash;
-        uint256 oldVersion = qip.version;
+        bytes32 oldHash = qci.contentHash;
+        uint256 oldVersion = qci.version;
 
         // Update content hash mapping
-        delete contentHashToQIP[qip.contentHash];
-        contentHashToQIP[_newContentHash] = _qipNumber;
+        delete contentHashToQCI[qci.contentHash];
+        contentHashToQCI[_newContentHash] = _qciNumber;
 
-        // Update QIP fields
-        qip.title = _title;
-        qip.chain = _chain;
-        qip.implementor = _implementor;
-        qip.contentHash = _newContentHash;
-        qip.ipfsUrl = _newIpfsUrl;
-        qip.lastUpdated = block.timestamp;
-        qip.version++;
+        // Update QCI fields
+        qci.title = _title;
+        qci.chain = _chain;
+        qci.implementor = _implementor;
+        qci.contentHash = _newContentHash;
+        qci.ipfsUrl = _newIpfsUrl;
+        qci.lastUpdated = block.timestamp;
+        qci.version++;
 
-        emit DebugStorage(_qipNumber, oldHash, _newContentHash, qip.version);
+        emit DebugStorage(_qciNumber, oldHash, _newContentHash, qci.version);
 
         // Store new version
-        qipVersions[_qipNumber][qip.version] = QIPVersion({
+        qciVersions[_qciNumber][qci.version] = QCIVersion({
             contentHash: _newContentHash,
             ipfsUrl: _newIpfsUrl,
             timestamp: block.timestamp,
             changeNote: _changeNote
         });
-        qipVersionCount[_qipNumber] = qip.version;
+        qciVersionCount[_qciNumber] = qci.version;
 
-        emit DebugUpdateAttempt(_qipNumber, msg.sender, "storage_complete");
+        emit DebugUpdateAttempt(_qciNumber, msg.sender, "storage_complete");
 
-        emit QIPUpdated(
-            _qipNumber,
-            qip.version,
+        emit QCIUpdated(
+            _qciNumber,
+            qci.version,
             _newContentHash,
             _newIpfsUrl,
             _changeNote
@@ -353,35 +353,35 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Update QIP status using status string
+     * @dev Update QCI status using status string
      */
-    function updateStatus(uint256 _qipNumber, string memory _newStatus)
+    function updateStatus(uint256 _qciNumber, string memory _newStatus)
         external
         onlyRole(EDITOR_ROLE)
     {
-        QIP storage qip = qips[_qipNumber];
-        if (qip.qipNumber == 0) revert QIPDoesNotExist();
+        QCI storage qci = qcis[_qciNumber];
+        if (qci.qciNumber == 0) revert QCIDoesNotExist();
 
         bytes32 newStatusId = keccak256(bytes(_newStatus));
         if (!_statuses.exists(newStatusId)) revert InvalidStatus();
 
-        bytes32 oldStatus = qip.status;
-        qip.status = newStatusId;
-        qip.lastUpdated = block.timestamp;
+        bytes32 oldStatus = qci.status;
+        qci.status = newStatusId;
+        qci.lastUpdated = block.timestamp;
 
-        emit QIPStatusChanged(_qipNumber, oldStatus, newStatusId);
+        emit QCIStatusChanged(_qciNumber, oldStatus, newStatusId);
     }
 
     /**
      * @dev Link Snapshot proposal ID
      */
     function linkSnapshotProposal(
-        uint256 _qipNumber, 
+        uint256 _qciNumber, 
         string memory _snapshotProposalId
-    ) external onlyAuthorOrEditor(_qipNumber) {
-        QIP storage qip = qips[_qipNumber];
-        if (qip.qipNumber == 0) revert QIPDoesNotExist();
-        if (bytes(qip.snapshotProposalId).length != 0) revert SnapshotAlreadyLinked();
+    ) external onlyAuthorOrEditor(_qciNumber) {
+        QCI storage qci = qcis[_qciNumber];
+        if (qci.qciNumber == 0) revert QCIDoesNotExist();
+        if (bytes(qci.snapshotProposalId).length != 0) revert SnapshotAlreadyLinked();
         if (bytes(_snapshotProposalId).length == 0) revert InvalidSnapshotID();
 
         // Reject placeholder values
@@ -392,62 +392,62 @@ contract QIPRegistry is AccessControl, Pausable {
         }
 
         // Require status to be "Ready for Snapshot"
-        if (qip.status != STATUS_READY_SNAPSHOT) revert QIPMustBeReadyForSnapshot();
+        if (qci.status != STATUS_READY_SNAPSHOT) revert QCIMustBeReadyForSnapshot();
 
-        qip.snapshotProposalId = _snapshotProposalId;
-        qip.status = STATUS_POSTED_SNAPSHOT;
-        qip.lastUpdated = block.timestamp;
+        qci.snapshotProposalId = _snapshotProposalId;
+        qci.status = STATUS_POSTED_SNAPSHOT;
+        qci.lastUpdated = block.timestamp;
 
-        emit SnapshotProposalLinked(_qipNumber, _snapshotProposalId);
-        emit QIPStatusChanged(_qipNumber, STATUS_READY_SNAPSHOT, STATUS_POSTED_SNAPSHOT);
+        emit SnapshotProposalLinked(_qciNumber, _snapshotProposalId);
+        emit QCIStatusChanged(_qciNumber, STATUS_READY_SNAPSHOT, STATUS_POSTED_SNAPSHOT);
     }
 
     /**
      * @dev Clear invalid snapshot ID (admin only)
-     * This allows fixing QIPs that have placeholder values like "TBU" stored
+     * This allows fixing QCIs that have placeholder values like "TBU" stored
      */
-    function clearInvalidSnapshotId(uint256 _qipNumber) 
+    function clearInvalidSnapshotId(uint256 _qciNumber) 
         external 
         onlyRole(DEFAULT_ADMIN_ROLE) 
     {
-        QIP storage qip = qips[_qipNumber];
-        require(qip.qipNumber > 0, "QIP does not exist");
-        require(bytes(qip.snapshotProposalId).length > 0, "No snapshot ID to clear");
+        QCI storage qci = qcis[_qciNumber];
+        require(qci.qciNumber > 0, "QCI does not exist");
+        require(bytes(qci.snapshotProposalId).length > 0, "No snapshot ID to clear");
         
         // Only clear if it's a placeholder value
         require(
-            keccak256(bytes(qip.snapshotProposalId)) == keccak256(bytes("TBU")) ||
-            keccak256(bytes(qip.snapshotProposalId)) == keccak256(bytes("tbu")) ||
-            keccak256(bytes(qip.snapshotProposalId)) == keccak256(bytes("None")) ||
-            keccak256(bytes(qip.snapshotProposalId)) == keccak256(bytes("TBD")),
+            keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("TBU")) ||
+            keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("tbu")) ||
+            keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("None")) ||
+            keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("TBD")),
             "Can only clear placeholder values"
         );
         
         // Clear the snapshot ID and reset status to Ready for Snapshot if it was Posted
-        qip.snapshotProposalId = "";
-        if (qip.status == STATUS_POSTED_SNAPSHOT) {
-            qip.status = STATUS_READY_SNAPSHOT;
-            emit QIPStatusChanged(_qipNumber, STATUS_POSTED_SNAPSHOT, STATUS_READY_SNAPSHOT);
+        qci.snapshotProposalId = "";
+        if (qci.status == STATUS_POSTED_SNAPSHOT) {
+            qci.status = STATUS_READY_SNAPSHOT;
+            emit QCIStatusChanged(_qciNumber, STATUS_POSTED_SNAPSHOT, STATUS_READY_SNAPSHOT);
         }
-        qip.lastUpdated = block.timestamp;
+        qci.lastUpdated = block.timestamp;
         
-        emit SnapshotProposalLinked(_qipNumber, "");
+        emit SnapshotProposalLinked(_qciNumber, "");
     }
 
     /**
      * @dev Set implementor and implementation date
      */
     function setImplementation(
-        uint256 _qipNumber,
+        uint256 _qciNumber,
         string memory _implementor,
         uint256 _implementationDate
     ) external onlyRole(EDITOR_ROLE) {
-        QIP storage qip = qips[_qipNumber];
-        require(qip.qipNumber > 0, "QIP does not exist");
+        QCI storage qci = qcis[_qciNumber];
+        require(qci.qciNumber > 0, "QCI does not exist");
         
-        qip.implementor = _implementor;
-        qip.implementationDate = _implementationDate;
-        qip.lastUpdated = block.timestamp;
+        qci.implementor = _implementor;
+        qci.implementationDate = _implementationDate;
+        qci.lastUpdated = block.timestamp;
     }
 
     /**
@@ -474,17 +474,17 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Disable migration mode (after migrating existing QIPs)
+     * @dev Disable migration mode (after migrating existing QCIs)
      */
     function disableMigrationMode() external onlyRole(DEFAULT_ADMIN_ROLE) {
         migrationMode = false;
     }
 
     /**
-     * @dev Migrate existing QIP (only during migration mode)
+     * @dev Migrate existing QCI (only during migration mode)
      */
-    function migrateQIP(
-        uint256 _qipNumber,
+    function migrateQCI(
+        uint256 _qciNumber,
         address _author,
         string memory _title,
         string memory _chain,
@@ -497,7 +497,7 @@ contract QIPRegistry is AccessControl, Pausable {
         string memory _snapshotProposalId
     ) external onlyRole(EDITOR_ROLE) {
         require(migrationMode, "Migration mode disabled");
-        require(qips[_qipNumber].qipNumber == 0, "QIP already exists");
+        require(qcis[_qciNumber].qciNumber == 0, "QCI already exists");
 
         // Validate status/proposal consistency
         bytes32 statusId = keccak256(bytes(_status));
@@ -507,7 +507,7 @@ contract QIPRegistry is AccessControl, Pausable {
         if (hasProposal && statusId != STATUS_POSTED_SNAPSHOT) {
             // Log warning but continue - historical data may have inconsistencies
             emit MigrationWarning(
-                _qipNumber,
+                _qciNumber,
                 "Status/proposal mismatch - has proposal but not 'Posted to Snapshot' status"
             );
             // Force status to "Posted to Snapshot" when proposal exists
@@ -519,8 +519,8 @@ contract QIPRegistry is AccessControl, Pausable {
             _statuses.add(statusId);
         }
 
-        qips[_qipNumber] = QIP({
-            qipNumber: _qipNumber,
+        qcis[_qciNumber] = QCI({
+            qciNumber: _qciNumber,
             author: _author,
             title: _title,
             chain: _chain,
@@ -536,80 +536,80 @@ contract QIPRegistry is AccessControl, Pausable {
         });
         
         // Store initial version
-        qipVersions[_qipNumber][1] = QIPVersion({
+        qciVersions[_qciNumber][1] = QCIVersion({
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
             timestamp: _createdAt,
             changeNote: "Migrated from GitHub"
         });
-        qipVersionCount[_qipNumber] = 1;
+        qciVersionCount[_qciNumber] = 1;
         
-        contentHashToQIP[_contentHash] = _qipNumber;
-        authorQIPs[_author].push(_qipNumber);
+        contentHashToQCI[_contentHash] = _qciNumber;
+        authorQCIs[_author].push(_qciNumber);
 
-        // Keep nextQIPNumber pointing to the next unused index
-        if (_qipNumber >= nextQIPNumber) {
-            nextQIPNumber = _qipNumber + 1;
+        // Keep nextQCINumber pointing to the next unused index
+        if (_qciNumber >= nextQCINumber) {
+            nextQCINumber = _qciNumber + 1;
         }
     }
 
     /**
-     * @dev Synchronize nextQIPNumber to the next unused index after migrations
+     * @dev Synchronize nextQCINumber to the next unused index after migrations
      */
-    function syncNextQIPNumber() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 candidate = nextQIPNumber;
-        while (qips[candidate].qipNumber != 0) {
+    function syncNextQCINumber() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 candidate = nextQCINumber;
+        while (qcis[candidate].qciNumber != 0) {
             unchecked { candidate++; }
         }
-        nextQIPNumber = candidate;
+        nextQCINumber = candidate;
     }
 
     /**
-     * @dev Get QIPs by author
+     * @dev Get QCIs by author
      */
-    function getQIPsByAuthor(address _author) external view returns (uint256[] memory) {
-        return authorQIPs[_author];
+    function getQCIsByAuthor(address _author) external view returns (uint256[] memory) {
+        return authorQCIs[_author];
     }
 
     /**
-     * @dev Get QIP with all versions
+     * @dev Get QCI with all versions
      */
-    function getQIPWithVersions(uint256 _qipNumber) external view returns (
-        QIP memory qip,
-        QIPVersion[] memory versions
+    function getQCIWithVersions(uint256 _qciNumber) external view returns (
+        QCI memory qci,
+        QCIVersion[] memory versions
     ) {
-        require(qips[_qipNumber].qipNumber > 0, "QIP does not exist");
+        require(qcis[_qciNumber].qciNumber > 0, "QCI does not exist");
         
-        qip = qips[_qipNumber];
-        uint256 versionCount = qipVersionCount[_qipNumber];
-        versions = new QIPVersion[](versionCount);
+        qci = qcis[_qciNumber];
+        uint256 versionCount = qciVersionCount[_qciNumber];
+        versions = new QCIVersion[](versionCount);
         
         for (uint256 i = 1; i <= versionCount; i++) {
-            versions[i - 1] = qipVersions[_qipNumber][i];
+            versions[i - 1] = qciVersions[_qciNumber][i];
         }
     }
 
     /**
-     * @dev Verify content hash matches QIP
+     * @dev Verify content hash matches QCI
      */
     function verifyContent(
-        uint256 _qipNumber,
+        uint256 _qciNumber,
         string memory _content
     ) external view returns (bool) {
-        require(qips[_qipNumber].qipNumber > 0, "QIP does not exist");
-        return keccak256(bytes(_content)) == qips[_qipNumber].contentHash;
+        require(qcis[_qciNumber].qciNumber > 0, "QCI does not exist");
+        return keccak256(bytes(_content)) == qcis[_qciNumber].contentHash;
     }
 
     /**
-     * @dev Get active QIPs by status string
+     * @dev Get active QCIs by status string
      */
-    function getQIPsByStatus(string memory _status) external view returns (uint256[] memory) {
+    function getQCIsByStatus(string memory _status) external view returns (uint256[] memory) {
         bytes32 statusId = keccak256(bytes(_status));
         uint256 count = 0;
 
-        // First count matching QIPs
-        for (uint256 i = 1; i < nextQIPNumber; i++) {
-            if (qips[i].qipNumber > 0 && qips[i].status == statusId) {
+        // First count matching QCIs
+        for (uint256 i = 1; i < nextQCINumber; i++) {
+            if (qcis[i].qciNumber > 0 && qcis[i].status == statusId) {
                 count++;
             }
         }
@@ -618,8 +618,8 @@ contract QIPRegistry is AccessControl, Pausable {
         uint256[] memory result = new uint256[](count);
         uint256 index = 0;
 
-        for (uint256 i = 1; i < nextQIPNumber; i++) {
-            if (qips[i].qipNumber > 0 && qips[i].status == statusId) {
+        for (uint256 i = 1; i < nextQCINumber; i++) {
+            if (qcis[i].qciNumber > 0 && qcis[i].status == statusId) {
                 result[index++] = i;
             }
         }
@@ -700,39 +700,39 @@ contract QIPRegistry is AccessControl, Pausable {
     }
 
     /**
-     * @dev Export complete QIP data including all versions
-     * @param _qipNumber The QIP number to export
-     * @return QIPExportData Complete QIP data with version history
+     * @dev Export complete QCI data including all versions
+     * @param _qciNumber The QCI number to export
+     * @return QCIExportData Complete QCI data with version history
      */
-    function exportQIP(uint256 _qipNumber) external view returns (QIPExportData memory) {
-        if (qips[_qipNumber].qipNumber == 0) revert QIPDoesNotExist();
+    function exportQCI(uint256 _qciNumber) external view returns (QCIExportData memory) {
+        if (qcis[_qciNumber].qciNumber == 0) revert QCIDoesNotExist();
 
-        QIP storage qip = qips[_qipNumber];
-        uint256 versionCount = qipVersionCount[_qipNumber];
+        QCI storage qci = qcis[_qciNumber];
+        uint256 versionCount = qciVersionCount[_qciNumber];
 
         // Prepare versions array
-        QIPVersion[] memory versions = new QIPVersion[](versionCount);
+        QCIVersion[] memory versions = new QCIVersion[](versionCount);
         for (uint256 i = 1; i <= versionCount; i++) {
-            versions[i - 1] = qipVersions[_qipNumber][i];
+            versions[i - 1] = qciVersions[_qciNumber][i];
         }
 
         // Get human-readable status
-        string memory statusName = getStatusName(qip.status);
+        string memory statusName = getStatusName(qci.status);
 
-        return QIPExportData({
-            qipNumber: qip.qipNumber,
-            author: qip.author,
-            title: qip.title,
-            chain: qip.chain,
-            contentHash: qip.contentHash,
-            ipfsUrl: qip.ipfsUrl,
-            createdAt: qip.createdAt,
-            lastUpdated: qip.lastUpdated,
+        return QCIExportData({
+            qciNumber: qci.qciNumber,
+            author: qci.author,
+            title: qci.title,
+            chain: qci.chain,
+            contentHash: qci.contentHash,
+            ipfsUrl: qci.ipfsUrl,
+            createdAt: qci.createdAt,
+            lastUpdated: qci.lastUpdated,
             statusName: statusName,
-            implementor: qip.implementor,
-            implementationDate: qip.implementationDate,
-            snapshotProposalId: qip.snapshotProposalId,
-            version: qip.version,
+            implementor: qci.implementor,
+            implementationDate: qci.implementationDate,
+            snapshotProposalId: qci.snapshotProposalId,
+            version: qci.version,
             versions: versions,
             totalVersions: versionCount
         });

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
-import { useQIPData } from '../hooks/useQIPData'
+import { useQCIData } from '../hooks/useQCIData'
 import LocalModeBanner from '../components/LocalModeBanner'
 import CacheStatusIndicator from '../components/CacheStatusIndicator'
-import { StatusGroupSkeleton } from '../components/QIPSkeleton'
+import { StatusGroupSkeleton } from '../components/QCISkeleton'
 import { config } from '../config/env'
 import { showDevTools } from '../config/debug'
 import { RefreshCw } from 'lucide-react'
@@ -24,13 +24,13 @@ const AllProposals: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const {
-    blockchainQIPs: qips,
+    blockchainQCIs: qcis,
     isLoading,
     isError,
-    invalidateQIPs: invalidate,
+    invalidateQCIs: invalidate,
     isFetching,
     dataUpdatedAt
-  } = useQIPData({
+  } = useQCIData({
     enabled: true
   })
 
@@ -45,45 +45,45 @@ const AllProposals: React.FC = () => {
     }
   }
 
-  // Group QIPs by status
-  const groupedQIPs = useMemo(() => {
+  // Group QCIs by status
+  const groupedQCIs = useMemo(() => {
     const groups: Record<string, any[]> = {}
     
-    qips.forEach(qip => {
-      const status = qip.status
+    qcis.forEach(qci => {
+      const status = qci.status
       if (!groups[status]) {
         groups[status] = []
       }
       groups[status].push({
-        ...qip,
-        id: `blockchain-${qip.qipNumber}`,
+        ...qci,
+        id: `blockchain-${qci.qciNumber}`,
         frontmatter: {
-          qip: qip.qipNumber,
-          title: qip.title,
-          author: qip.author,
-          chain: qip.chain,
-          proposal: qip.proposal,
-          implementor: qip.implementor,
-          created: qip.created,
-          status: qip.status
+          qci: qci.qciNumber,
+          title: qci.title,
+          author: qci.author,
+          chain: qci.chain,
+          proposal: qci.proposal,
+          implementor: qci.implementor,
+          created: qci.created,
+          status: qci.status
         }
       })
     })
 
-    // Sort QIPs within each group by number (descending)
+    // Sort QCIs within each group by number (descending)
     Object.keys(groups).forEach(status => {
-      groups[status] = sortBy(p => -p.qipNumber, groups[status])
+      groups[status] = sortBy(p => -p.qciNumber, groups[status])
     })
 
     return groups
-  }, [qips])
+  }, [qcis])
 
   // Get ordered status groups
   const orderedGroups = statusOrder
-    .filter(status => groupedQIPs[status] && groupedQIPs[status].length > 0)
+    .filter(status => groupedQCIs[status] && groupedQCIs[status].length > 0)
     .map(status => ({
       status,
-      qips: groupedQIPs[status],
+      qcis: groupedQCIs[status],
       displayName: statusDisplayMap[status] || status
     }))
 
@@ -128,7 +128,7 @@ const AllProposals: React.FC = () => {
           )}
 
           {/* Show skeletons on initial load */}
-          {isLoading && qips.length === 0 && (
+          {isLoading && qcis.length === 0 && (
             <div className="space-y-8">
               <StatusGroupSkeleton />
               <StatusGroupSkeleton />
@@ -136,7 +136,7 @@ const AllProposals: React.FC = () => {
             </div>
           )}
 
-          {!isLoading && !isError && qips.length === 0 && (
+          {!isLoading && !isError && qcis.length === 0 && (
             <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
@@ -155,23 +155,23 @@ const AllProposals: React.FC = () => {
 
         {/* Show actual content when not fetching or when we have cached data */}
         <div className={`space-y-8 ${isFetching && !isLoading ? 'hidden' : ''}`}>
-          {orderedGroups.map(({ status, qips, displayName }) => (
+          {orderedGroups.map(({ status, qcis, displayName }) => (
             <div key={status}>
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 {displayName}
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({qips.length})
+                  ({qcis.length})
                 </span>
               </h2>
-              <ProposalListItem proposals={qips} />
+              <ProposalListItem proposals={qcis} />
             </div>
           ))}
         </div>
 
         {/* Total count indicator */}
-        {qips.length > 0 && (
+        {qcis.length > 0 && (
           <div className="py-8 text-center text-gray-500">
-            <p>{qips.length} proposals total</p>
+            <p>{qcis.length} proposals total</p>
           </div>
         )}
 

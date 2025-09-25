@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {QIPRegistry} from "../contracts/QIPRegistry.sol";
+import {QCIRegistry} from "../contracts/QCIRegistry.sol";
 
 contract DeploySimple is Script {
     // With a fresh Anvil instance and deploying as the first transaction,
@@ -15,11 +15,11 @@ contract DeploySimple is Script {
         
         // Check if already deployed
         if (EXPECTED_REGISTRY.code.length > 0) {
-            console.log("QIPRegistry already deployed at:", EXPECTED_REGISTRY);
+            console.log("QCIRegistry already deployed at:", EXPECTED_REGISTRY);
         } else {
-            // Deploy QIPRegistry as the first contract
-            QIPRegistry registry = new QIPRegistry(209, msg.sender);
-            console.log("QIPRegistry deployed at:", address(registry));
+            // Deploy QCIRegistry as the first contract
+            QCIRegistry registry = new QCIRegistry(209, msg.sender);
+            console.log("QCIRegistry deployed at:", address(registry));
             
             // Log the actual address
             console.log("WARNING: Registry deployed at different address than expected");

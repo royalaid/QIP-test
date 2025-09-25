@@ -1,16 +1,16 @@
-import { QIPExportData } from "@/services/qipClient";
-import { type QIPData } from "../hooks/useQIPData";
+import { QCIExportData } from "@/services/qciClient";
+import { type QCIData } from "../hooks/useQCIData";
 import { toast } from "sonner";
 
-export interface QIPExportJSON {
+export interface QCIExportJSON {
   metadata: {
     exportedAt: string;
     contractAddress: string;
     chain: string;
     exportVersion: string;
   };
-  qip: {
-    qipNumber: number;
+  qci: {
+    qciNumber: number;
     title: string;
     chain: string;
     status: string;
@@ -37,43 +37,43 @@ export interface QIPExportJSON {
 }
 
 /**
- * Format QIP data as markdown with frontmatter
+ * Format QCI data as markdown with frontmatter
  */
-export function formatQIPAsMarkdown(qipData: QIPData | null, includeMetadata: boolean = true): string {
-  if (!qipData) return "";
+export function formatQCIAsMarkdown(qciData: QCIData | null, includeMetadata: boolean = true): string {
+  if (!qciData) return "";
 
   // Build frontmatter
   const frontmatter = [
     "---",
-    `qip: ${qipData.qipNumber}`,
-    `title: ${qipData.title}`,
-    `chain: ${qipData.chain}`,
-    `status: ${qipData.status}`,
-    `author: ${qipData.author}`,
-    `implementor: ${qipData.implementor || "None"}`,
-    `implementation-date: ${qipData.implementationDate || "None"}`,
-    `proposal: ${qipData.proposal || "None"}`,
-    `created: ${qipData.created}`,
+    `qci: ${qciData.qciNumber}`,
+    `title: ${qciData.title}`,
+    `chain: ${qciData.chain}`,
+    `status: ${qciData.status}`,
+    `author: ${qciData.author}`,
+    `implementor: ${qciData.implementor || "None"}`,
+    `implementation-date: ${qciData.implementationDate || "None"}`,
+    `proposal: ${qciData.proposal || "None"}`,
+    `created: ${qciData.created}`,
   ];
 
   // Add optional metadata if requested
   if (includeMetadata) {
-    frontmatter.push(`version: ${qipData.version || 1}`, `ipfs: ${qipData.ipfsUrl || ""}`);
+    frontmatter.push(`version: ${qciData.version || 1}`, `ipfs: ${qciData.ipfsUrl || ""}`);
   }
 
   frontmatter.push("---", "");
 
   // Combine frontmatter with content
-  let markdown = frontmatter.join("\n") + (qipData.content || "");
+  let markdown = frontmatter.join("\n") + (qciData.content || "");
 
   // Add export metadata as comments if requested
   if (includeMetadata) {
     const exportDate = new Date().toISOString();
     markdown += "\n\n";
     markdown += "<!-- Export Metadata -->\n";
-    markdown += `<!-- Exported from QIP Registry at ${exportDate} -->\n`;
-    if (qipData.version && qipData.version > 1) {
-      markdown += `<!-- Version ${qipData.version} -->\n`;
+    markdown += `<!-- Exported from QCI Registry at ${exportDate} -->\n`;
+    if (qciData.version && qciData.version > 1) {
+      markdown += `<!-- Version ${qciData.version} -->\n`;
     }
   }
 
@@ -81,37 +81,37 @@ export function formatQIPAsMarkdown(qipData: QIPData | null, includeMetadata: bo
 }
 
 /**
- * Format QIP data as JSON export
+ * Format QCI data as JSON export
  */
-export function formatQIPAsJSON(
-  qipData: QIPData | null,
-  exportData?: QIPExportData | null,
+export function formatQCIAsJSON(
+  qciData: QCIData | null,
+  exportData?: QCIExportData | null,
   contractAddress?: string
-): QIPExportJSON | null {
-  if (!qipData) return null;
+): QCIExportJSON | null {
+  if (!qciData) return null;
 
-  const exportJSON: QIPExportJSON = {
+  const exportJSON: QCIExportJSON = {
     metadata: {
       exportedAt: new Date().toISOString(),
       contractAddress: contractAddress || "",
       chain: "Base",
       exportVersion: "1.0",
     },
-    qip: {
-      qipNumber: qipData.qipNumber,
-      title: qipData.title,
-      chain: qipData.chain,
-      status: qipData.status,
-      author: qipData.author,
-      implementor: qipData.implementor || "None",
-      implementationDate: qipData.implementationDate || "None",
-      snapshotProposalId: qipData.proposal || "None",
-      created: qipData.created,
-      lastUpdated: new Date(qipData.lastUpdated || Date.now()).toISOString(),
-      version: qipData.version || 1,
-      ipfsUrl: qipData.ipfsUrl || "",
-      contentHash: qipData.contentHash || "",
-      content: qipData.content || "",
+    qci: {
+      qciNumber: qciData.qciNumber,
+      title: qciData.title,
+      chain: qciData.chain,
+      status: qciData.status,
+      author: qciData.author,
+      implementor: qciData.implementor || "None",
+      implementationDate: qciData.implementationDate || "None",
+      snapshotProposalId: qciData.proposal || "None",
+      created: qciData.created,
+      lastUpdated: new Date(qciData.lastUpdated || Date.now()).toISOString(),
+      version: qciData.version || 1,
+      ipfsUrl: qciData.ipfsUrl || "",
+      contentHash: qciData.contentHash || "",
+      content: qciData.content || "",
     },
   };
 
@@ -177,18 +177,18 @@ export function validateImportData(data: any): { valid: boolean; errors: string[
     return { valid: false, errors };
   }
 
-  // Check for required QIP fields
-  const qip = data.qip;
-  if (!qip) {
-    errors.push("Missing required field: qip");
+  // Check for required QCI fields
+  const qci = data.qci;
+  if (!qci) {
+    errors.push("Missing required field: qci");
     return { valid: false, errors };
   }
 
-  // Validate required QIP fields
+  // Validate required QCI fields
   const requiredFields = ["title", "chain", "content"];
   for (const field of requiredFields) {
-    if (!qip[field]) {
-      errors.push(`Missing required QIP field: ${field}`);
+    if (!qci[field]) {
+      errors.push(`Missing required QCI field: ${field}`);
     }
   }
 
@@ -207,15 +207,15 @@ export function validateImportData(data: any): { valid: boolean; errors: string[
     "Gnosis",
     "Kava",
   ];
-  if (qip.chain && !validChains.includes(qip.chain)) {
-    errors.push(`Invalid chain: ${qip.chain}. Must be one of: ${validChains.join(", ")}`);
+  if (qci.chain && !validChains.includes(qci.chain)) {
+    errors.push(`Invalid chain: ${qci.chain}. Must be one of: ${validChains.join(", ")}`);
   }
 
   // Validate status if provided
-  if (qip.status) {
+  if (qci.status) {
     const validStatuses = ["Draft", "Ready for Snapshot", "Posted to Snapshot"];
-    if (!validStatuses.includes(qip.status)) {
-      errors.push(`Invalid status: ${qip.status}. Must be one of: ${validStatuses.join(", ")}`);
+    if (!validStatuses.includes(qci.status)) {
+      errors.push(`Invalid status: ${qci.status}. Must be one of: ${validStatuses.join(", ")}`);
     }
   }
 
@@ -228,39 +228,39 @@ export function validateImportData(data: any): { valid: boolean; errors: string[
 /**
  * Convert imported JSON to format expected by ProposalEditor
  */
-export function convertImportToEditorFormat(importData: QIPExportJSON): {
+export function convertImportToEditorFormat(importData: QCIExportJSON): {
   title: string;
   chain: string;
   content: string;
   implementor: string;
-  qipNumber?: number;
+  qciNumber?: number;
 } {
-  const qip = importData.qip;
+  const qci = importData.qci;
 
   return {
-    title: qip.title,
-    chain: qip.chain,
-    content: qip.content,
-    implementor: qip.implementor !== "None" ? qip.implementor : "",
-    qipNumber: qip.qipNumber,
+    title: qci.title,
+    chain: qci.chain,
+    content: qci.content,
+    implementor: qci.implementor !== "None" ? qci.implementor : "",
+    qciNumber: qci.qciNumber,
   };
 }
 
 /**
- * Generate a comprehensive QIP archive filename
+ * Generate a comprehensive QCI archive filename
  */
-export function generateExportFilename(qipNumber: number, format: "md" | "json" | "archive", version?: number): string {
+export function generateExportFilename(qciNumber: number, format: "md" | "json" | "archive", version?: number): string {
   const date = new Date().toISOString().split("T")[0];
   const versionStr = version && version > 1 ? `-v${version}` : "";
 
   switch (format) {
     case "md":
-      return `QIP-${qipNumber}${versionStr}-${date}.md`;
+      return `QCI-${qciNumber}${versionStr}-${date}.md`;
     case "json":
-      return `QIP-${qipNumber}${versionStr}-export-${date}.json`;
+      return `QCI-${qciNumber}${versionStr}-export-${date}.json`;
     case "archive":
-      return `QIP-${qipNumber}-archive-${date}.zip`;
+      return `QCI-${qciNumber}-archive-${date}.zip`;
     default:
-      return `QIP-${qipNumber}-${date}.txt`;
+      return `QCI-${qciNumber}-${date}.txt`;
   }
 }

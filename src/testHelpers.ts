@@ -1,7 +1,7 @@
 import { keccak256, toHex } from 'viem';
 
-// QIP Status enum
-export enum QIPStatus {
+// QCI Status enum
+export enum QCIStatus {
   Draft,
   ReviewPending,
   VotePending,
@@ -12,12 +12,12 @@ export enum QIPStatus {
   Withdrawn
 }
 
-// Sample QIP templates
-export const QIPTemplates = {
+// Sample QCI templates
+export const QCITemplates = {
   technicalUpgrade: {
     title: 'Protocol Technical Upgrade',
     networks: ['Polygon', 'Ethereum', 'Base', 'Arbitrum'],
-    contentTemplate: (qipNumber: number) => `# QIP-${qipNumber}: Protocol Technical Upgrade
+    contentTemplate: (qciNumber: number) => `# QCI-${qciNumber}: Protocol Technical Upgrade
 
 ## Summary
 This proposal aims to upgrade the protocol's core smart contracts to improve efficiency and add new features.
@@ -54,7 +54,7 @@ The implementation will be carried out in phases:
   economicProposal: {
     title: 'Economic Parameter Adjustment',
     networks: ['Polygon', 'Base'],
-    contentTemplate: (qipNumber: number) => `# QIP-${qipNumber}: Economic Parameter Adjustment
+    contentTemplate: (qciNumber: number) => `# QCI-${qciNumber}: Economic Parameter Adjustment
 
 ## Summary
 Adjust protocol economic parameters to optimize for current market conditions.
@@ -78,7 +78,7 @@ Changes will be implemented through governance timelock with a 48-hour delay.
   governanceProposal: {
     title: 'Governance Process Enhancement',
     networks: ['Multi-Chain'],
-    contentTemplate: (qipNumber: number) => `# QIP-${qipNumber}: Governance Process Enhancement
+    contentTemplate: (qciNumber: number) => `# QCI-${qciNumber}: Governance Process Enhancement
 
 ## Summary
 Improve the governance process to increase participation and efficiency.
@@ -105,7 +105,7 @@ Improve the governance process to increase participation and efficiency.
   newFeature: {
     title: 'New Feature Implementation',
     networks: ['Base', 'Ethereum'],
-    contentTemplate: (qipNumber: number) => `# QIP-${qipNumber}: New Feature Implementation
+    contentTemplate: (qciNumber: number) => `# QCI-${qciNumber}: New Feature Implementation
 
 ## Summary
 Add new functionality to expand protocol capabilities.
@@ -132,10 +132,10 @@ Implement cross-chain messaging to enable seamless multi-chain operations.
   }
 };
 
-// Generate realistic QIP content
-export function generateQIPContent(
-  qipNumber: number,
-  template: keyof typeof QIPTemplates = 'technicalUpgrade'
+// Generate realistic QCI content
+export function generateQCIContent(
+  qciNumber: number,
+  template: keyof typeof QCITemplates = 'technicalUpgrade'
 ): {
   title: string;
   network: string;
@@ -143,16 +143,16 @@ export function generateQIPContent(
   contentHash: `0x${string}`;
   ipfsUrl: string;
 } {
-  const selectedTemplate = QIPTemplates[template];
+  const selectedTemplate = QCITemplates[template];
   const network = selectedTemplate.networks[Math.floor(Math.random() * selectedTemplate.networks.length)];
-  const content = selectedTemplate.contentTemplate(qipNumber);
+  const content = selectedTemplate.contentTemplate(qciNumber);
   const contentHash = keccak256(toHex(content));
   
   // Generate fake IPFS hash (in real scenario, would upload to IPFS)
   const ipfsUrl = `ipfs://Qm${generateRandomString(44)}`;
   
   return {
-    title: `${selectedTemplate.title} - QIP ${qipNumber}`,
+    title: `${selectedTemplate.title} - QCI ${qciNumber}`,
     network,
     content,
     contentHash,
@@ -176,44 +176,44 @@ export const TestPersonas = {
     name: 'Active Governor',
     address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
     behavior: 'Creates well-structured proposals, actively participates in discussions',
-    qipTypes: ['technicalUpgrade', 'economicProposal']
+    qciTypes: ['technicalUpgrade', 'economicProposal']
   },
   
   technicalContributor: {
     name: 'Technical Contributor',
     address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
     behavior: 'Focuses on technical improvements and security',
-    qipTypes: ['technicalUpgrade', 'newFeature']
+    qciTypes: ['technicalUpgrade', 'newFeature']
   },
   
   communityMember: {
     name: 'Community Member',
     address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
     behavior: 'Proposes user-facing improvements and governance changes',
-    qipTypes: ['governanceProposal', 'newFeature']
+    qciTypes: ['governanceProposal', 'newFeature']
   }
 };
 
-// Helper to format QIP status
-export function formatQIPStatus(status: QIPStatus): string {
+// Helper to format QCI status
+export function formatQCIStatus(status: QCIStatus): string {
   const statusEmojis = {
-    [QIPStatus.Draft]: '📝',
-    [QIPStatus.ReviewPending]: '👀',
-    [QIPStatus.VotePending]: '🗳️',
-    [QIPStatus.Approved]: '✅',
-    [QIPStatus.Rejected]: '❌',
-    [QIPStatus.Implemented]: '🚀',
-    [QIPStatus.Superseded]: '🔄',
-    [QIPStatus.Withdrawn]: '🚫'
+    [QCIStatus.Draft]: '📝',
+    [QCIStatus.ReviewPending]: '👀',
+    [QCIStatus.VotePending]: '🗳️',
+    [QCIStatus.Approved]: '✅',
+    [QCIStatus.Rejected]: '❌',
+    [QCIStatus.Implemented]: '🚀',
+    [QCIStatus.Superseded]: '🔄',
+    [QCIStatus.Withdrawn]: '🚫'
   };
   
-  return `${statusEmojis[status]} ${QIPStatus[status]}`;
+  return `${statusEmojis[status]} ${QCIStatus[status]}`;
 }
 
-// Helper to generate a timeline of QIP events
-export function generateQIPTimeline(qipNumber: number): string[] {
+// Helper to generate a timeline of QCI events
+export function generateQCITimeline(qciNumber: number): string[] {
   const events = [
-    `Created QIP-${qipNumber} as Draft`,
+    `Created QCI-${qciNumber} as Draft`,
     'Author updated content with community feedback',
     'Moved to ReviewPending by editor',
     'Final revision submitted',
@@ -228,12 +228,12 @@ export function generateQIPTimeline(qipNumber: number): string[] {
 }
 
 // Helper to simulate IPFS content
-export function simulateIPFSContent(qipNumber: number, version: number = 1): {
+export function simulateIPFSContent(qciNumber: number, version: number = 1): {
   cid: string;
   content: string;
   size: number;
 } {
-  const content = QIPTemplates.technicalUpgrade.contentTemplate(qipNumber);
+  const content = QCITemplates.technicalUpgrade.contentTemplate(qciNumber);
   const versionNote = version > 1 ? `\n\n---\n_Version ${version}: Updated based on community feedback_` : '';
   const fullContent = content + versionNote;
   
@@ -244,26 +244,26 @@ export function simulateIPFSContent(qipNumber: number, version: number = 1): {
   };
 }
 
-// Batch QIP creation helper
-export async function createBatchQIPs(
+// Batch QCI creation helper
+export async function createBatchQCIs(
   registry: any,
   startNumber: number,
   count: number
-): Promise<{ qipNumber: number; txHash: string }[]> {
+): Promise<{ qciNumber: number; txHash: string }[]> {
   const results = [];
   
   for (let i = 0; i < count; i++) {
-    const qipNumber = startNumber + i;
-    const qipData = generateQIPContent(qipNumber, 'technicalUpgrade');
+    const qciNumber = startNumber + i;
+    const qciData = generateQCIContent(qciNumber, 'technicalUpgrade');
     
-    const txHash = await registry.write.createQIP([
-      qipData.title,
-      qipData.network,
-      qipData.contentHash,
-      qipData.ipfsUrl
+    const txHash = await registry.write.createQCI([
+      qciData.title,
+      qciData.network,
+      qciData.contentHash,
+      qciData.ipfsUrl
     ]);
     
-    results.push({ qipNumber, txHash });
+    results.push({ qciNumber, txHash });
   }
   
   return results;
@@ -271,11 +271,11 @@ export async function createBatchQIPs(
 
 // Export test scenarios
 export const TestScenarios = {
-  // Scenario 1: Complete lifecycle of a QIP
+  // Scenario 1: Complete lifecycle of a QCI
   completeLifecycle: {
-    description: 'Test full QIP lifecycle from Draft to Implemented',
+    description: 'Test full QCI lifecycle from Draft to Implemented',
     steps: [
-      'Create QIP as Draft',
+      'Create QCI as Draft',
       'Update content based on feedback',
       'Move to ReviewPending',
       'Link Snapshot proposal',
@@ -289,7 +289,7 @@ export const TestScenarios = {
   rejectedProposal: {
     description: 'Test rejection flow',
     steps: [
-      'Create QIP',
+      'Create QCI',
       'Move to ReviewPending',
       'Link Snapshot proposal',
       'Update status to Rejected'
@@ -300,7 +300,7 @@ export const TestScenarios = {
   withdrawnProposal: {
     description: 'Test withdrawal by author',
     steps: [
-      'Create QIP',
+      'Create QCI',
       'Author requests withdrawal',
       'Editor updates status to Withdrawn'
     ]
@@ -310,9 +310,9 @@ export const TestScenarios = {
   supersededProposal: {
     description: 'Test superseding an old proposal',
     steps: [
-      'Create original QIP',
-      'Implement original QIP',
-      'Create new QIP with improvements',
+      'Create original QCI',
+      'Implement original QCI',
+      'Create new QCI with improvements',
       'Mark original as Superseded'
     ]
   }

@@ -5,12 +5,12 @@ const HomePage: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">QiDAO Improvement Proposals</h1>
+        <h1 className="text-4xl font-bold mb-6">QiDAO Community Ideas</h1>
 
         <div className="prose prose-lg dark:prose-invert max-w-none mb-8">
           <p>
-            Welcome to the QiDAO Improvement Proposals (QIPs) platform. This is where the QiDAO community collaborates on protocol
-            improvements and governance decisions.
+            Welcome to the QiDAO Community Ideas (QCI) platform. This is where the QiDAO community collaborates on protocol improvements and
+            governance decisions.
           </p>
         </div>
 
@@ -18,7 +18,7 @@ const HomePage: React.FC = () => {
           <Link to="/all-proposals" className="block p-6 bg-card rounded-lg shadow-md hover:shadow-lg transition-shadow">
             <h2 className="text-2xl font-semibold mb-2">View All Proposals</h2>
             <p className="text-muted-foreground">
-              Browse all QIPs organized by status. See what's being discussed, voted on, and implemented.
+              Browse all QCIs organized by status. See what's being discussed, voted on, and implemented.
             </p>
           </Link>
 

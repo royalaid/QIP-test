@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { QIPClient, QIPStatus } from '../services/qipClient';
+import { QCIClient, QCIStatus } from '../services/qciClient';
 import { useStatusUpdateMutation } from '../hooks/useStatusUpdateMutation';
 import {
   DropdownMenu,
@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface InlineStatusEditorProps {
-  qipNumber: number;
+  qciNumber: number;
   currentStatus: string;
-  currentStatusEnum?: QIPStatus;
+  currentStatusEnum?: QCIStatus;
   isAuthor: boolean;
   isEditor: boolean;
   onStatusUpdate?: () => void;
@@ -29,7 +29,7 @@ const statusStyles = {
 };
 
 const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
-  qipNumber,
+  qciNumber,
   currentStatus,
   currentStatusEnum,
   isAuthor,
@@ -46,8 +46,8 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const qipClient = new QIPClient(registryAddress, rpcUrl, false);
-        const result = await qipClient.fetchAllStatuses();
+        const qciClient = new QCIClient(registryAddress, rpcUrl, false);
+        const result = await qciClient.fetchAllStatuses();
         // Convert the result to the expected format
         const statusArray = result.names.map((name, index) => ({
           name: name,
@@ -81,7 +81,7 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
     // Execute the mutation
     try {
       await statusUpdateMutation.mutateAsync({
-        qipNumber: BigInt(qipNumber),
+        qciNumber: BigInt(qciNumber),
         newStatus,
         registryAddress,
         rpcUrl

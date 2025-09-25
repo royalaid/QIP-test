@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {QIPRegistry} from "../contracts/QIPRegistry.sol";
+import {QCIRegistry} from "../contracts/QCIRegistry.sol";
 
 // Simple CREATE2 Factory for deterministic deployment
 contract Create2Factory {
@@ -35,7 +35,7 @@ contract Create2Factory {
 
 contract DeployDeterministic is Script {
     // Fixed salt for deterministic deployment
-    bytes32 constant SALT = keccak256("QIPRegistry.v1");
+    bytes32 constant SALT = keccak256("QCIRegistry.v1");
     
     // Expected deterministic addresses (based on Anvil's deployment order)
     address constant EXPECTED_FACTORY = 0x8615aCD086FEE64F11C7F00efBaD832DE7C5F216;
@@ -58,16 +58,16 @@ contract DeployDeterministic is Script {
         
         // Check if registry exists, deploy if not
         if (EXPECTED_REGISTRY.code.length == 0) {
-            bytes memory bytecode = abi.encodePacked(type(QIPRegistry).creationCode, abi.encode(209));
+            bytes memory bytecode = abi.encodePacked(type(QCIRegistry).creationCode, abi.encode(209));
             address registry = factory.deploy(bytecode, SALT);
-            console.log("QIPRegistry deployed at:", registry);
+            console.log("QCIRegistry deployed at:", registry);
             
             // Verify it matches expected address
             address computed = factory.computeAddress(bytecode, SALT);
             console.log("Computed address:", computed);
             require(registry == EXPECTED_REGISTRY, "Registry address mismatch");
         } else {
-            console.log("QIPRegistry already deployed at:", EXPECTED_REGISTRY);
+            console.log("QCIRegistry already deployed at:", EXPECTED_REGISTRY);
         }
         
         vm.stopBroadcast();

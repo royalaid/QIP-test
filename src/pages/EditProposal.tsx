@@ -1,60 +1,60 @@
 import React, { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQIP } from '../hooks/useQIP'
+import { useQCI } from '../hooks/useQCI'
 import { ProposalEditor } from '../components/ProposalEditor'
 import { config } from '../config/env'
 
 const EditProposal: React.FC = () => {
   const [params] = useSearchParams()
-  const qipParam = params.get('qip') || '0'
-  const qipNumber = parseInt(qipParam, 10)
+  const qciParam = params.get('qci') || '0'
+  const qciNumber = parseInt(qciParam, 10)
 
   // Use config values
-  const registryAddress = config.qipRegistryAddress
+  const registryAddress = config.qciRegistryAddress
   const rpcUrl = config.baseRpcUrl
 
-  const { data: qipData, isLoading, error } = useQIP({
+  const { data: qciData, isLoading, error } = useQCI({
     registryAddress,
-    qipNumber,
+    qciNumber,
     rpcUrl,
-    enabled: !!registryAddress && qipNumber > 0,
+    enabled: !!registryAddress && qciNumber > 0,
   })
 
-  const existingQIP = useMemo(() => {
-    if (!qipData) return undefined
+  const existingQCI = useMemo(() => {
+    if (!qciData) return undefined
     return {
-      qipNumber: BigInt(qipData.qipNumber),
+      qciNumber: BigInt(qciData.qciNumber),
       content: {
-        qip: qipData.qipNumber,
-        title: qipData.title,
-        chain: qipData.chain,
-        status: qipData.status,
-        author: qipData.author,
-        implementor: qipData.implementor,
-        'implementation-date': qipData.implementationDate,
-        proposal: qipData.proposal,
-        created: qipData.created,
-        content: qipData.content,
+        qci: qciData.qciNumber,
+        title: qciData.title,
+        chain: qciData.chain,
+        status: qciData.status,
+        author: qciData.author,
+        implementor: qciData.implementor,
+        'implementation-date': qciData.implementationDate,
+        proposal: qciData.proposal,
+        created: qciData.created,
+        content: qciData.content,
       },
     }
-  }, [qipData])
+  }, [qciData])
 
   if (!registryAddress) {
     return (
       <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Registry not configured</p>
-            <p>Please set VITE_QIP_REGISTRY_ADDRESS and reload.</p>
+            <p>Please set VITE_QCI_REGISTRY_ADDRESS and reload.</p>
           </div>
       </div>
     )
   }
 
-  if (qipNumber <= 0) {
+  if (qciNumber <= 0) {
     return (
       <div className="container mx-auto px-4 py-8">
           <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
-            <p className="font-bold">Invalid QIP number</p>
+            <p className="font-bold">Invalid QCI number</p>
             <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
@@ -74,12 +74,12 @@ const EditProposal: React.FC = () => {
     )
   }
 
-  if (error || !existingQIP) {
+  if (error || !existingQCI) {
     return (
       <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
             <p className="font-bold">Error</p>
-            <p>{(error as any)?.message || 'QIP not found'}</p>
+            <p>{(error as any)?.message || 'QCI not found'}</p>
             <Link to="/all-proposals" className="mt-2 inline-block text-primary hover:text-primary/80">
               ← Back to all proposals
             </Link>
@@ -91,15 +91,15 @@ const EditProposal: React.FC = () => {
   return (
     <div className="container mx-auto py-8">
         <div className="mb-6">
-          <Link to={`/qips/${qipNumber}`} className="text-primary hover:text-primary/80">
-            ← Back to QIP-{qipNumber}
+          <Link to={`/qcis/${qciNumber}`} className="text-primary hover:text-primary/80">
+            ← Back to QCI-{qciNumber}
           </Link>
         </div>
-        <h1 className="text-3xl font-bold mb-6">Edit QIP-{qipNumber}</h1>
+        <h1 className="text-3xl font-bold mb-6">Edit QCI-{qciNumber}</h1>
         <ProposalEditor
           registryAddress={registryAddress}
           rpcUrl={rpcUrl}
-          existingQIP={existingQIP}
+          existingQCI={existingQCI}
         />
     </div>
   )

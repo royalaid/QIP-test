@@ -1,16 +1,16 @@
-# QIPs (QiDAO Improvement Proposals)
+# QCIs (Qidao Community Ideas)
 
 ## Description
-The QIPs platform is a decentralized system for the QiDAO community to propose, discuss, and track protocol improvements. Proposals are stored on IPFS with an on-chain registry on Base, ensuring transparency, permanence, and permissionless access.
+The QCIs platform is a decentralized system for the QiDAO community to propose, discuss, and track community ideas and protocol improvements. Ideas are stored on IPFS with an on-chain registry on Base, ensuring transparency, permanence, and permissionless access.
 
 ## 🆕 New Decentralized Workflow
-QIPs now use a fully on-chain system instead of GitHub PRs:
-- **Create proposals** directly through the web interface
+QCIs now use a fully on-chain system instead of GitHub PRs:
+- **Create ideas** directly through the web interface
 - **Store content** permanently on IPFS
 - **Track status** via on-chain registry
 - **Submit to Snapshot** with one click
 
-See [NEW_QIP_WORKFLOW.md](docs/NEW_QIP_WORKFLOW.md) for detailed instructions.
+See [NEW_QCI_WORKFLOW.md](docs/NEW_QCI_WORKFLOW.md) for detailed instructions.
 
 ## Stages:
 1. **Draft:** Initial proposal submission for community review.
@@ -23,7 +23,7 @@ See [NEW_QIP_WORKFLOW.md](docs/NEW_QIP_WORKFLOW.md) for detailed instructions.
 
 ## Pages Required:
 1. **Homepage:**
-   - Overview of QIPs, recent proposals, and a guide on how to contribute.
+   - Overview of QCIs, recent ideas, and a guide on how to contribute.
    
 2. **All Proposals Page:**
    - A comprehensive list of proposals with filtering and sorting options.
@@ -37,31 +37,31 @@ See [NEW_QIP_WORKFLOW.md](docs/NEW_QIP_WORKFLOW.md) for detailed instructions.
 5. **FAQ/Help Page:**
    - Assistance for common queries and guidelines on community conduct.
 
-## Local Testing with QIP Registry
+## Local Testing with QCI Registry
 
 ### Quick Start
 
 1. **Start local test environment:**
 ```bash
-# Basic setup with test QIPs (249-251)
+# Basic setup with test QCIs (249-251)
 bun run dev:local
 
-# Or with migration of existing QIPs (209-248)
+# Or with migration of existing QCIs (209-248)
 bun run dev:local -- --migrate
 ```
 
 This will:
 - Start IPFS daemon (required for local development)
 - Start Anvil (local Ethereum node forked from Base)
-- Deploy the QIPRegistry contract (starting at QIP 209)
-- Create sample QIPs (249-251) with different statuses
-- Optionally migrate existing QIPs (209-248) with their original numbers
+- Deploy the QCIRegistry contract (starting at QCI 209)
+- Create sample QCIs (249-251) with different statuses
+- Optionally migrate existing QCIs (209-248) with their original numbers
 - Set up test accounts with roles (governance, editor, authors)
 - Start Gatsby development server
 
 2. **Run the TypeScript test client:**
 ```bash
-bun run src/localQIPTest.ts
+bun run src/localQCITest.ts
 ```
 
 ### Test Accounts
@@ -74,45 +74,45 @@ bun run src/localQIPTest.ts
 | Author2 | 0x90F79bf6EB2c4f870365E785982E1f101E93b906 | 0x5de4111afa1a4b... |
 | Author3 | 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 | 0x7c852118294e51... |
 
-### Pre-deployed Test QIPs
+### Pre-deployed Test QCIs
 
-The setup script creates several QIPs to demonstrate different states:
+The setup script creates several QCIs to demonstrate different states:
 
-- **QIP-249**: Dynamic Interest Rates (Draft → Implemented)
-- **QIP-250**: Multi-Collateral Support (Draft → ReviewPending)
-- **QIP-251**: Staking Rewards (Draft → Withdrawn)
-- **QIP-100**: Historical - Protocol Launch (Implemented)
-- **QIP-150**: Historical - Rejected Proposal (Rejected)
-- **QIP-200**: Historical - Superseded Update (Superseded)
+- **QCI-249**: Dynamic Interest Rates (Draft → Implemented)
+- **QCI-250**: Multi-Collateral Support (Draft → ReviewPending)
+- **QCI-251**: Staking Rewards (Draft → Withdrawn)
+- **QCI-100**: Historical - Protocol Launch (Implemented)
+- **QCI-150**: Historical - Rejected Proposal (Rejected)
+- **QCI-200**: Historical - Superseded Update (Superseded)
 
 ### Testing Scenarios
 
-1. **Create a new QIP:**
+1. **Create a new QCI:**
 ```typescript
-import { generateQIPContent } from './src/testHelpers';
+import { generateQCIContent } from './src/testHelpers';
 
-const qipData = generateQIPContent(252, 'technicalUpgrade');
-await registry.write.createQIP([
-  qipData.title,
-  qipData.network,
-  qipData.contentHash,
-  qipData.ipfsUrl
+const qciData = generateQCIContent(252, 'technicalUpgrade');
+await registry.write.createQCI([
+  qciData.title,
+  qciData.network,
+  qciData.contentHash,
+  qciData.ipfsUrl
 ]);
 ```
 
-2. **Update QIP status (Editor only):**
+2. **Update QCI status (Editor only):**
 ```bash
 cast send $REGISTRY_ADDRESS "updateStatus(uint256,uint8)" 249 3 \
   --private-key $EDITOR_KEY --rpc-url http://localhost:8545
 ```
 
-3. **Query QIPs:**
+3. **Query QCIs:**
 ```bash
-# Get QIPs by status (e.g., Draft = 0)
-cast call $REGISTRY_ADDRESS "getQIPsByStatus(uint8)" 0 --rpc-url http://localhost:8545
+# Get QCIs by status (e.g., Draft = 0)
+cast call $REGISTRY_ADDRESS "getQCIsByStatus(uint8)" 0 --rpc-url http://localhost:8545
 
-# Get QIPs by author
-cast call $REGISTRY_ADDRESS "getQIPsByAuthor(address)" $AUTHOR1 --rpc-url http://localhost:8545
+# Get QCIs by author
+cast call $REGISTRY_ADDRESS "getQCIsByAuthor(address)" $AUTHOR1 --rpc-url http://localhost:8545
 ```
 
 ### Advanced Testing
@@ -120,10 +120,10 @@ cast call $REGISTRY_ADDRESS "getQIPsByAuthor(address)" $AUTHOR1 --rpc-url http:/
 Use the test helpers for complex scenarios:
 
 ```typescript
-import { TestScenarios, createBatchQIPs } from './src/testHelpers';
+import { TestScenarios, createBatchQCIs } from './src/testHelpers';
 
-// Create multiple QIPs at once
-const results = await createBatchQIPs(registry, 260, 5);
+// Create multiple QCIs at once
+const results = await createBatchQCIs(registry, 260, 5);
 
 // Run predefined test scenarios
 // See TestScenarios in testHelpers.ts for available scenarios

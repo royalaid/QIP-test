@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../contracts/QIPRegistry.sol";
+import "../contracts/QCIRegistry.sol";
 
 /**
  * @title MigrateBatchWithFFI
@@ -24,18 +24,18 @@ import "../contracts/QIPRegistry.sol";
  *   --ffi
  */
 contract MigrateBatchWithFFI is Script {
-    QIPRegistry public registry;
+    QCIRegistry public registry;
     
     // Configuration
-    uint256 constant BATCH_SIZE = 5; // QIPs per batch for gas efficiency
+    uint256 constant BATCH_SIZE = 5; // QCIs per batch for gas efficiency
     string constant QIP_DIR = "./contents/QIP";
     
     // Track progress
     mapping(uint256 => bool) public migrated;
-    uint256[] public failedQIPs;
+    uint256[] public failedQCIs;
     
-    struct QIPData {
-        uint256 qipNumber;
+    struct QCIData {
+        uint256 qciNumber;
         string title;
         string network;
         address author;
@@ -50,14 +50,14 @@ contract MigrateBatchWithFFI is Script {
     
     function run() external {
         // Load registry
-        address registryAddress = vm.envAddress("QIP_REGISTRY_ADDRESS");
-        registry = QIPRegistry(registryAddress);
+        address registryAddress = vm.envAddress("QCI_REGISTRY_ADDRESS");
+        registry = QCIRegistry(registryAddress);
         
         console.log("====================================================");
-        console.log("   QIP Batch Migration with FFI");
+        console.log("   QCI Batch Migration with FFI");
         console.log("====================================================");
         console.log("Registry:", registryAddress);
-        console.log("QIP Directory:", QIP_DIR);
+        console.log("QCI Directory:", QIP_DIR);
         console.log("Batch Size:", BATCH_SIZE);
         console.log("");
         
@@ -92,60 +92,60 @@ contract MigrateBatchWithFFI is Script {
         require(registry.hasRole(ADMIN_ROLE, deployer), "Deployer needs admin role");
         console.log("[OK] Deployer has admin role");
         
-        // Get list of QIP files
-        console.log("\n[1/3] Scanning for QIP files...");
-        string[] memory qipFiles = getQIPFiles();
-        console.log("Found", qipFiles.length, "QIP files");
+        // Get list of QCI files
+        console.log("\n[1/3] Scanning for QCI files...");
+        string[] memory qciFiles = getQCIFiles();
+        console.log("Found", qciFiles.length, "QCI files");
         
         // Process each file
-        QIPData[] memory allQIPs = new QIPData[](qipFiles.length);
-        uint256 validQIPs = 0;
+        QCIData[] memory allQCIs = new QCIData[](qciFiles.length);
+        uint256 validQCIs = 0;
         
-        console.log("\n[2/3] Processing QIP files...");
-        for (uint256 i = 0; i < qipFiles.length; i++) {
-            string memory filename = qipFiles[i];
-            uint256 qipNumber = extractQIPNumber(filename);
+        console.log("\n[2/3] Processing QCI files...");
+        for (uint256 i = 0; i < qciFiles.length; i++) {
+            string memory filename = qciFiles[i];
+            uint256 qciNumber = extractQCINumber(filename);
             
-            if (qipNumber == 0) {
+            if (qciNumber == 0) {
                 console.log("  [SKIP] Invalid filename:", filename);
                 continue;
             }
             
             // Check if already migrated
-            // Access the public qips mapping directly
-            (uint256 existingNumber,,,,,,,,,,,,) = registry.qips(qipNumber);
+            // Access the public qcis mapping directly
+            (uint256 existingNumber,,,,,,,,,,,,) = registry.qcis(qciNumber);
             if (existingNumber != 0) {
-                console.log("  [SKIP] QIP-", qipNumber, " already on-chain");
-                migrated[qipNumber] = true;
+                console.log("  [SKIP] QCI-", qciNumber, " already on-chain");
+                migrated[qciNumber] = true;
                 continue;
             }
             
-            console.log("  [PROCESS] QIP-", qipNumber);
+            console.log("  [PROCESS] QCI-", qciNumber);
             
-            // Read and parse QIP file
-            QIPData memory qipData = parseQIPFile(filename, qipNumber);
+            // Read and parse QCI file
+            QCIData memory qciData = parseQCIFile(filename, qciNumber);
             
             // Upload to IPFS
-            (string memory ipfsUrl, bytes32 contentHash) = uploadToIPFS(filename, qipNumber);
-            qipData.ipfsUrl = ipfsUrl;
-            qipData.contentHash = contentHash;
+            (string memory ipfsUrl, bytes32 contentHash) = uploadToIPFS(filename, qciNumber);
+            qciData.ipfsUrl = ipfsUrl;
+            qciData.contentHash = contentHash;
             
-            allQIPs[validQIPs] = qipData;
-            validQIPs++;
+            allQCIs[validQCIs] = qciData;
+            validQCIs++;
         }
         
-        // Resize array to valid QIPs
-        QIPData[] memory qipsToMigrate = new QIPData[](validQIPs);
-        for (uint256 i = 0; i < validQIPs; i++) {
-            qipsToMigrate[i] = allQIPs[i];
+        // Resize array to valid QCIs
+        QCIData[] memory qcisToMigrate = new QCIData[](validQCIs);
+        for (uint256 i = 0; i < validQCIs; i++) {
+            qcisToMigrate[i] = allQCIs[i];
         }
         
-        if (validQIPs == 0) {
-            console.log("\nNo QIPs to migrate!");
+        if (validQCIs == 0) {
+            console.log("\nNo QCIs to migrate!");
             return;
         }
         
-        console.log("\n[3/3] Migrating", validQIPs, "QIPs to blockchain...");
+        console.log("\n[3/3] Migrating", validQCIs, "QCIs to blockchain...");
         
         // Start broadcasting
         if (deployerKey != 0) {
@@ -156,48 +156,48 @@ contract MigrateBatchWithFFI is Script {
         
         // Process in batches
         uint256 successCount = 0;
-        uint256 totalBatches = (validQIPs + BATCH_SIZE - 1) / BATCH_SIZE;
+        uint256 totalBatches = (validQCIs + BATCH_SIZE - 1) / BATCH_SIZE;
         
-        for (uint256 i = 0; i < validQIPs; i += BATCH_SIZE) {
-            uint256 batchEnd = i + BATCH_SIZE > validQIPs ? validQIPs : i + BATCH_SIZE;
+        for (uint256 i = 0; i < validQCIs; i += BATCH_SIZE) {
+            uint256 batchEnd = i + BATCH_SIZE > validQCIs ? validQCIs : i + BATCH_SIZE;
             uint256 batchSize = batchEnd - i;
             
-            console.log(string.concat("\n  Batch ", vm.toString((i / BATCH_SIZE) + 1), "/", vm.toString(totalBatches), " (", vm.toString(batchSize), " QIPs)"));
+            console.log(string.concat("\n  Batch ", vm.toString((i / BATCH_SIZE) + 1), "/", vm.toString(totalBatches), " (", vm.toString(batchSize), " QCIs)"));
             
-            // Process each QIP in the batch
+            // Process each QCI in the batch
             for (uint256 j = i; j < batchEnd; j++) {
-                QIPData memory qip = qipsToMigrate[j];
+                QCIData memory qci = qcisToMigrate[j];
                 
-                try registry.migrateQIP(
-                    qip.qipNumber,
-                    qip.author,
-                    qip.title,
-                    qip.network,
-                    qip.contentHash,
-                    qip.ipfsUrl,
-                    qip.created,
-                    qip.status,
-                    qip.implementor,
-                    qip.implementationDate,
-                    qip.proposal
+                try registry.migrateQCI(
+                    qci.qciNumber,
+                    qci.author,
+                    qci.title,
+                    qci.network,
+                    qci.contentHash,
+                    qci.ipfsUrl,
+                    qci.created,
+                    qci.status,
+                    qci.implementor,
+                    qci.implementationDate,
+                    qci.proposal
                 ) {
-                    console.log(unicode"    ✅ QIP-", qip.qipNumber, " migrated");
-                    migrated[qip.qipNumber] = true;
+                    console.log(unicode"    ✅ QCI-", qci.qciNumber, " migrated");
+                    migrated[qci.qciNumber] = true;
                     successCount++;
                 } catch Error(string memory reason) {
-                    console.log(unicode"    ❌ QIP-", qip.qipNumber, " failed:", reason);
-                    failedQIPs.push(qip.qipNumber);
+                    console.log(unicode"    ❌ QCI-", qci.qciNumber, " failed:", reason);
+                    failedQCIs.push(qci.qciNumber);
                 } catch {
-                    console.log(unicode"    ❌ QIP-", qip.qipNumber, " failed: unknown error");
-                    failedQIPs.push(qip.qipNumber);
+                    console.log(unicode"    ❌ QCI-", qci.qciNumber, " failed: unknown error");
+                    failedQCIs.push(qci.qciNumber);
                 }
             }
         }
         
-        // Sync nextQIPNumber if needed
+        // Sync nextQCINumber if needed
         if (successCount > 0) {
-            console.log("\n  Syncing nextQIPNumber...");
-            registry.syncNextQIPNumber();
+            console.log("\n  Syncing nextQCINumber...");
+            registry.syncNextQCINumber();
         }
         
         vm.stopBroadcast();
@@ -206,14 +206,14 @@ contract MigrateBatchWithFFI is Script {
         console.log("\n====================================================");
         console.log("   MIGRATION COMPLETE");
         console.log("====================================================");
-        console.log("Successfully migrated:", successCount, "/", validQIPs);
+        console.log("Successfully migrated:", successCount, "/", validQCIs);
         
-        if (failedQIPs.length > 0) {
-            console.log("\nFailed QIPs:");
-            for (uint256 i = 0; i < failedQIPs.length; i++) {
-                console.log("  - QIP-", failedQIPs[i]);
+        if (failedQCIs.length > 0) {
+            console.log("\nFailed QCIs:");
+            for (uint256 i = 0; i < failedQCIs.length; i++) {
+                console.log("  - QCI-", failedQCIs[i]);
             }
-            console.log("\nRerun the script to retry failed QIPs");
+            console.log("\nRerun the script to retry failed QCIs");
         }
         
         console.log("\nNext steps:");
@@ -224,9 +224,9 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
-     * @notice Get list of QIP files using FFI
+     * @notice Get list of QCI files using FFI
      */
-    function getQIPFiles() internal returns (string[] memory) {
+    function getQCIFiles() internal returns (string[] memory) {
         // Use bash to handle glob expansion properly
         string[] memory inputs = new string[](3);
         inputs[0] = "bash";
@@ -254,10 +254,10 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
-     * @notice Get Snapshot proposal ID for a QIP number
+     * @notice Get Snapshot proposal ID for a QCI number
      * @dev Extracts just the proposal ID (hash) from the URL as a string
      */
-    function getSnapshotProposal(uint256 qipNumber) internal returns (string memory) {
+    function getSnapshotProposal(uint256 qciNumber) internal returns (string memory) {
         // Use jq and sed to extract the proposal ID from the URL
         // IMPORTANT: We want the ASCII string "0x66b6..." not the hex bytes
         string[] memory cmd = new string[](3);
@@ -265,7 +265,7 @@ contract MigrateBatchWithFFI is Script {
         cmd[1] = "-c";
         cmd[2] = string.concat(
             "cat scripts/snapshot/qip-snapshot-cache.json | jq -r '.qips[] | select(.qipNumber == ",
-            vm.toString(qipNumber),
+            vm.toString(qciNumber),
             ") | .url // \"\"' | sed 's/.*proposal\\///' | tr -d '\\n'"
         );
 
@@ -317,9 +317,9 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
-     * @notice Extract QIP number from filename
+     * @notice Extract QCI number from filename
      */
-    function extractQIPNumber(string memory filename) internal pure returns (uint256) {
+    function extractQCINumber(string memory filename) internal pure returns (uint256) {
         // Extract number from "QIP-XXX.md" format
         bytes memory filenameBytes = bytes(filename);
         
@@ -352,7 +352,7 @@ contract MigrateBatchWithFFI is Script {
     }
     
     /**
-     * @notice Helper function to extract field from QIP file
+     * @notice Helper function to extract field from QCI file
      */
     function extractField(string memory filePath, string memory fieldName) internal returns (string memory) {
         string[] memory cmd = new string[](3);
@@ -412,21 +412,21 @@ contract MigrateBatchWithFFI is Script {
     }
 
     /**
-     * @notice Parse QIP file using FFI
+     * @notice Parse QCI file using FFI
      */
-    function parseQIPFile(string memory filename, uint256 qipNumber) internal returns (QIPData memory) {
+    function parseQCIFile(string memory filename, uint256 qciNumber) internal returns (QCIData memory) {
         string memory filePath = string.concat(QIP_DIR, "/", filename);
-        QIPData memory data;
+        QCIData memory data;
 
         // Extract fields one by one to avoid stack too deep
-        data.qipNumber = qipNumber;
+        data.qciNumber = qciNumber;
         data.title = extractField(filePath, "title");
 
         string memory networkStr = extractField(filePath, "network");
         data.network = bytes(networkStr).length == 0 ? "Polygon" : networkStr;
 
         // First check if we have a Snapshot proposal ID in our cache
-        string memory snapshotId = getSnapshotProposal(qipNumber);
+        string memory snapshotId = getSnapshotProposal(qciNumber);
         console.log("  Snapshot ID:", snapshotId);
         console.log("  Snapshot ID length:", bytes(snapshotId).length);
         console.log("  Snapshot ID bytes:", vm.toString(bytes(snapshotId)));
@@ -493,7 +493,7 @@ contract MigrateBatchWithFFI is Script {
             data.created = block.timestamp - 30 days; // Default fallback
         }
         
-        console.log("  Parsed QIP-", qipNumber);
+        console.log("  Parsed QCI-", qciNumber);
         console.log("    Title:", data.title);
         console.log("    Status:", statusStr, hasValidProposal ? "(has proposal)" : "");
         console.log("    Final Status:", data.status);
@@ -513,7 +513,7 @@ contract MigrateBatchWithFFI is Script {
     /**
      * @notice Upload file to IPFS using FFI
      */
-    function uploadToIPFS(string memory filename, uint256 qipNumber) internal returns (string memory ipfsUrl, bytes32 contentHash) {
+    function uploadToIPFS(string memory filename, uint256 qciNumber) internal returns (string memory ipfsUrl, bytes32 contentHash) {
         // Read file content
         string[] memory readInputs = new string[](2);
         readInputs[0] = "cat";
@@ -523,7 +523,7 @@ contract MigrateBatchWithFFI is Script {
         contentHash = keccak256(content);
         
         // Create a temporary file with the content
-        string memory tempFile = string.concat("/tmp/qip-", vm.toString(qipNumber), ".md");
+        string memory tempFile = string.concat("/tmp/qci-", vm.toString(qciNumber), ".md");
         string[] memory writeInputs = new string[](3);
         writeInputs[0] = "bash";
         writeInputs[1] = "-c";
@@ -579,7 +579,7 @@ contract MigrateBatchWithFFI is Script {
                 "curl -s -X POST ",
                 "-H 'Authorization: Bearer ", pinataJWT, "' ",
                 "-F 'file=@", tempFile, "' ",
-                "-F 'pinataMetadata={\"name\":\"QIP-", vm.toString(qipNumber), "\"}' ",
+                "-F 'pinataMetadata={\"name\":\"QIP-", vm.toString(qciNumber), "\"}' ",
                 "-F 'pinataOptions={\"cidVersion\":1}' ",
                 "https://api.pinata.cloud/pinning/pinFileToIPFS | jq -r '.IpfsHash'"
             );

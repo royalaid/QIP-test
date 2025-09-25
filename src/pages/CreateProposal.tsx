@@ -90,7 +90,7 @@ const CreateProposal: React.FC = () => {
             >
               <CardHeader>
                 <CardTitle>Import from JSON</CardTitle>
-                <CardDescription>Load a previously exported QIP</CardDescription>
+                <CardDescription>Load a previously exported QCI</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
@@ -99,7 +99,7 @@ const CreateProposal: React.FC = () => {
                   onClick={() => setShowImportDialog(true)}
                 >
                   <Upload className="mr-2 h-4 w-4" />
-                  Import QIP
+                  Import QCI
                 </Button>
               </CardContent>
             </Card>
@@ -125,13 +125,13 @@ const CreateProposal: React.FC = () => {
           {importedData && (
             <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <p className="text-sm">
-                Imported QIP: <strong>{importedData.title || 'Untitled'}</strong>
+                Imported QCI: <strong>{importedData.title || 'Untitled'}</strong>
               </p>
             </div>
           )}
           
           <ProposalEditor
-            registryAddress={config.qipRegistryAddress}
+            registryAddress={config.qciRegistryAddress}
             rpcUrl={config.baseRpcUrl}
             initialTitle={importedData?.title || selectedTemplate?.title}
             initialChain={importedData?.chain || selectedTemplate?.chain}

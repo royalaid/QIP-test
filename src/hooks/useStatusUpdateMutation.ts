@@ -1,19 +1,19 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useWalletClient } from 'wagmi';
-import { QIPClient, QIPStatus } from '../services/qipClient';
+import { QCIClient, QCIStatus } from '../services/qciClient';
 import { toast } from 'react-hot-toast';
 import type { Hash } from 'viem';
 import { config } from '../config/env';
 
 interface StatusUpdateParams {
-  qipNumber: bigint;
-  newStatus: QIPStatus | string;
+  qciNumber: bigint;
+  newStatus: QCIStatus | string;
   registryAddress: `0x${string}`;
   rpcUrl?: string;
 }
 
 /**
- * Mutation hook for updating QIP status
+ * Mutation hook for updating QCI status
  * Properly integrates with React Query's caching strategy
  */
 export function useStatusUpdateMutation() {
@@ -30,15 +30,15 @@ export function useStatusUpdateMutation() {
       }
       return failureCount < 2;
     },
-    mutationFn: async ({ qipNumber, newStatus, registryAddress, rpcUrl }) => {
+    mutationFn: async ({ qciNumber, newStatus, registryAddress, rpcUrl }) => {
       if (!walletClient) {
         throw new Error("Please connect your wallet");
       }
 
-      const qipClient = new QIPClient(registryAddress, rpcUrl, false);
+      const qciClient = new QCIClient(registryAddress, rpcUrl, false);
 
-      console.log(`[StatusUpdate] Updating QIP ${qipNumber} to ${newStatus}`);
-      const hash = await qipClient.updateQIPStatus(walletClient, qipNumber, newStatus);
+      console.log(`[StatusUpdate] Updating QCI ${qciNumber} to ${newStatus}`);
+      const hash = await qciClient.updateQCIStatus(walletClient, qciNumber, newStatus);
 
       // Wait for transaction confirmation
       const publicClient = walletClient.chain
@@ -65,7 +65,7 @@ export function useStatusUpdateMutation() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: "status_update",
-            qipNumber: Number(qipNumber),
+            qciNumber: Number(qciNumber),
             txHash: hash,
             reason: `Status updated to ${newStatus}`,
           }),
@@ -75,18 +75,18 @@ export function useStatusUpdateMutation() {
       return hash;
     },
 
-    onMutate: async ({ qipNumber, newStatus }) => {
+    onMutate: async ({ qciNumber, newStatus }) => {
       // Show loading toast immediately
-      toast.loading(`Updating status to ${newStatus}...`, { id: `status-${qipNumber}` });
+      toast.loading(`Updating status to ${newStatus}...`, { id: `status-${qciNumber}` });
 
       // Cancel any outgoing refetches to prevent overwriting our optimistic update
-      await queryClient.cancelQueries({ queryKey: ["qips", "api"] });
+      await queryClient.cancelQueries({ queryKey: ["qcis", "api"] });
 
       // Get current data
-      const previousData = queryClient.getQueryData(["qips", "api"]);
+      const previousData = queryClient.getQueryData(["qcis", "api"]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(["qips", "api"], (old: any) => {
+      queryClient.setQueryData(["qcis", "api"], (old: any) => {
         if (!old) return old;
 
         // Find the query data structure and update it
@@ -96,8 +96,8 @@ export function useStatusUpdateMutation() {
         if (queryKey && Array.isArray(old[queryKey])) {
           return {
             ...old,
-            [queryKey]: old[queryKey].map((qip: any) =>
-              qip.qipNumber === Number(qipNumber) ? { ...qip, status: newStatus, statusEnum: newStatus } : qip
+            [queryKey]: old[queryKey].map((qci: any) =>
+              qci.qciNumber === Number(qciNumber) ? { ...qci, status: newStatus, statusEnum: newStatus } : qci
             ),
           };
         }
@@ -105,29 +105,29 @@ export function useStatusUpdateMutation() {
         return old;
       });
 
-      // Also update the full query key structure used by useQIPsFromAPI
-      const fullQueryKey = ["qips", "api", config.maiApiUrl, { includeContent: false, contentFor: undefined, forceRefresh: false }];
-      const currentQIPs = queryClient.getQueryData(fullQueryKey) as any[];
+      // Also update the full query key structure used by useQCIsFromAPI
+      const fullQueryKey = ["qcis", "api", config.maiApiUrl, { includeContent: false, contentFor: undefined, forceRefresh: false }];
+      const currentQCIs = queryClient.getQueryData(fullQueryKey) as any[];
 
-      if (currentQIPs) {
+      if (currentQCIs) {
         queryClient.setQueryData(
           fullQueryKey,
-          currentQIPs.map((qip: any) => (qip.qipNumber === Number(qipNumber) ? { ...qip, status: newStatus, statusEnum: newStatus } : qip))
+          currentQCIs.map((qci: any) => (qci.qciNumber === Number(qciNumber) ? { ...qci, status: newStatus, statusEnum: newStatus } : qci))
         );
       }
 
-      return { previousData, qipNumber };
+      return { previousData, qciNumber };
     },
 
     onError: (err, variables, context: any) => {
       // Dismiss loading toast
-      if (context?.qipNumber) {
-        toast.dismiss(`status-${context.qipNumber}`);
+      if (context?.qciNumber) {
+        toast.dismiss(`status-${context.qciNumber}`);
       }
 
       // Rollback on error
       if (context?.previousData) {
-        queryClient.setQueryData(["qips", "api"], context.previousData);
+        queryClient.setQueryData(["qcis", "api"], context.previousData);
       }
 
       let errorMessage = "Failed to update status";
@@ -142,14 +142,14 @@ export function useStatusUpdateMutation() {
       toast.error(errorMessage);
     },
 
-    onSuccess: (hash, { qipNumber, newStatus }) => {
+    onSuccess: (hash, { qciNumber, newStatus }) => {
       // Replace loading toast with success
-      toast.success(`Status updated to ${newStatus}`, { id: `status-${qipNumber}` });
+      toast.success(`Status updated to ${newStatus}`, { id: `status-${qciNumber}` });
 
       // Mark queries as stale so they refetch in the background
       // This uses stale-while-revalidate: shows optimistic update while fetching fresh data
       queryClient.invalidateQueries({
-        queryKey: ["qips"],
+        queryKey: ["qcis"],
         refetchType: "active", // Only refetch if the component is mounted
       });
     },
@@ -157,7 +157,7 @@ export function useStatusUpdateMutation() {
     onSettled: () => {
       // Ensure we always resync with the server after mutation
       // This happens in the background without blocking the UI
-      queryClient.invalidateQueries({ queryKey: ["qips", "api"] });
+      queryClient.invalidateQueries({ queryKey: ["qcis", "api"] });
     },
   });
 }

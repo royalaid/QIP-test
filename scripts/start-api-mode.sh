@@ -19,7 +19,7 @@ echo -e "${BLUE}🌐 Starting API Mode Development Environment${NC}"
 echo "================================================"
 echo "This mode uses external services:"
 echo "- Mai API for IPFS storage"
-echo "- Mai API for QIP data fetching (24x faster)"
+echo "- Mai API for QCI data fetching (24x faster)"
 echo "- Production Base RPCs for blockchain"
 echo ""
 
@@ -44,7 +44,7 @@ else
 fi
 
 # Registry address (production Base network)
-export VITE_QIP_REGISTRY_ADDRESS=${VITE_QIP_REGISTRY_ADDRESS:-"0x0bd64B68473Fb5747fa1884F7882615d09C8c161"}
+export VITE_QCI_REGISTRY_ADDRESS=${VITE_QCI_REGISTRY_ADDRESS:-"0x0bd64B68473Fb5747fa1884F7882615d09C8c161"}
 
 # WalletConnect (required for wallet connections)
 export VITE_WALLETCONNECT_PROJECT_ID=${VITE_WALLETCONNECT_PROJECT_ID:-"07aaa3b8014f862823c152b9a472f26f"}
@@ -65,7 +65,7 @@ echo "  VITE_LOCAL_MODE=false"
 echo "  VITE_USE_LOCAL_IPFS=false"
 echo "  VITE_MAI_API_URL=$VITE_MAI_API_URL"
 echo "  VITE_IPFS_API_URL=$VITE_IPFS_API_URL"
-echo "  VITE_QIP_REGISTRY_ADDRESS=$VITE_QIP_REGISTRY_ADDRESS"
+echo "  VITE_QCI_REGISTRY_ADDRESS=$VITE_QCI_REGISTRY_ADDRESS"
 echo ""
 
 # ============================================
@@ -91,7 +91,7 @@ echo "================================================"
 echo ""
 echo -e "${YELLOW}💡 Tips:${NC}"
 echo "- This mode connects to the production Base network"
-echo "- QIP data is fetched from Mai API (much faster)"
+echo "- QCI data is fetched from Mai API (much faster)"
 echo "- IPFS uploads go through Mai API"
 echo "- No local services are required"
 echo ""

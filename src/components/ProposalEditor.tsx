@@ -5,7 +5,7 @@ import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { type Address } from 'viem';
 import { toast } from 'sonner';
 import { debounce } from 'lodash';
-import { QIPClient, QIPStatus, type QIPContent } from '../services/qipClient';
+import { QCIClient, QCIStatus, type QCIContent } from '../services/qciClient';
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
@@ -24,9 +24,9 @@ import remarkGfm from 'remark-gfm';
 interface ProposalEditorProps {
   registryAddress: Address;
   rpcUrl?: string;
-  existingQIP?: {
-    qipNumber: bigint;
-    content: QIPContent;
+  existingQCI?: {
+    qciNumber: bigint;
+    content: QCIContent;
   };
   initialTitle?: string;
   initialChain?: string;
@@ -52,7 +52,7 @@ const NETWORKS = [
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   registryAddress,
   rpcUrl,
-  existingQIP,
+  existingQCI,
   initialTitle,
   initialChain,
   initialContent,
@@ -82,18 +82,18 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const importedData = (location.state as any)?.importedData;
   const fromImport = (location.state as any)?.fromImport;
 
-  // Form state - prioritize existingQIP, then imported data, then initial props
+  // Form state - prioritize existingQCI, then imported data, then initial props
   const [title, setTitle] = useState(
-    existingQIP?.content.title || importedData?.title || initialTitle || ''
+    existingQCI?.content.title || importedData?.title || initialTitle || ''
   );
   const [combooxSelectedChain, setComboboxSelectedChain] = useState(
-    existingQIP?.content.chain || importedData?.chain || initialChain || "Polygon"
+    existingQCI?.content.chain || importedData?.chain || initialChain || "Polygon"
   );
   const [content, setContent] = useState(
-    existingQIP?.content.content || importedData?.content || initialContent || ''
+    existingQCI?.content.content || importedData?.content || initialContent || ''
   );
   const [implementor, setImplementor] = useState(
-    existingQIP?.content.implementor || importedData?.implementor || initialImplementor || 'None'
+    existingQCI?.content.implementor || importedData?.implementor || initialImplementor || 'None'
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
   
   // Services
-  const [qipClient, setQipClient] = useState<QIPClient | null>(null);
+  const [qciClient, setQipClient] = useState<QCIClient | null>(null);
   const [ipfsService, setIpfsService] = useState<IPFSService | null>(null);
   const queryClient = useQueryClient();
 
@@ -125,7 +125,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   useEffect(() => {
     if (registryAddress) {
-      const client = new QIPClient(registryAddress, rpcUrl || config.baseRpcUrl);
+      const client = new QCIClient(registryAddress, rpcUrl || config.baseRpcUrl);
       setQipClient(client);
     }
 
@@ -146,9 +146,9 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       // Reset navigation flag for new submission
       hasNavigatedRef.current = false;
 
-      if (!qipClient || !ipfsService || !address || !walletClient) {
+      if (!qciClient || !ipfsService || !address || !walletClient) {
         setError("Please connect your wallet");
-        console.error("Missing required services:", { qipClient: !!qipClient, ipfsService: !!ipfsService, address });
+        console.error("Missing required services:", { qciClient: !!qciClient, ipfsService: !!ipfsService, address });
         return;
       }
 
@@ -158,42 +158,42 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
       try {
 
-        // Create QIP content object
-        // For existing QIPs, preserve certain blockchain fields (source of truth)
-        const qipContent: QIPContent = {
-          qip: existingQIP?.qipNumber ? Number(existingQIP.qipNumber) : 0, // Will be assigned by contract
+        // Create QCI content object
+        // For existing QCIs, preserve certain blockchain fields (source of truth)
+        const qciContent: QCIContent = {
+          qci: existingQCI?.qciNumber ? Number(existingQCI.qciNumber) : 0, // Will be assigned by contract
           title,
           chain: combooxSelectedChain, // Allow updating in IPFS content
-          // Preserve critical blockchain fields for existing QIPs
-          status: existingQIP ? existingQIP.content.status : "Draft",
-          author: existingQIP ? existingQIP.content.author : address, // Always preserve original author
+          // Preserve critical blockchain fields for existing QCIs
+          status: existingQCI ? existingQCI.content.status : "Draft",
+          author: existingQCI ? existingQCI.content.author : address, // Always preserve original author
           implementor, // Allow updating in IPFS content
-          "implementation-date": existingQIP ? existingQIP.content["implementation-date"] : "None",
-          proposal: existingQIP ? existingQIP.content.proposal : "None",
-          created: existingQIP ? existingQIP.content.created : new Date().toISOString().split("T")[0], // Preserve original creation date
+          "implementation-date": existingQCI ? existingQCI.content["implementation-date"] : "None",
+          proposal: existingQCI ? existingQCI.content.proposal : "None",
+          created: existingQCI ? existingQCI.content.created : new Date().toISOString().split("T")[0], // Preserve original creation date
           content,
           transactions: transactions.length > 0 ? transactions.map((tx) => ABIParser.formatTransaction(tx)) : undefined,
         };
 
         // Format the full content for IPFS
-        const fullContent = ipfsService.formatQIPContent(qipContent);
+        const fullContent = ipfsService.formatQCIContent(qciContent);
 
         // Step 1: Pre-calculate IPFS CID without uploading
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
 
         // Step 2: Calculate content hash for blockchain
-        const contentHash = ipfsService.calculateContentHash(qipContent);
+        const contentHash = ipfsService.calculateContentHash(qciContent);
 
-        let qipNumber: bigint;
+        let qciNumber: bigint;
         let txHash: string;
 
-        if (existingQIP) {
-          // Update existing QIP
+        if (existingQCI) {
+          // Update existing QCI
           try {
-            txHash = await qipClient.updateQIP({
+            txHash = await qciClient.updateQCI({
               walletClient,
-              qipNumber: existingQIP.qipNumber,
+              qciNumber: existingQCI.qciNumber,
               title,
               chain: combooxSelectedChain,
               implementor,
@@ -201,23 +201,23 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               newIpfsUrl: expectedIpfsUrl,
               changeNote: "Updated via web interface",
             });
-            qipNumber = existingQIP.qipNumber;
+            qciNumber = existingQCI.qciNumber;
           } catch (updateError) {
-            console.error("QIP update failed:", updateError);
+            console.error("QCI update failed:", updateError);
             throw updateError;
           }
         } else {
-          // Create new QIP
-          const result = await qipClient.createQIP(walletClient, title, combooxSelectedChain, contentHash, expectedIpfsUrl);
+          // Create new QCI
+          const result = await qciClient.createQCI(walletClient, title, combooxSelectedChain, contentHash, expectedIpfsUrl);
           txHash = result.hash;
-          qipNumber = result.qipNumber;
+          qciNumber = result.qciNumber;
         }
 
         // Step 3: Upload to IPFS with proper metadata AFTER blockchain confirmation
         let actualCID;
         try {
           actualCID = await ipfsService.provider.upload(fullContent, {
-            qipNumber: qipNumber > 0 ? qipNumber.toString() : "pending",
+            qciNumber: qciNumber > 0 ? qciNumber.toString() : "pending",
             groupId: config.pinataGroupId,
           });
         } catch (ipfsError) {
@@ -234,21 +234,21 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         }
 
         // Invalidate caches immediately after successful update
-        if (existingQIP) {
-          // Invalidate all related caches for the updated QIP
-          const qipNum = Number(qipNumber);
+        if (existingQCI) {
+          // Invalidate all related caches for the updated QCI
+          const qciNum = Number(qciNumber);
 
           // Get current data to find IPFS URL
-          const currentData = queryClient.getQueryData<any>(["qip", qipNum, registryAddress]);
+          const currentData = queryClient.getQueryData<any>(["qci", qciNum, registryAddress]);
 
-          // Invalidate QIP query
+          // Invalidate QCI query
           queryClient.invalidateQueries({
-            queryKey: ["qip", qipNum, registryAddress],
+            queryKey: ["qci", qciNum, registryAddress],
           });
 
           // Invalidate blockchain cache
           queryClient.invalidateQueries({
-            queryKey: ["qip-blockchain", qipNum, registryAddress],
+            queryKey: ["qci-blockchain", qciNum, registryAddress],
           });
 
           // Invalidate old IPFS content if exists
@@ -265,17 +265,17 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         }
 
         // Invalidate list to refresh AllProposals
-        queryClient.invalidateQueries({ queryKey: ["qips"] });
+        queryClient.invalidateQueries({ queryKey: ["qcis"] });
 
         // Show success toast and navigate (prevent multiple navigations)
         if (!hasNavigatedRef.current) {
-          if (existingQIP) {
-            toast.success(`QIP-${qipNumber} updated successfully!`);
+          if (existingQCI) {
+            toast.success(`QCI-${qciNumber} updated successfully!`);
             // Mark as navigated before actually navigating
             hasNavigatedRef.current = true;
-            // Navigate back to the QIP detail page with transaction hash
+            // Navigate back to the QCI detail page with transaction hash
             // Include timestamp to ensure fresh data fetch
-            navigate(`/qips/${qipNumber}`, {
+            navigate(`/qcis/${qciNumber}`, {
               state: {
                 txHash,
                 justUpdated: true,
@@ -283,13 +283,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               },
             });
           } else {
-            // For new QIP, show success and reset form
-            if (qipNumber > 0) {
-              toast.success(`QIP-${qipNumber} created successfully!`);
+            // For new QCI, show success and reset form
+            if (qciNumber > 0) {
+              toast.success(`QCI-${qciNumber} created successfully!`);
               // Mark as navigated before actually navigating
               hasNavigatedRef.current = true;
-              // Navigate to the new QIP page
-              navigate(`/qips/${qipNumber}`, {
+              // Navigate to the new QCI page
+              navigate(`/qcis/${qciNumber}`, {
                 state: {
                   txHash,
                   justCreated: true,
@@ -297,26 +297,26 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                 },
               });
             } else {
-              toast.success(`QIP submitted! Check transaction for QIP number.`);
+              toast.success(`QCI submitted! Check transaction for QCI number.`);
               setSuccess(`Transaction: ${txHash}`);
             }
           }
         }
 
-        // Reset form only for new QIPs that don't redirect
-        if (!existingQIP && qipNumber === 0n) {
+        // Reset form only for new QCIs that don't redirect
+        if (!existingQCI && qciNumber === 0n) {
           setTitle("");
           setContent("");
           setImplementor("None");
         }
       } catch (err: any) {
-        console.error("Error saving QIP:", err);
+        console.error("Error saving QCI:", err);
 
         // Provide more helpful error messages
-        let errorMessage = err.message || "Failed to save QIP";
+        let errorMessage = err.message || "Failed to save QCI";
 
         if (errorMessage.includes("Content already exists")) {
-          errorMessage = "A QIP with identical content already exists. Please modify your proposal content to make it unique.";
+          errorMessage = "A QCI with identical content already exists. Please modify your proposal content to make it unique.";
         }
 
         setError(errorMessage);
@@ -324,7 +324,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         setSaving(false);
       }
     },
-    [qipClient, ipfsService, address, walletClient, title, combooxSelectedChain, content, implementor, existingQIP, transactions]
+    [qciClient, ipfsService, address, walletClient, title, combooxSelectedChain, content, implementor, existingQCI, transactions]
   );
 
   const handlePreview = () => {
@@ -355,7 +355,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     return (
       <Alert className="border-yellow-400 bg-yellow-500/10">
         <AlertDescription className="text-yellow-700 dark:text-yellow-400">
-          Please connect your wallet to create or edit QIPs
+          Please connect your wallet to create or edit QCIs
         </AlertDescription>
       </Alert>
     );
@@ -399,7 +399,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">{existingQIP ? `Edit QIP-${existingQIP.qipNumber}` : "Create New QIP"}</h2>
+      <h2 className="text-2xl font-bold mb-6">{existingQCI ? `Edit QCI-${existingQCI.qciNumber}` : "Create New QCI"}</h2>
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -522,7 +522,7 @@ Implementation details...`}
 
         <div className="flex space-x-4">
           <Button type="submit" disabled={saving} variant="gradient-primary" size="lg">
-            {saving ? "Saving..." : existingQIP ? "Update QIP" : "Create QIP"}
+            {saving ? "Saving..." : existingQCI ? "Update QCI" : "Create QCI"}
           </Button>
 
           <Button type="button" onClick={handlePreview} variant="outline" size="lg">

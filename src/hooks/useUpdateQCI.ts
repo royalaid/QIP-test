@@ -1,69 +1,69 @@
 import { useMutation, useQueryClient, UseMutationOptions } from '@tanstack/react-query';
 import { useWalletClient } from 'wagmi';
-import { QIPClient, type QIPContent, QIPStatus } from '../services/qipClient';
+import { QCIClient, type QCIContent, QCIStatus } from '../services/qciClient';
 import { IPFSService } from '../services/ipfsService';
 import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 
-interface UpdateQIPParams {
-  qipNumber: bigint;
-  content: QIPContent;
-  newStatus?: QIPStatus;
+interface UpdateQCIParams {
+  qciNumber: bigint;
+  content: QCIContent;
+  newStatus?: QCIStatus;
 }
 
-interface UpdateQIPResult {
-  qipNumber: bigint;
+interface UpdateQCIResult {
+  qciNumber: bigint;
   ipfsUrl: string;
   version: bigint;
   transactionHash: string;
 }
 
-interface UseUpdateQIPOptions {
+interface UseUpdateQCIOptions {
   registryAddress: `0x${string}`;
-  mutationOptions?: Omit<UseMutationOptions<UpdateQIPResult, Error, UpdateQIPParams>, 'mutationFn'>;
+  mutationOptions?: Omit<UseMutationOptions<UpdateQCIResult, Error, UpdateQCIParams>, 'mutationFn'>;
 }
 
 /**
- * Hook to update an existing QIP
+ * Hook to update an existing QCI
  */
-export function useUpdateQIP({
+export function useUpdateQCI({
   registryAddress,
   mutationOptions = {},
-}: UseUpdateQIPOptions) {
+}: UseUpdateQCIOptions) {
   const { data: walletClient } = useWalletClient();
   const queryClient = useQueryClient();
 
-  const qipClient = new QIPClient(registryAddress, config.baseRpcUrl, false);
+  const qciClient = new QCIClient(registryAddress, config.baseRpcUrl, false);
   
   // Use centralized IPFS service selection
   const ipfsService = getIPFSService();
 
-  return useMutation<UpdateQIPResult, Error, UpdateQIPParams>({
-    mutationFn: async ({ qipNumber, content, newStatus }) => {
+  return useMutation<UpdateQCIResult, Error, UpdateQCIParams>({
+    mutationFn: async ({ qciNumber, content, newStatus }) => {
       if (!walletClient) {
         throw new Error('Wallet not connected');
       }
 
       try {
-        // Ensure content has qip number set
-        const qipContent: QIPContent = {
+        // Ensure content has qci number set
+        const qciContent: QCIContent = {
           ...content,
-          qip: Number(qipNumber)
+          qci: Number(qciNumber)
         };
 
         // Format the full content for IPFS
-        const fullContent = ipfsService.formatQIPContent(qipContent);
+        const fullContent = ipfsService.formatQCIContent(qciContent);
 
         // Step 1: Pre-calculate IPFS CID without uploading
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
 
         // Step 2: Calculate content hash for blockchain
-        const contentHash = ipfsService.calculateContentHash(qipContent);
+        const contentHash = ipfsService.calculateContentHash(qciContent);
 
-        const txHash = await qipClient.updateQIP({
+        const txHash = await qciClient.updateQCI({
           walletClient,
-          qipNumber,
+          qciNumber,
           title: content.title,
           chain: content.chain,
           implementor: content.implementor,
@@ -74,7 +74,7 @@ export function useUpdateQIP({
 
         // Step 4: Upload to IPFS with proper metadata AFTER blockchain confirmation
         const actualCID = await ipfsService.provider.upload(fullContent, {
-          qipNumber: qipNumber.toString(),
+          qciNumber: qciNumber.toString(),
           groupId: config.pinataGroupId
         });
 
@@ -85,32 +85,32 @@ export function useUpdateQIP({
 
         // Update status if provided
         if (newStatus !== undefined) {
-          // Get current QIP to check status
-          const currentQIP = await qipClient.getQIP(qipNumber);
-          if (newStatus !== currentQIP.status) {
-            await qipClient.updateQIPStatus(walletClient, qipNumber, newStatus);
+          // Get current QCI to check status
+          const currentQCI = await qciClient.getQCI(qciNumber);
+          if (newStatus !== currentQCI.status) {
+            await qciClient.updateQCIStatus(walletClient, qciNumber, newStatus);
           }
         }
 
-        // Get updated QIP data for version
-        const updatedQIP = await qipClient.getQIP(qipNumber);
+        // Get updated QCI data for version
+        const updatedQCI = await qciClient.getQCI(qciNumber);
 
         return {
-          qipNumber,
+          qciNumber,
           ipfsUrl: expectedIpfsUrl,
-          version: updatedQIP.version,
+          version: updatedQCI.version,
           transactionHash: txHash,
         };
       } catch (error) {
-        console.error('Error updating QIP:', error);
+        console.error('Error updating QCI:', error);
         if (error instanceof Error) {
           // Check for specific error patterns
           if (error.message.includes('execution reverted')) {
             console.error('Transaction reverted - possible causes:');
             console.error('1. User does not have editor role');
-            console.error('2. QIP does not exist');
-            console.error('3. QIP status does not allow updates');
-            console.error('4. QIP already has snapshot ID');
+            console.error('2. QCI does not exist');
+            console.error('3. QCI status does not allow updates');
+            console.error('4. QCI already has snapshot ID');
           }
         }
         throw error;
@@ -118,8 +118,8 @@ export function useUpdateQIP({
     },
     onSuccess: (data) => {
       // Invalidate queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ['qips'] });
-      queryClient.invalidateQueries({ queryKey: ['qip', Number(data.qipNumber)] });
+      queryClient.invalidateQueries({ queryKey: ['qcis'] });
+      queryClient.invalidateQueries({ queryKey: ['qci', Number(data.qciNumber)] });
     },
     ...mutationOptions,
   });

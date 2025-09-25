@@ -14,57 +14,57 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { copyToClipboard, formatQIPAsMarkdown, formatQIPAsJSON, downloadFile, generateExportFilename } from "@/utils/qipExport";
-  import { type QIPExportData } from "@/services/qipClient";
-import { type QIPData } from '@/hooks/useQIPData';
-import { QIPClient } from '@/services/qipClient';
+import { copyToClipboard, formatQCIAsMarkdown, formatQCIAsJSON, downloadFile, generateExportFilename } from "@/utils/qciExport";
+  import { type QCIExportData } from "@/services/qciClient";
+import { type QCIData } from '@/hooks/useQCIData';
+import { QCIClient } from '@/services/qciClient';
 import { config } from '@/config/env';
 
 interface ExportMenuProps {
-  qipData: QIPData | null;
+  qciData: QCIData | null;
   registryAddress?: string;
   rpcUrl?: string;
   className?: string;
 }
 
 export const ExportMenu: React.FC<ExportMenuProps> = ({
-  qipData,
-  registryAddress = config.qipRegistryAddress,
+  qciData,
+  registryAddress = config.qciRegistryAddress,
   rpcUrl = config.baseRpcUrl,
   className = ''
 }) => {
   const [isLoadingExport, setIsLoadingExport] = useState(false);
 
   const handleCopyMarkdown = async () => {
-    if (!qipData) return;
-    const markdown = formatQIPAsMarkdown(qipData, true);
+    if (!qciData) return;
+    const markdown = formatQCIAsMarkdown(qciData, true);
     await copyToClipboard(markdown);
   };
 
   const handleDownloadMarkdown = () => {
-    if (!qipData) return;
-    const markdown = formatQIPAsMarkdown(qipData, true);
-    const filename = generateExportFilename(qipData.qipNumber, 'md', qipData.version);
+    if (!qciData) return;
+    const markdown = formatQCIAsMarkdown(qciData, true);
+    const filename = generateExportFilename(qciData.qciNumber, 'md', qciData.version);
     downloadFile(markdown, filename, 'text/markdown');
   };
 
   const handleCopyJSON = async () => {
-    if (!qipData) return;
+    if (!qciData) return;
 
     setIsLoadingExport(true);
     try {
       // Try to fetch full export data from contract if possible
-      let exportData: QIPExportData | null = null;
+      let exportData: QCIExportData | null = null;
       if (registryAddress) {
         try {
-          const qipClient = new QIPClient(registryAddress as `0x${string}`, rpcUrl);
-          exportData = await qipClient.exportQIP(BigInt(qipData.qipNumber));
+          const qciClient = new QCIClient(registryAddress as `0x${string}`, rpcUrl);
+          exportData = await qciClient.exportQCI(BigInt(qciData.qciNumber));
         } catch (error) {
           console.warn("Could not fetch export data from contract:", error);
         }
       }
 
-      const jsonData = formatQIPAsJSON(qipData, exportData, registryAddress);
+      const jsonData = formatQCIAsJSON(qciData, exportData, registryAddress);
       if (jsonData) {
         const jsonString = JSON.stringify(jsonData, null, 2);
         await copyToClipboard(jsonString);
@@ -75,25 +75,25 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
   };
 
   const handleDownloadJSON = async () => {
-    if (!qipData) return;
+    if (!qciData) return;
 
     setIsLoadingExport(true);
     try {
       // Try to fetch full export data from contract if possible
-      let exportData: QIPExportData | null = null;
+      let exportData: QCIExportData | null = null;
       if (registryAddress) {
         try {
-          const qipClient = new QIPClient(registryAddress as `0x${string}`, rpcUrl);
-          exportData = await qipClient.exportQIP(BigInt(qipData.qipNumber));
+          const qciClient = new QCIClient(registryAddress as `0x${string}`, rpcUrl);
+          exportData = await qciClient.exportQCI(BigInt(qciData.qciNumber));
         } catch (error) {
           console.warn("Could not fetch export data from contract:", error);
         }
       }
 
-      const jsonData = formatQIPAsJSON(qipData, exportData, registryAddress);
+      const jsonData = formatQCIAsJSON(qciData, exportData, registryAddress);
       if (jsonData) {
         const jsonString = JSON.stringify(jsonData, null, 2);
-        const filename = generateExportFilename(qipData.qipNumber, "json", qipData.version);
+        const filename = generateExportFilename(qciData.qciNumber, "json", qciData.version);
         downloadFile(jsonString, filename, "application/json");
       }
     } finally {
@@ -102,7 +102,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
   };
 
 
-  if (!qipData) return null;
+  if (!qciData) return null;
 
   return (
     <DropdownMenu>

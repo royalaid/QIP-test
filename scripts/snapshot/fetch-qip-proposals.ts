@@ -43,7 +43,7 @@ interface QIPMapping {
 function extractQIPNumber(title: string): number | null {
   const patterns = [
     /QIP[-\s#]*(\d+)/i,
-    /^(\d+)[\s:.-]/,  // Starting with number
+    /^(\d+)[\s:.-]/, // Starting with number
   ];
 
   for (const pattern of patterns) {
@@ -88,19 +88,19 @@ async function fetchProposals(skip = 0, allProposals: SnapshotProposal[] = []): 
     first: 100,
     skip,
     orderBy: "created",
-    orderDirection: "desc" as const
+    orderDirection: "desc" as const,
   };
 
   try {
     const response = await fetch(SNAPSHOT_GRAPHQL_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         query,
-        variables
-      })
+        variables,
+      }),
     });
 
     if (!response.ok) {
@@ -110,8 +110,8 @@ async function fetchProposals(skip = 0, allProposals: SnapshotProposal[] = []): 
     const data = await response.json();
 
     if (data.errors) {
-      console.error('GraphQL errors:', data.errors);
-      throw new Error('GraphQL query failed');
+      console.error("GraphQL errors:", data.errors);
+      throw new Error("GraphQL query failed");
     }
 
     const proposals = data.data.proposals as SnapshotProposal[];
@@ -125,7 +125,7 @@ async function fetchProposals(skip = 0, allProposals: SnapshotProposal[] = []): 
 
     return allProposals;
   } catch (error) {
-    console.error('Error fetching proposals:', error);
+    console.error("Error fetching proposals:", error);
     throw error;
   }
 }
@@ -147,12 +147,12 @@ function filterAndMapQIPs(proposals: SnapshotProposal[]): QIPMapping[] {
         seenQIPNumbers.add(qipNumber);
 
         qipMappings.push({
-          qipNumber,
+          qipNumber: qipNumber,
           proposalId: proposal.id,
           title: proposal.title,
           created: proposal.created,
           state: proposal.state,
-          url: `https://snapshot.org/#/${QIDAO_SPACE}/proposal/${proposal.id}`
+          url: `https://snapshot.org/#/${QIDAO_SPACE}/proposal/${proposal.id}`,
         });
       }
     }
@@ -168,9 +168,9 @@ function filterAndMapQIPs(proposals: SnapshotProposal[]): QIPMapping[] {
  * Main execution
  */
 async function main() {
-  console.log('🚀 Fetching QIP proposals from Snapshot...');
+  console.log("🚀 Fetching QIP proposals from Snapshot...");
   console.log(`Space: ${QIDAO_SPACE}`);
-  console.log('');
+  console.log("");
 
   try {
     // Fetch all proposals
@@ -187,7 +187,7 @@ async function main() {
       fetchedAt: new Date().toISOString(),
       totalProposals: proposals.length,
       qipCount: qipMappings.length,
-      qips: qipMappings
+      qips: qipMappings,
     };
 
     // Write to cache file
@@ -195,7 +195,7 @@ async function main() {
     console.log(`\n💾 Saved to: ${OUTPUT_FILE}`);
 
     // Print summary
-    console.log('\n📝 Summary:');
+    console.log("\n📝 Summary:");
     console.log(`- Total proposals fetched: ${proposals.length}`);
     console.log(`- QIP proposals found: ${qipMappings.length}`);
 
@@ -203,23 +203,23 @@ async function main() {
       console.log(`- QIP number range: ${qipMappings[0].qipNumber} - ${qipMappings[qipMappings.length - 1].qipNumber}`);
 
       // Show sample
-      console.log('\n🔍 Sample QIPs:');
-      qipMappings.slice(0, 5).forEach(qip => {
-        console.log(`  QIP-${qip.qipNumber}: ${qip.title.substring(0, 50)}${qip.title.length > 50 ? '...' : ''}`);
+      console.log("\n🔍 Sample QIPs:");
+      qipMappings.slice(0, 5).forEach((qip) => {
+        console.log(`  QIP-${qip.qipNumber}: ${qip.title.substring(0, 50)}${qip.title.length > 50 ? "..." : ""}`);
         console.log(`    ID: ${qip.proposalId}`);
         console.log(`    State: ${qip.state}`);
-        console.log('');
+        console.log("");
       });
     }
 
     return output;
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error("❌ Error:", error);
     process.exit(1);
   }
 }
 
- main();
+main();
 
 // Export for use in other scripts
 export { fetchProposals, filterAndMapQIPs, extractQIPNumber };

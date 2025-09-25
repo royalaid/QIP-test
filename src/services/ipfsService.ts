@@ -1,6 +1,6 @@
 import type { Hash } from 'viem';
 import { keccak256, toBytes } from 'viem';
-import type { QIPContent } from './qipClient';
+import type { QCIContent } from './qciClient';
 // @ts-ignore - no types for ipfs-only-hash
 import * as IPFSOnlyHash from 'ipfs-only-hash';
 
@@ -8,7 +8,7 @@ import * as IPFSOnlyHash from 'ipfs-only-hash';
  * Metadata for IPFS uploads
  */
 export interface UploadMetadata {
-  qipNumber?: number | string;
+  qciNumber?: number | string;
   groupId?: string;
 }
 
@@ -170,10 +170,10 @@ export class PinataProvider implements IPFSProvider {
         ...(metadata?.groupId && { groupId: metadata.groupId }),
       },
       pinataMetadata: {
-        name: `QIP-${metadata?.qipNumber || data.qip || "draft"}.json`,
+        name: `QCI-${metadata?.qciNumber || data.qci || "draft"}.json`,
         keyvalues: {
-          type: "qip-proposal",
-          qip: String(metadata?.qipNumber || data.qip || "draft"),
+          type: "qci-proposal",
+          qci: String(metadata?.qciNumber || data.qci || "draft"),
           network: data.network || "unknown",
         },
       },
@@ -202,14 +202,14 @@ export class PinataProvider implements IPFSProvider {
     const blob = content instanceof Blob ? content : new Blob([content], { type: "text/plain" });
 
     // Generate a filename based on content
-    const filename = content instanceof Blob ? "file.txt" : "qip-content.md";
+    const filename = content instanceof Blob ? "file.txt" : "qci-content.md";
     formData.append("file", blob, filename);
 
     // Add pinata metadata
     const pinataMetadataJson = JSON.stringify({
       name: filename,
       keyvalues: {
-        type: "qip-content",
+        type: "qci-content",
       },
     });
     formData.append("pinataMetadata", pinataMetadataJson);
@@ -283,7 +283,7 @@ export class PinataProvider implements IPFSProvider {
    * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[Pinata] Fetching ${cids.length} QIPs`);
+    console.debug(`[Pinata] Fetching ${cids.length} QCIs`);
 
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
@@ -303,9 +303,9 @@ export class PinataProvider implements IPFSProvider {
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
 
-    console.debug(`[Pinata] Fetched ${results.size}/${cids.length} QIPs successfully`);
+    console.debug(`[Pinata] Fetched ${results.size}/${cids.length} QCIs successfully`);
     if (errors.size > 0) {
-      console.warn(`[Pinata] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
+      console.warn(`[Pinata] Failed to fetch ${errors.size} QCIs:`, Array.from(errors.keys()));
     }
 
     return results;
@@ -343,15 +343,15 @@ export class MaiAPIProvider implements IPFSProvider {
     try {
       const jsonData = JSON.parse(contentString);
 
-      // If it has QIP structure, send with metadata
-      if (jsonData.qip !== undefined || jsonData.title !== undefined) {
+      // If it has QCI structure, send with metadata
+      if (jsonData.qci !== undefined || jsonData.title !== undefined) {
         requestBody = {
           pinataContent: jsonData,
           pinataMetadata: {
-            name: `QIP-${metadata?.qipNumber || jsonData.qip || "draft"}.json`,
+            name: `QCI-${metadata?.qciNumber || jsonData.qci || "draft"}.json`,
             keyvalues: {
-              type: "qip-proposal",
-              qip: String(metadata?.qipNumber || jsonData.qip || "draft"),
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || jsonData.qci || "draft"),
               network: jsonData.network || "unknown",
               author: jsonData.author || "unknown",
             },
@@ -362,14 +362,14 @@ export class MaiAPIProvider implements IPFSProvider {
           },
         };
       } else {
-        // It's JSON but not QIP structure, send as-is
+        // It's JSON but not QCI structure, send as-is
         requestBody = {
           pinataContent: jsonData,
           pinataMetadata: {
-            name: `QIP-${metadata?.qipNumber || "draft"}.json`,
+            name: `QCI-${metadata?.qciNumber || "draft"}.json`,
             keyvalues: {
-              type: "qip-proposal",
-              qip: String(metadata?.qipNumber || "draft"),
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
             },
           },
         };
@@ -384,10 +384,10 @@ export class MaiAPIProvider implements IPFSProvider {
         requestBody = {
           pinataContent: wrappedContent,
           pinataMetadata: {
-            name: `QIP-${metadata?.qipNumber || "draft"}.json`,
+            name: `QCI-${metadata?.qciNumber || "draft"}.json`,
             keyvalues: {
-              type: "qip-proposal",
-              qip: String(metadata?.qipNumber || "draft"),
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
             },
           },
           pinataOptions: {
@@ -400,10 +400,10 @@ export class MaiAPIProvider implements IPFSProvider {
         requestBody = {
           pinataContent: contentString,
           pinataMetadata: {
-            name: `QIP-${metadata?.qipNumber || "draft"}.txt`,
+            name: `QCI-${metadata?.qciNumber || "draft"}.txt`,
             keyvalues: {
-              type: "qip-proposal",
-              qip: String(metadata?.qipNumber || "draft"),
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
             },
           },
         };
@@ -444,7 +444,7 @@ export class MaiAPIProvider implements IPFSProvider {
     if (cid.startsWith("Qm307")) {
       console.log("Development mode: Mock IPFS hash detected, returning placeholder content");
       return `---
-qip: 999
+qci: 999
 title: Mock Content
 network: Base
 status: Draft
@@ -487,7 +487,7 @@ This is placeholder content for development mode.`;
    * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[MaiAPI] Fetching ${cids.length} QIPs`);
+    console.debug(`[MaiAPI] Fetching ${cids.length} QCIs`);
 
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
@@ -507,9 +507,9 @@ This is placeholder content for development mode.`;
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
 
-    console.debug(`[MaiAPI] Fetched ${results.size}/${cids.length} QIPs successfully`);
+    console.debug(`[MaiAPI] Fetched ${results.size}/${cids.length} QCIs successfully`);
     if (errors.size > 0) {
-      console.warn(`[MaiAPI] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
+      console.warn(`[MaiAPI] Failed to fetch ${errors.size} QCIs:`, Array.from(errors.keys()));
     }
 
     return results;
@@ -518,7 +518,7 @@ This is placeholder content for development mode.`;
 }
 
 /**
- * Main IPFS service for managing QIPs
+ * Main IPFS service for managing QCIs
  */
 export class IPFSService {
   public readonly provider: IPFSProvider;
@@ -568,37 +568,37 @@ export class IPFSService {
 
   /**
    * Calculate content hash for blockchain storage
-   * Uses keccak256 hash of the QIP content
+   * Uses keccak256 hash of the QCI content
    */
-  calculateContentHash(qipContent: QIPContent): Hash {
+  calculateContentHash(qciContent: QCIContent): Hash {
     // Calculate content hash including title, author, timestamp, content, and transactions to ensure uniqueness
     const uniqueContent = JSON.stringify({
-      title: qipContent.title,
-      author: qipContent.author,
+      title: qciContent.title,
+      author: qciContent.author,
       timestamp: Date.now(),
-      content: qipContent.content,
-      transactions: qipContent.transactions || []
+      content: qciContent.content,
+      transactions: qciContent.transactions || []
     });
     return keccak256(toBytes(uniqueContent));
   }
 
   /**
-   * Upload QIP content to IPFS from structured data
+   * Upload QCI content to IPFS from structured data
    */
-  async uploadQIPFromContent(qipContent: QIPContent): Promise<{
+  async uploadQCIFromContent(qciContent: QCIContent): Promise<{
     cid: string;
     ipfsUrl: string;
     contentHash: Hash;
   }> {
     // Format as markdown with YAML frontmatter
-    const fullContent = this.formatQIPContent(qipContent);
+    const fullContent = this.formatQCIContent(qciContent);
 
     // Calculate content hash including title, author, timestamp, and content to ensure uniqueness
     const uniqueContent = JSON.stringify({
-      title: qipContent.title,
-      author: qipContent.author,
-      content: qipContent.content,
-      created: qipContent.created,
+      title: qciContent.title,
+      author: qciContent.author,
+      content: qciContent.content,
+      created: qciContent.created,
       timestamp: Date.now(),
     });
     const contentHash = keccak256(toBytes(uniqueContent));
@@ -615,30 +615,30 @@ export class IPFSService {
   }
 
   /**
-   * Format QIP content with YAML frontmatter
+   * Format QCI content with YAML frontmatter
    */
-  public formatQIPContent(qipData: QIPContent): string {
+  public formatQCIContent(qciData: QCIContent): string {
     let formatted = `---
-qip: ${qipData.qip}
-title: ${qipData.title}
-chain: ${qipData.chain}
-status: ${qipData.status}
-author: ${qipData.author}
-implementor: ${qipData.implementor}
-implementation-date: ${qipData["implementation-date"]}
-proposal: ${qipData.proposal}
-created: ${qipData.created}
+qci: ${qciData.qci}
+title: ${qciData.title}
+chain: ${qciData.chain}
+status: ${qciData.status}
+author: ${qciData.author}
+implementor: ${qciData.implementor}
+implementation-date: ${qciData["implementation-date"]}
+proposal: ${qciData.proposal}
+created: ${qciData.created}
 ---
 
-${qipData.content}`;
+${qciData.content}`;
 
     // Append transactions if they exist
-    if (qipData.transactions && qipData.transactions.length > 0) {
+    if (qciData.transactions && qciData.transactions.length > 0) {
       formatted += '\n\n## Transactions\n\n';
       formatted += '```json\n';
       
       // Convert all transactions to proper JSON format
-      const jsonTransactions = qipData.transactions.map(tx => {
+      const jsonTransactions = qciData.transactions.map(tx => {
         if (typeof tx === 'string') {
           // Try to parse if it's already JSON
           try {
@@ -684,9 +684,9 @@ ${qipData.content}`;
   }
 
   /**
-   * Fetch and parse QIP from IPFS
+   * Fetch and parse QCI from IPFS
    */
-  async fetchQIP(cidOrUrl: string): Promise<string> {
+  async fetchQCI(cidOrUrl: string): Promise<string> {
     // Extract CID from URL if needed
     const cid = cidOrUrl.startsWith("ipfs://") ? cidOrUrl.slice(7) : cidOrUrl;
 
@@ -697,15 +697,15 @@ ${qipData.content}`;
   }
 
   /**
-   * Convert JSON QIP structure to markdown format
+   * Convert JSON QCI structure to markdown format
    */
-  private formatQIPFromJSON(data: any): string {
+  private formatQCIFromJSON(data: any): string {
     // Extract content if it exists
     const content = data.content || "";
     
     // Build frontmatter from the JSON data
     const frontmatter = [
-      `qip: ${data.qip || "unknown"}`,
+      `qci: ${data.qci || "unknown"}`,
       `title: ${data.title || "Untitled"}`,
       `network: ${data.network || "unknown"}`,
       `status: ${data.status || "Draft"}`,
@@ -720,19 +720,19 @@ ${qipData.content}`;
   }
 
   /**
-   * Fetch multiple QIPs concurrently using provider's optimized method if available
+   * Fetch multiple QCIs concurrently using provider's optimized method if available
    */
-  async fetchMultipleQIPs(cids: string[]): Promise<Map<string, string>> {
+  async fetchMultipleQCIs(cids: string[]): Promise<Map<string, string>> {
     // Use provider's optimized fetchMultiple if available
     if (this.provider.fetchMultiple) {
       console.debug(`[IPFSService] Using provider's optimized fetchMultiple for ${cids.length} CIDs`);
       const results = await this.provider.fetchMultiple(cids);
       
-      // Process each result to handle JSON unwrapping (same logic as fetchQIP but without fetching)
+      // Process each result to handle JSON unwrapping (same logic as fetchQCI but without fetching)
       const processedResults = new Map<string, string>();
       for (const [cid, rawContent] of results) {
         try {
-          // Apply the same JSON unwrapping logic as fetchQIP
+          // Apply the same JSON unwrapping logic as fetchQCI
           const processedContent = this.processIPFSContent(rawContent, cid);
           processedResults.set(cid, processedContent);
         } catch (error) {
@@ -751,7 +751,7 @@ ${qipData.content}`;
     
     for (const cid of cids) {
       try {
-        const content = await this.fetchQIP(cid);
+        const content = await this.fetchQCI(cid);
         results.set(cid, content);
       } catch (error) {
         console.error(`[IPFSService] Failed to fetch CID ${cid}:`, error);
@@ -771,11 +771,11 @@ ${qipData.content}`;
 
       // Check if it's a valid JSON object
       if (typeof parsed === "object" && parsed !== null) {
-        // Case 1: Full QIP JSON structure (has qip, title, etc. - check this first)
-        if ("qip" in parsed || "title" in parsed) {
+        // Case 1: Full QCI JSON structure (has qci, title, etc. - check this first)
+        if ("qci" in parsed || "title" in parsed) {
           // Convert the JSON structure to markdown format
           const frontmatter = [
-            `qip: ${parsed.qip || "unknown"}`,
+            `qci: ${parsed.qci || "unknown"}`,
             `title: ${parsed.title || "Untitled"}`,
             `network: ${parsed.network || "unknown"}`,
             `status: ${parsed.status || "Draft"}`,
@@ -810,13 +810,13 @@ ${qipData.content}`;
   }
 
   /**
-   * Upload pre-formatted QIP markdown content with metadata
+   * Upload pre-formatted QCI markdown content with metadata
    */
-  async uploadQIP(
+  async uploadQCI(
     markdownContent: string,
     _metadata?: {
       name?: string;
-      qipNumber?: string;
+      qciNumber?: string;
       title?: string;
       author?: string;
       version?: string;
@@ -829,9 +829,9 @@ ${qipData.content}`;
   }
 
   /**
-   * Generate QIP markdown from frontmatter and content
+   * Generate QCI markdown from frontmatter and content
    */
-  generateQIPMarkdown(frontmatter: Record<string, any>, content: string): string {
+  generateQCIMarkdown(frontmatter: Record<string, any>, content: string): string {
     const frontmatterLines = Object.entries(frontmatter)
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n");
@@ -840,23 +840,23 @@ ${qipData.content}`;
   }
 
   /**
-   * Parse QIP markdown to extract frontmatter and content
+   * Parse QCI markdown to extract frontmatter and content
    */
-  parseQIPMarkdown(markdown: string | any): {
+  parseQCIMarkdown(markdown: string | any): {
     frontmatter: Record<string, any>;
     content: string;
   } {
     
     // Ensure we have a string to work with
     if (typeof markdown !== "string") {
-      console.error("parseQIPMarkdown received non-string:", typeof markdown, markdown);
+      console.error("parseQCIMarkdown received non-string:", typeof markdown, markdown);
       // Try to handle JSON objects that might have been passed directly
       if (typeof markdown === "object" && markdown !== null) {
-        // If it's already a parsed QIP object, convert it to markdown first
-        if ("qip" in markdown || "title" in markdown) {
+        // If it's already a parsed QCI object, convert it to markdown first
+        if ("qci" in markdown || "title" in markdown) {
           const obj = markdown as any;
           const frontmatter = [
-            `qip: ${obj.qip || "unknown"}`,
+            `qci: ${obj.qci || "unknown"}`,
             `title: ${obj.title || "Untitled"}`,
             `network: ${obj.network || "unknown"}`,
             `status: ${obj.status || "Draft"}`,
@@ -870,10 +870,10 @@ ${qipData.content}`;
           const content = obj.content || "";
           markdown = `---\n${frontmatter}\n---\n\n${content}`;
         } else {
-          throw new Error("Invalid QIP format: expected string content or QIP object");
+          throw new Error("Invalid QCI format: expected string content or QCI object");
         }
       } else {
-        throw new Error("Invalid QIP format: expected string content");
+        throw new Error("Invalid QCI format: expected string content");
       }
     }
 
@@ -881,7 +881,7 @@ ${qipData.content}`;
     markdown = markdown.trim();
 
     if (!markdown) {
-      throw new Error("Invalid QIP format: empty content");
+      throw new Error("Invalid QCI format: empty content");
     }
 
     // Check for frontmatter
@@ -889,8 +889,8 @@ ${qipData.content}`;
 
     if (!match) {
       // Log the first 200 chars for debugging
-      console.error("Failed to parse QIP markdown. First 200 chars:", markdown.substring(0, 200));
-      throw new Error('Invalid QIP format: missing frontmatter. Content must start with "---" delimiter');
+      console.error("Failed to parse QCI markdown. First 200 chars:", markdown.substring(0, 200));
+      throw new Error('Invalid QCI format: missing frontmatter. Content must start with "---" delimiter');
     }
 
     const yamlContent = match[1];
@@ -915,7 +915,7 @@ ${qipData.content}`;
   }
 
   /**
-   * Verify QIP content matches hash
+   * Verify QCI content matches hash
    */
   verifyContentHash(content: string, expectedHash: Hash): boolean {
     const actualHash = keccak256(toBytes(content));
@@ -954,7 +954,7 @@ ${qipData.content}`;
    * Fetch and parse JSON from IPFS
    */
   async fetchJSON<T = any>(cidOrUrl: string): Promise<T> {
-    const content = await this.fetchQIP(cidOrUrl);
+    const content = await this.fetchQCI(cidOrUrl);
     return JSON.parse(content);
   }
 }

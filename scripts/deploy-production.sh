@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-# QIP Registry Master Production Deployment Script
+# QCI Registry Master Production Deployment Script
 # ============================================
 # This script orchestrates the complete production deployment process
 # It performs pre-flight checks, deployment, verification, and post-deployment tasks
@@ -89,7 +89,7 @@ if [ "$COMPUTE_ONLY" = false ]; then
 fi
 
 echo -e "${BOLD}${CYAN}============================================${NC}"
-echo -e "${BOLD}${CYAN}🚀 QIP Registry Production Deployment${NC}"
+echo -e "${BOLD}${CYAN}🚀 QCI Registry Production Deployment${NC}"
 echo -e "${BOLD}${CYAN}============================================${NC}"
 echo ""
 echo -e "${BOLD}Network:${NC} Base Mainnet (Chain ID: 8453)"
@@ -382,8 +382,8 @@ echo -e "${BOLD}Network:${NC}         Base Mainnet (8453)"
 echo -e "${BOLD}Deployer:${NC}        $DEPLOYER_ADDRESS"
 echo -e "${BOLD}Registry:${NC}        $REGISTRY_ADDRESS"
 echo -e "${BOLD}Admin:${NC}           $DEPLOYER_ADDRESS"
-echo -e "${BOLD}Starting QIP:${NC}    209"
-echo -e "${BOLD}Salt:${NC}            QIPRegistry.v4.base"
+echo -e "${BOLD}Starting QCI:${NC}    209"
+echo -e "${BOLD}Salt:${NC}            QCIRegistry.v4.base"
 echo -e "${BOLD}CREATE2:${NC}         0x4e59b44847b379578588920cA78FbF26c0B4956C"
 echo ""
 
@@ -437,22 +437,22 @@ cat > $DEPLOYMENT_RECORD <<EOF
   "deploymentDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "deployer": "$DEPLOYER_ADDRESS",
   "contracts": {
-    "QIPRegistry": {
+    "QCIRegistry": {
       "address": "$REGISTRY_ADDRESS",
       "admin": "$DEPLOYER_ADDRESS",
-      "startingQIP": 209,
+      "startingQCI": 209,
       "status": "pending"
     }
   },
   "environment": {
     "rpcUrl": "$BASE_RPC_URL",
     "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-    "salt": "QIPRegistry.v1.base"
+    "salt": "QCIRegistry.v1.base"
   }
 }
 EOF
 
-echo -e "${YELLOW}Deploying QIP Registry...${NC}"
+echo -e "${YELLOW}Deploying QCI Registry...${NC}"
 if [ "$DRY_RUN" = false ]; then
     echo -e "${YELLOW}(You will be prompted for keystore password again)${NC}"
 fi
@@ -585,7 +585,7 @@ if [ "$DRY_RUN" = false ] && [ "$VERIFY_ON_BASESCAN" = true ] && [ "$VERIFY_CONT
         --constructor-args $(cast abi-encode "constructor(uint256,address)" 209 $DEPLOYER_ADDRESS) \
         --watch \
         $REGISTRY_ADDRESS \
-        contracts/QIPRegistry.sol:QIPRegistry
+        contracts/QCIRegistry.sol:QCIRegistry
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}  ✅ Contract verified on Basescan${NC}"
@@ -605,7 +605,7 @@ if [ "$DRY_RUN" = false ]; then
     # Update .env.production
     if [ -f .env.production ]; then
         echo -e "${YELLOW}Updating .env.production...${NC}"
-        sed -i.bak "s|^VITE_QIP_REGISTRY_ADDRESS=.*|VITE_QIP_REGISTRY_ADDRESS=$REGISTRY_ADDRESS|" .env.production
+        sed -i.bak "s|^VITE_QCI_REGISTRY_ADDRESS=.*|VITE_QCI_REGISTRY_ADDRESS=$REGISTRY_ADDRESS|" .env.production
         echo -e "${GREEN}  ✅ Environment file updated${NC}"
     fi
 
@@ -652,12 +652,12 @@ else
     echo -e "${BOLD}Next Steps:${NC}"
     echo ""
     echo "1. Update GitHub Secrets:"
-    echo -e "   ${CYAN}gh secret set QIP_REGISTRY_ADDRESS --body \"$REGISTRY_ADDRESS\"${NC}"
+    echo -e "   ${CYAN}gh secret set QCI_REGISTRY_ADDRESS --body \"$REGISTRY_ADDRESS\"${NC}"
     echo -e "   ${CYAN}gh secret set BASE_RPC_URL --body \"$BASE_RPC_URL\"${NC}"
     echo ""
-    echo "2. Migrate existing QIPs (fast batch migration):"
+    echo "2. Migrate existing QCIs (fast batch migration):"
     echo -e "   ${CYAN}./scripts/migrate-with-keystore.sh --account=$KEYSTORE_ACCOUNT${NC}"
-    echo "   Uses Foundry FFI for 5x faster batch migration (5 QIPs per transaction)"
+    echo "   Uses Foundry FFI for 5x faster batch migration (5 QCIs per transaction)"
     echo ""
     echo "3. Deploy frontend:"
     echo -e "   ${CYAN}git add -A && git commit -m \"Deploy registry to $REGISTRY_ADDRESS\"${NC}"

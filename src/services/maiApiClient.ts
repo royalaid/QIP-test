@@ -1,17 +1,17 @@
 /**
- * Mai API Client for fetching QIPs from the centralized API endpoint
+ * Mai API Client for fetching QCIs from the centralized API endpoint
  * This provides a much faster alternative to direct blockchain fetching
  * with built-in caching and IPFS content support
  */
 
-import { QIPStatus } from './qipClient';
+import { QCIStatus } from './qciClient';
 
 /**
- * QIP data as returned by the Mai API
- * Matches the format from /v3/qips endpoint
+ * QCI data as returned by the Mai API
+ * Matches the format from /v3/qcis endpoint
  */
-export interface MaiAPIQIP {
-  qipNumber: number;
+export interface MaiAPIQCI {
+  qciNumber: number;
   author: string;
   title: string;
   chain: string;
@@ -31,10 +31,10 @@ export interface MaiAPIQIP {
 }
 
 /**
- * Response format from the Mai API /v3/qips endpoint
+ * Response format from the Mai API /v3/qcis endpoint
  */
 export interface MaiAPIResponse {
-  qips: MaiAPIQIP[];
+  qcis: MaiAPIQCI[];
   totalCount: number;
   lastUpdated: number;
   chainId: number;
@@ -44,17 +44,17 @@ export interface MaiAPIResponse {
 }
 
 /**
- * Options for fetching QIPs from Mai API
+ * Options for fetching QCIs from Mai API
  */
-export interface FetchQIPsOptions {
-  includeContent?: boolean; // Include IPFS content for ALL QIPs (slow)
-  contentFor?: number[]; // Include IPFS content for specific QIP numbers
+export interface FetchQCIsOptions {
+  includeContent?: boolean; // Include IPFS content for ALL QCIs (slow)
+  contentFor?: number[]; // Include IPFS content for specific QCI numbers
   forceRefresh?: boolean; // Bypass cache and fetch fresh data
   mockMode?: boolean; // Use mock data for testing (dev only)
 }
 
 /**
- * Mai API Client for QIP data
+ * Mai API Client for QCI data
  */
 export class MaiAPIClient {
   private readonly baseUrl: string;
@@ -72,10 +72,10 @@ export class MaiAPIClient {
   }
 
   /**
-   * Fetch all QIPs from the Mai API
-   * Starting from QIP 209 (first QIP in registry) to latest
+   * Fetch all QCIs from the Mai API
+   * Starting from QCI 209 (first QCI in registry) to latest
    */
-  async fetchQIPs(options: FetchQIPsOptions = {}): Promise<MaiAPIResponse> {
+  async fetchQCIs(options: FetchQCIsOptions = {}): Promise<MaiAPIResponse> {
     const params = new URLSearchParams();
 
     if (options.includeContent) {
@@ -94,9 +94,9 @@ export class MaiAPIClient {
       params.append('mockMode', 'true');
     }
 
-    const url = `${this.baseUrl}/v3/qips${params.toString() ? `?${params}` : ''}`;
+    const url = `${this.baseUrl}/v3/qcis${params.toString() ? `?${params}` : ''}`;
 
-    console.log('[MaiAPIClient] Fetching QIPs from:', url);
+    console.log('[MaiAPIClient] Fetching QCIs from:', url);
 
     try {
       const response = await fetch(url, {
@@ -113,47 +113,47 @@ export class MaiAPIClient {
 
       const data: MaiAPIResponse = await response.json();
 
-      console.log(`[MaiAPIClient] Received ${data.qips.length} QIPs (cached: ${data.cached})`);
+      console.log(`[MaiAPIClient] Received ${data.qcis.length} QCIs (cached: ${data.cached})`);
 
-      // Validate that QIPs start from 209 as expected
-      if (data.qips.length > 0) {
-        const minQipNumber = Math.min(...data.qips.map(q => q.qipNumber));
+      // Validate that QCIs start from 209 as expected
+      if (data.qcis.length > 0) {
+        const minQipNumber = Math.min(...data.qcis.map(q => q.qciNumber));
         if (minQipNumber < 209) {
-          console.warn(`[MaiAPIClient] Warning: Found QIP ${minQipNumber} which is below expected minimum of 209`);
+          console.warn(`[MaiAPIClient] Warning: Found QCI ${minQipNumber} which is below expected minimum of 209`);
         }
       }
 
       return data;
     } catch (error: any) {
-      console.error('[MaiAPIClient] Error fetching QIPs:', error);
+      console.error('[MaiAPIClient] Error fetching QCIs:', error);
       throw error;
     }
   }
 
   /**
-   * Fetch a specific QIP with its content
+   * Fetch a specific QCI with its content
    */
-  async fetchQIP(qipNumber: number): Promise<MaiAPIQIP | null> {
-    const response = await this.fetchQIPs({
-      contentFor: [qipNumber],
+  async fetchQCI(qciNumber: number): Promise<MaiAPIQCI | null> {
+    const response = await this.fetchQCIs({
+      contentFor: [qciNumber],
     });
 
-    const qip = response.qips.find(q => q.qipNumber === qipNumber);
-    return qip || null;
+    const qci = response.qcis.find(q => q.qciNumber === qciNumber);
+    return qci || null;
   }
 
   /**
-   * Get QIPs by status
+   * Get QCIs by status
    */
-  async getQIPsByStatus(status: QIPStatus): Promise<MaiAPIQIP[]> {
-    const response = await this.fetchQIPs();
-    return response.qips.filter(q => q.statusCode === status);
+  async getQCIsByStatus(status: QCIStatus): Promise<MaiAPIQCI[]> {
+    const response = await this.fetchQCIs();
+    return response.qcis.filter(q => q.statusCode === status);
   }
 
   /**
    * Convert Mai API status string to status ID
    */
-  static statusStringToId(status: string): QIPStatus {
+  static statusStringToId(status: string): QCIStatus {
     // Map old status strings to new 3-status system
     const statusMap: Record<string, number> = {
       'Draft': 0,
@@ -174,7 +174,7 @@ export class MaiAPIClient {
   /**
    * Convert status ID to display string (fallback when contract not available)
    */
-  static statusIdToDisplay(status: QIPStatus): string {
+  static statusIdToDisplay(status: QCIStatus): string {
     const statusMap: Record<number, string> = {
       0: 'Draft',
       1: 'Ready for Snapshot',
@@ -185,9 +185,9 @@ export class MaiAPIClient {
   }
 
   /**
-   * Convert Mai API QIP to app's QIPData format
+   * Convert Mai API QCI to app's QCIData format
    */
-  static toQIPData(apiQip: MaiAPIQIP): any {
+  static toQCIData(apiQip: MaiAPIQCI): any {
     // Convert implementation date
     const implDate = apiQip.implementationDate > 0
       ? new Date(apiQip.implementationDate * 1000).toISOString().split('T')[0]
@@ -224,11 +224,11 @@ export class MaiAPIClient {
     }
 
     return {
-      qipNumber: apiQip.qipNumber,
+      qciNumber: apiQip.qciNumber,
       title: apiQip.title,
       chain: apiQip.chain,
-      status: MaiAPIClient.statusIdToDisplay(apiQip.statusCode as QIPStatus),
-      statusEnum: apiQip.statusCode as QIPStatus,
+      status: MaiAPIClient.statusIdToDisplay(apiQip.statusCode as QCIStatus),
+      statusEnum: apiQip.statusCode as QCIStatus,
       author: authorDisplay,
       authorAddress: apiQip.author, // Keep original address for reference
       implementor: apiQip.implementor || 'None',
