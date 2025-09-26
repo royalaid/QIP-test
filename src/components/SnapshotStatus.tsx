@@ -89,18 +89,9 @@ export const SnapshotStatus: React.FC<SnapshotStatusProps> = ({
 
   if (compact) {
     return (
-      <Badge
-        variant={getStatusBadgeVariant(proposal.state)}
-        className={cn("gap-1", className)}
-      >
+      <Badge variant={getStatusBadgeVariant(proposal.state)} className={cn("gap-1", className)}>
         {getStatusIcon(proposal.state)}
         <span className="capitalize">{proposal.state}</span>
-        {proposal.votes > 0 && (
-          <>
-            <span className="text-xs">•</span>
-            <span className="text-xs">{proposal.votes} votes</span>
-          </>
-        )}
       </Badge>
     );
   }
