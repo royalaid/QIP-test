@@ -80,6 +80,37 @@ export const SnapshotStatus: React.FC<SnapshotStatusProps> = ({
     return proposal.choices[winningIndex];
   };
 
+  const formatChoiceForDisplay = (choice: string) => {
+    // Handle exact matches first
+    const exactMatches: Record<string, string> = {
+      'For': 'Approved',
+      'Against': 'Rejected',
+      'Yes': 'Yes',
+      'No': 'No',
+      'Abstain': 'Abstained',
+      'Further discussions needed': 'Needs Discussion',
+    };
+
+    if (exactMatches[choice]) {
+      return exactMatches[choice];
+    }
+
+    // Handle substrings
+    const lowerChoice = choice.toLowerCase();
+    if (lowerChoice.includes('approve')) {
+      return 'Approved';
+    }
+    if (lowerChoice.includes('reject')) {
+      return 'Rejected';
+    }
+    if (lowerChoice.includes('discussion')) {
+      return 'Needs Discussion';
+    }
+
+    // Return original if no match
+    return choice;
+  };
+
   const getVotePercentage = (index: number) => {
     if (!proposal.scores_total || proposal.scores_total === 0) return 0;
     return ((proposal.scores[index] / proposal.scores_total) * 100).toFixed(1);
@@ -88,6 +119,20 @@ export const SnapshotStatus: React.FC<SnapshotStatusProps> = ({
   const snapshotUrl = `https://snapshot.org/#/${proposal.space.id}/proposal/${proposal.id}`;
 
   if (compact) {
+    // For closed proposals, show the winning choice instead of "Closed"
+    if (proposal.state === 'closed') {
+      const winner = getWinningChoice();
+      if (winner) {
+        return (
+          <Badge variant="secondary" className={cn("gap-1", className)}>
+            <CheckCircle className="h-3 w-3" />
+            <span>{formatChoiceForDisplay(winner)}</span>
+          </Badge>
+        );
+      }
+    }
+
+    // For active and pending proposals, show the state
     return (
       <Badge variant={getStatusBadgeVariant(proposal.state)} className={cn("gap-1", className)}>
         {getStatusIcon(proposal.state)}
