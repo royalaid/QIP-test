@@ -107,9 +107,9 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className={className}>
-          <Download className="h-4 w-4 mr-2" />
-          Export
+        <Button variant="ghost" size="sm" className={`${className} gap-1.5`}>
+          <Download className="h-4 w-4" />
+          <span>Export</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

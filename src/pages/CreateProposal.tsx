@@ -39,10 +39,11 @@ const CreateProposal: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      {showTemplates ? (
-        <div>
-          <h1 className="text-3xl font-bold mb-6">Create a New Proposal</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        {showTemplates ? (
+          <div>
+            <h1 className="text-4xl font-bold mb-6">Create a New Proposal</h1>
           <h2 className="text-xl font-semibold mb-4">Choose a Template to Get Started</h2>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -104,15 +105,18 @@ const CreateProposal: React.FC = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
-      ) : (
-        <div>
-          <button 
-            onClick={handleBackToTemplates}
-            className="mb-4 text-primary hover:text-primary/80"
-          >
-            ← Back to Templates
-          </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <button
+                onClick={handleBackToTemplates}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>←</span>
+                <span>Back to Templates</span>
+              </button>
+            </div>
           
           {selectedTemplate && (
             <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
@@ -139,12 +143,13 @@ const CreateProposal: React.FC = () => {
             initialImplementor={importedData?.implementor || selectedTemplate?.implementor}
           />
         </div>
-      )}
+        )}
 
-      <ImportExportDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-      />
+        <ImportExportDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+        />
+      </div>
     </div>
   )
 }

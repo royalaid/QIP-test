@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { useParams, Link, useLocation } from 'react-router-dom'
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { toast } from 'sonner'
 import { useQCI } from '../hooks/useQCI'
@@ -14,6 +14,8 @@ import { useMemo } from 'react'
 import { getIPFSGatewayUrl } from '../utils/ipfsGateway'
 import { MarkdownExportButton } from '../components/MarkdownExportButton'
 import { ExportMenu } from '../components/ExportMenu'
+import { Edit } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +25,7 @@ const QCIDetail: React.FC = () => {
   const { qciNumber } = useParams<{ qciNumber: string }>()
   const { address } = useAccount()
   const location = useLocation()
+  const navigate = useNavigate()
   const [isClient, setIsClient] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
   const [canSubmitSnapshot, setCanSubmitSnapshot] = useState(false)
@@ -325,38 +328,57 @@ const QCIDetail: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <Link to="/all-proposals" className="text-primary hover:text-primary/80 inline-block">
-            ← Back to all proposals
+        <div className="flex justify-between items-center mb-6">
+          <Link to="/all-proposals" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <span>←</span>
+            <span>Back to all proposals</span>
           </Link>
-          {process.env.NODE_ENV === "development" && (
-            <button
-              onClick={() => {
-                // Clear all caches
-                queryClient.removeQueries();
-                localStorage.removeItem("qcis-query-cache");
-                window.location.reload();
-              }}
-              className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-            >
-              Clear Cache (Dev)
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-start justify-between mb-4">
-          <h1 className="text-4xl font-bold">
-            QCI-{qciData.qciNumber}: {qciData.title}
-          </h1>
-          <div className="flex items-center gap-2 mt-2">
-            <MarkdownExportButton qciData={qciData} />
+          <div className="flex items-center gap-2">
+            {canEdit && qciData.status === "Draft" && (
+              <Button
+                onClick={() => navigate(`/edit-proposal?qci=${qciData.qciNumber}`)}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground gap-1.5"
+                title="Edit Proposal"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit</span>
+              </Button>
+            )}
+            <MarkdownExportButton
+              qciData={qciData}
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+            />
             <ExportMenu
               qciData={qciData}
               registryAddress={registryAddress}
               rpcUrl={rpcUrl}
+              className="text-muted-foreground hover:text-foreground"
             />
+            {process.env.NODE_ENV === "development" && (
+              <Button
+                onClick={() => {
+                  // Clear all caches
+                  queryClient.removeQueries();
+                  localStorage.removeItem("qcis-query-cache");
+                  window.location.reload();
+                }}
+                variant="outline"
+                size="sm"
+                className="text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
+              >
+                Clear Cache (Dev)
+              </Button>
+            )}
           </div>
         </div>
+
+        <h1 className="text-4xl font-bold mb-4">
+          QCI-{qciData.qciNumber}: {qciData.title}
+        </h1>
 
         <div className="mb-8">
           <FrontmatterTable
@@ -420,19 +442,12 @@ const QCIDetail: React.FC = () => {
           </ReactMarkdown>
         </div>
 
-        {/* Version and edit info */}
+        {/* Version info */}
         <div className="mt-8 p-4 bg-muted rounded">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              Version {qciData.version}
-              {qciData.version > 1 && ` • Updated ${qciData.version - 1} time${qciData.version > 2 ? "s" : ""}`}
-            </p>
-            {canEdit && qciData.status === "Draft" && (
-              <Link to={`/edit-proposal?qci=${qciData.qciNumber}`} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                Edit Proposal
-              </Link>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Version {qciData.version}
+            {qciData.version > 1 && ` • Updated ${qciData.version - 1} time${qciData.version > 2 ? "s" : ""}`}
+          </p>
         </div>
 
         {/* Snapshot submission for QCIs ready for snapshot submission */}

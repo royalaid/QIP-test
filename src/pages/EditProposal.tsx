@@ -89,18 +89,22 @@ const EditProposal: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto py-8">
-        <div className="mb-6">
-          <Link to={`/qcis/${qciNumber}`} className="text-primary hover:text-primary/80">
-            ← Back to QCI-{qciNumber}
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <Link to={`/qcis/${qciNumber}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <span>←</span>
+            <span>Back to QCI-{qciNumber}</span>
           </Link>
         </div>
-        <h1 className="text-3xl font-bold mb-6">Edit QCI-{qciNumber}</h1>
+
+        <h1 className="text-4xl font-bold mb-4">Edit QCI-{qciNumber}</h1>
         <ProposalEditor
           registryAddress={registryAddress}
           rpcUrl={rpcUrl}
           existingQCI={existingQCI}
         />
+      </div>
     </div>
   )
 }

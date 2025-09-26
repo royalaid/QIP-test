@@ -15,7 +15,7 @@ interface MarkdownExportButtonProps {
 export const MarkdownExportButton: React.FC<MarkdownExportButtonProps> = ({
   qciData,
   variant = 'ghost',
-  size = 'icon',
+  size = 'sm',
   className = ''
 }) => {
   const [copied, setCopied] = useState(false);
