@@ -13,7 +13,6 @@ import "./EditableEnumLib.sol";
 contract QCIRegistry is AccessControl, Pausable {
     using EditableEnumLib for EditableEnumLib.Data;
 
-    // Custom errors for gas optimization
     error TitleRequired();
     error ChainRequired();
     error InvalidContentHash();
@@ -35,7 +34,6 @@ contract QCIRegistry is AccessControl, Pausable {
 
     bytes32 public constant EDITOR_ROLE = keccak256("EDITOR_ROLE");
 
-    // Pre-hashed identifiers for the three canonical statuses
     bytes32 internal constant STATUS_DRAFT = keccak256("Draft");
     bytes32 internal constant STATUS_READY_SNAPSHOT = keccak256("Ready for Snapshot");
     bytes32 internal constant STATUS_POSTED_SNAPSHOT = keccak256("Posted to Snapshot");
@@ -44,15 +42,15 @@ contract QCIRegistry is AccessControl, Pausable {
         address author;
         string title;
         string chain;
-        bytes32 contentHash;    // keccak256 of the full proposal content
-        string ipfsUrl;         // IPFS CID in format: ipfs://Qm...
+        bytes32 contentHash;   
+        string ipfsUrl;         
         uint256 createdAt;
         uint256 lastUpdated;
-        bytes32 status;         // Status as bytes32 using EditableEnum
+        bytes32 status;         
         string implementor;
         uint256 implementationDate;
         string snapshotProposalId;
-        uint256 version;        // Version number for tracking edits
+        uint256 version;        
     }
 
     struct QCIVersion {
@@ -63,7 +61,6 @@ contract QCIRegistry is AccessControl, Pausable {
     }
 
     struct QCIExportData {
-        // Core QCI data
         uint256 qciNumber;
         address author;
         string title;
@@ -72,14 +69,12 @@ contract QCIRegistry is AccessControl, Pausable {
         string ipfsUrl;
         uint256 createdAt;
         uint256 lastUpdated;
-        string statusName;  // Human-readable status string
+        string statusName;  
         string implementor;
         uint256 implementationDate;
         string snapshotProposalId;
         uint256 version;
-        // Version history
         QCIVersion[] versions;
-        // Additional metadata
         uint256 totalVersions;
     }
 
@@ -90,11 +85,9 @@ contract QCIRegistry is AccessControl, Pausable {
     mapping(bytes32 => uint256) public contentHashToQCI;
     mapping(address => uint256[]) private authorQCIs;
 
-    // Editable status system
     EditableEnumLib.Data private _statuses;
 
     uint256 public nextQCINumber;
-    // No persistent governance address; rely on roles
     bool public migrationMode = true;
 
     event QCICreated(
@@ -140,7 +133,6 @@ contract QCIRegistry is AccessControl, Pausable {
         string warning
     );
 
-    // Debug events for troubleshooting
     event DebugUpdateAttempt(
         uint256 indexed qciNumber,
         address caller,
@@ -176,10 +168,9 @@ contract QCIRegistry is AccessControl, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, _initialAdmin);
         _grantRole(EDITOR_ROLE, _initialAdmin);
 
-        // Initialize the 3 core statuses
-        _initializeStatus("Draft");               // 0
-        _initializeStatus("Ready for Snapshot");  // 1
-        _initializeStatus("Posted to Snapshot");  // 2
+        _initializeStatus("Draft");               
+        _initializeStatus("Ready for Snapshot");   
+        _initializeStatus("Posted to Snapshot");  
     }
 
     function _initializeStatus(string memory statusName) private {
@@ -229,7 +220,6 @@ contract QCIRegistry is AccessControl, Pausable {
             version: 1
         });
         
-        // Store initial version
         qciVersions[qciNumber][1] = QCIVersion({
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
@@ -313,15 +303,10 @@ contract QCIRegistry is AccessControl, Pausable {
 
         emit DebugUpdateAttempt(_qciNumber, msg.sender, "validation_passed");
 
-        // Store old values for debugging
-        bytes32 oldHash = qci.contentHash;
-        uint256 oldVersion = qci.version;
 
-        // Update content hash mapping
         delete contentHashToQCI[qci.contentHash];
         contentHashToQCI[_newContentHash] = _qciNumber;
 
-        // Update QCI fields
         qci.title = _title;
         qci.chain = _chain;
         qci.implementor = _implementor;
@@ -332,7 +317,6 @@ contract QCIRegistry is AccessControl, Pausable {
 
         emit DebugStorage(_qciNumber, oldHash, _newContentHash, qci.version);
 
-        // Store new version
         qciVersions[_qciNumber][qci.version] = QCIVersion({
             contentHash: _newContentHash,
             ipfsUrl: _newIpfsUrl,
@@ -384,14 +368,12 @@ contract QCIRegistry is AccessControl, Pausable {
         if (bytes(qci.snapshotProposalId).length != 0) revert SnapshotAlreadyLinked();
         if (bytes(_snapshotProposalId).length == 0) revert InvalidSnapshotID();
 
-        // Reject placeholder values
         if (keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("TBU")) ||
             keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("tbu")) ||
             keccak256(bytes(_snapshotProposalId)) == keccak256(bytes("None"))) {
             revert InvalidSnapshotID();
         }
 
-        // Require status to be "Ready for Snapshot"
         if (qci.status != STATUS_READY_SNAPSHOT) revert QCIMustBeReadyForSnapshot();
 
         qci.snapshotProposalId = _snapshotProposalId;
@@ -414,7 +396,6 @@ contract QCIRegistry is AccessControl, Pausable {
         require(qci.qciNumber > 0, "QCI does not exist");
         require(bytes(qci.snapshotProposalId).length > 0, "No snapshot ID to clear");
         
-        // Only clear if it's a placeholder value
         require(
             keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("TBU")) ||
             keccak256(bytes(qci.snapshotProposalId)) == keccak256(bytes("tbu")) ||
@@ -423,7 +404,6 @@ contract QCIRegistry is AccessControl, Pausable {
             "Can only clear placeholder values"
         );
         
-        // Clear the snapshot ID and reset status to Ready for Snapshot if it was Posted
         qci.snapshotProposalId = "";
         if (qci.status == STATUS_POSTED_SNAPSHOT) {
             qci.status = STATUS_READY_SNAPSHOT;
@@ -499,22 +479,17 @@ contract QCIRegistry is AccessControl, Pausable {
         require(migrationMode, "Migration mode disabled");
         require(qcis[_qciNumber].qciNumber == 0, "QCI already exists");
 
-        // Validate status/proposal consistency
         bytes32 statusId = keccak256(bytes(_status));
         bool hasProposal = bytes(_snapshotProposalId).length > 0;
 
-        // If there's a valid snapshot proposal, status should be "Posted to Snapshot"
         if (hasProposal && statusId != STATUS_POSTED_SNAPSHOT) {
-            // Log warning but continue - historical data may have inconsistencies
             emit MigrationWarning(
                 _qciNumber,
                 "Status/proposal mismatch - has proposal but not 'Posted to Snapshot' status"
             );
-            // Force status to "Posted to Snapshot" when proposal exists
             statusId = STATUS_POSTED_SNAPSHOT;
         }
 
-        // Ensure the status exists (add if needed during migration)
         if (!_statuses.exists(statusId)) {
             _statuses.add(statusId);
         }
@@ -535,7 +510,6 @@ contract QCIRegistry is AccessControl, Pausable {
             version: 1
         });
         
-        // Store initial version
         qciVersions[_qciNumber][1] = QCIVersion({
             contentHash: _contentHash,
             ipfsUrl: _ipfsUrl,
@@ -547,7 +521,6 @@ contract QCIRegistry is AccessControl, Pausable {
         contentHashToQCI[_contentHash] = _qciNumber;
         authorQCIs[_author].push(_qciNumber);
 
-        // Keep nextQCINumber pointing to the next unused index
         if (_qciNumber >= nextQCINumber) {
             nextQCINumber = _qciNumber + 1;
         }
@@ -607,14 +580,12 @@ contract QCIRegistry is AccessControl, Pausable {
         bytes32 statusId = keccak256(bytes(_status));
         uint256 count = 0;
 
-        // First count matching QCIs
         for (uint256 i = 1; i < nextQCINumber; i++) {
             if (qcis[i].qciNumber > 0 && qcis[i].status == statusId) {
                 count++;
             }
         }
 
-        // Then populate array
         uint256[] memory result = new uint256[](count);
         uint256 index = 0;
 
@@ -690,12 +661,10 @@ contract QCIRegistry is AccessControl, Pausable {
      * @dev Get human-readable status name from status ID
      */
     function getStatusName(bytes32 _statusId) public pure returns (string memory) {
-        // Pre-hashed status identifiers
         if (_statusId == STATUS_DRAFT) return "Draft";
         if (_statusId == STATUS_READY_SNAPSHOT) return "Ready for Snapshot";
         if (_statusId == STATUS_POSTED_SNAPSHOT) return "Posted to Snapshot";
 
-        // For custom statuses added later, return hex string
         return "Custom Status";
     }
 
@@ -710,13 +679,11 @@ contract QCIRegistry is AccessControl, Pausable {
         QCI storage qci = qcis[_qciNumber];
         uint256 versionCount = qciVersionCount[_qciNumber];
 
-        // Prepare versions array
         QCIVersion[] memory versions = new QCIVersion[](versionCount);
         for (uint256 i = 1; i <= versionCount; i++) {
             versions[i - 1] = qciVersions[_qciNumber][i];
         }
 
-        // Get human-readable status
         string memory statusName = getStatusName(qci.status);
 
         return QCIExportData({
@@ -737,7 +704,4 @@ contract QCIRegistry is AccessControl, Pausable {
             totalVersions: versionCount
         });
     }
-
-    // Migration reporting functions removed to reduce contract size
-    // These can be implemented off-chain or in a separate contract if needed
 }
