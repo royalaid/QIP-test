@@ -157,7 +157,7 @@ fi
 echo -e "${GREEN}  ✅ Forge installed${NC}"
 
 # Quick check for QCI files
-QCI_COUNT=$(ls contents/QCI/QCI-*.md 2>/dev/null | wc -l | tr -d ' ')
+QCI_COUNT=$(ls contents/QIP/QIP-*.md 2>/dev/null | wc -l | tr -d ' ')
 if [ "$QCI_COUNT" -eq 0 ]; then
     echo -e "${YELLOW}No QCI files found to migrate${NC}"
     exit 0
