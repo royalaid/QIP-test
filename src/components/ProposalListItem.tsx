@@ -7,7 +7,7 @@ import { getIPFSService } from '../services/getIPFSService';
 import { config } from '../config/env';
 import { CACHE_TIMES } from '../config/queryClient';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
-// Proposal list item component
+import { SnapshotStatus } from './SnapshotStatus';
 
 const statusColor:any = {
     Draft: '#757575',
@@ -121,14 +121,15 @@ const ProposalListItem = (props: any) => {
     const getProposalData = (proposal: any) => {
         // Check if this is a blockchain QCI (has qciNumber) or markdown QCI (has frontmatter)
         const isBlockchainQCI = proposal.qciNumber !== undefined;
-        
+
         if (isBlockchainQCI) {
             return {
                 qci: proposal.qciNumber,
                 title: proposal.title,
                 author: proposal.author,
                 status: proposal.status,
-                shortDescription: proposal.content?.substring(0, 200) || ''
+                shortDescription: proposal.content?.substring(0, 200) || '',
+                snapshotProposalId: proposal.proposal !== 'None' ? proposal.proposal : null
             };
         } else {
             // Markdown QCI structure
@@ -137,7 +138,8 @@ const ProposalListItem = (props: any) => {
                 title: proposal.frontmatter?.title,
                 author: proposal.frontmatter?.author,
                 status: proposal.frontmatter?.status,
-                shortDescription: proposal.frontmatter?.shortDescription || ''
+                shortDescription: proposal.frontmatter?.shortDescription || '',
+                snapshotProposalId: proposal.frontmatter?.proposal !== 'None' ? proposal.frontmatter?.proposal : null
             };
         }
     };
@@ -155,12 +157,22 @@ const ProposalListItem = (props: any) => {
                           <CardDescription className="text-sm font-medium">
                             QCI-{data.qci}
                           </CardDescription>
-                          <span
-                            style={{ backgroundColor: statusColor[data.status] }}
-                            className="text-white text-xs px-2 py-1 rounded-full font-medium"
-                          >
-                            {data.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {data.snapshotProposalId ? (
+                              <SnapshotStatus
+                                proposalIdOrUrl={data.snapshotProposalId}
+                                showVotes={false}
+                                compact={true}
+                              />
+                            ) : (
+                              <span
+                                style={{ backgroundColor: statusColor[data.status] }}
+                                className="text-white text-xs px-2 py-1 rounded-full font-medium"
+                              >
+                                {data.status}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <CardTitle className="text-xl">
                           {data.title}

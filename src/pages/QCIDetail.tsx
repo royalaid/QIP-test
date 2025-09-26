@@ -16,6 +16,7 @@ import { MarkdownExportButton } from '../components/MarkdownExportButton'
 import { ExportMenu } from '../components/ExportMenu'
 import { Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SnapshotStatus } from '../components/SnapshotStatus'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -380,6 +381,17 @@ const QCIDetail: React.FC = () => {
           QCI-{qciData.qciNumber}: {qciData.title}
         </h1>
 
+        {/* Display Snapshot status if proposal is linked */}
+        {qciData.proposal && qciData.proposal !== 'None' && qciData.proposal !== 'TBU' && (
+          <div className="mb-6">
+            <SnapshotStatus
+              proposalIdOrUrl={qciData.proposal}
+              showVotes={true}
+              className="bg-muted/50 p-4 rounded-lg border"
+            />
+          </div>
+        )}
+
         <div className="mb-8">
           <FrontmatterTable
             frontmatter={frontmatter}
@@ -503,31 +515,6 @@ const QCIDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Show existing Snapshot proposal link */}
-        {qciData.proposal && qciData.proposal !== "None" && (
-          <div className="mt-8 p-4 bg-primary/5 rounded">
-            <h3 className="font-bold mb-2">Snapshot Proposal</h3>
-            <a
-              href={(() => {
-                if (qciData.proposal.startsWith("http")) {
-                  return qciData.proposal;
-                }
-                // If it's just a proposal ID (0x...), construct the full URL with the space
-                const space = config.snapshotSpace || 'qidao.eth';
-                if (qciData.proposal.startsWith("0x")) {
-                  return `https://snapshot.org/#/${space}/proposal/${qciData.proposal}`;
-                }
-                // Fallback for other formats
-                return `https://snapshot.org/#/${qciData.proposal}`;
-              })()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              View on Snapshot →
-            </a>
-          </div>
-        )}
 
       </div>
     </div>

@@ -87,3 +87,61 @@ export async function getProposals(space: string) {
     return [];
   }
 }
+
+export async function getProposalById(proposalId: string) {
+  const query = `
+    query Proposal($id: String!) {
+      proposal(id: $id) {
+        id
+        title
+        state
+        author
+        created
+        start
+        end
+        snapshot
+        choices
+        scores
+        scores_total
+        votes
+        quorum
+        space {
+          id
+          name
+        }
+        link
+        discussion
+      }
+    }
+  `;
+
+  const url = "https://hub.snapshot.org/graphql";
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        variables: { id: proposalId },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.errors) {
+      console.error("GraphQL errors:", data.errors);
+      return null;
+    }
+
+    return data.data.proposal;
+  } catch (error) {
+    console.error("Error fetching proposal:", error);
+    return null;
+  }
+}
