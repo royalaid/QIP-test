@@ -91,6 +91,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const [implementor, setImplementor] = useState(
     existingQCI?.content.implementor || importedData?.implementor || initialImplementor || "None"
   );
+  const [author] = useState(existingQCI?.content.author || address || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -161,7 +162,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           chain: combooxSelectedChain, // Allow updating in IPFS content
           // Preserve critical blockchain fields for existing QCIs
           status: existingQCI ? existingQCI.content.status : "Draft",
-          author: existingQCI ? existingQCI.content.author : address, // Always preserve original author
+          author: author,
           implementor, // Allow updating in IPFS content
           "implementation-date": existingQCI ? existingQCI.content["implementation-date"] : "None",
           proposal: existingQCI ? existingQCI.content.proposal : "None",
@@ -523,7 +524,7 @@ Implementation details...`}
           <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
             <h1 className="text-2xl font-bold mb-2">{title || "Untitled"}</h1>
             <div className="text-sm text-muted-foreground mb-4">
-              <span>Chain: {combooxSelectedChain}</span> •<span> Author: {address}</span> •<span> Status: Draft</span>
+              <span>Chain: {combooxSelectedChain}</span> •<span> Author: {author || address}</span> •<span> Status: Draft</span>
             </div>
             <div className="prose dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
