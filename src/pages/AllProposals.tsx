@@ -89,6 +89,7 @@ const AllProposals: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-4xl font-bold">All Proposals</h1>
@@ -183,7 +184,7 @@ const AllProposals: React.FC = () => {
           source={config.useMaiApi ? 'api' : 'blockchain'}
           cacheHit={!isLoading && dataUpdatedAt ? true : false}
         />
-
+      </div>
     </div>
   )
 }
