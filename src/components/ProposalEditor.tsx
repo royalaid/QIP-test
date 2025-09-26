@@ -56,7 +56,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   initialTitle,
   initialChain,
   initialContent,
-  initialImplementor
+  initialImplementor,
 }) => {
   const { address, isConnected, chain, status } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -66,10 +66,10 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   // Track if we've already navigated to prevent multiple navigations
   const hasNavigatedRef = useRef(false);
-  
+
   // Check if we need to switch chains
   const isWrongChain = chain && chain.id !== 8453;
-  
+
   const handleSwitchChain = async () => {
     try {
       await switchChain({ chainId: 8453 });
@@ -77,23 +77,19 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       console.error("Failed to switch chain:", error);
     }
   };
-  
+
   // Check for imported data from the import dialog
   const importedData = (location.state as any)?.importedData;
   const fromImport = (location.state as any)?.fromImport;
 
   // Form state - prioritize existingQCI, then imported data, then initial props
-  const [title, setTitle] = useState(
-    existingQCI?.content.title || importedData?.title || initialTitle || ''
-  );
+  const [title, setTitle] = useState(existingQCI?.content.title || importedData?.title || initialTitle || "");
   const [combooxSelectedChain, setComboboxSelectedChain] = useState(
     existingQCI?.content.chain || importedData?.chain || initialChain || "Polygon"
   );
-  const [content, setContent] = useState(
-    existingQCI?.content.content || importedData?.content || initialContent || ''
-  );
+  const [content, setContent] = useState(existingQCI?.content.content || importedData?.content || initialContent || "");
   const [implementor, setImplementor] = useState(
-    existingQCI?.content.implementor || importedData?.implementor || initialImplementor || 'None'
+    existingQCI?.content.implementor || importedData?.implementor || initialImplementor || "None"
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +98,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
-  
+
   // Services
   const [qciClient, setQipClient] = useState<QCIClient | null>(null);
   const [ipfsService, setIpfsService] = useState<IPFSService | null>(null);
@@ -157,7 +153,6 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       setSaving(true);
 
       try {
-
         // Create QCI content object
         // For existing QCIs, preserve certain blockchain fields (source of truth)
         const qciContent: QCIContent = {
@@ -360,36 +355,29 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       </Alert>
     );
   }
-  
+
   if (!registryAddress) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>
-          Error: Registry address not configured. Please restart Gatsby to load environment variables.
-        </AlertDescription>
+        <AlertDescription>Error: Registry address not configured. Please restart Gatsby to load environment variables.</AlertDescription>
       </Alert>
     );
   }
-  
+
   if (!ipfsService) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>
-          Error: IPFS provider not configured. Please check your environment configuration.
-        </AlertDescription>
+        <AlertDescription>Error: IPFS provider not configured. Please check your environment configuration.</AlertDescription>
       </Alert>
     );
   }
-  
+
   if (isWrongChain) {
     return (
       <Alert className="border-yellow-400 bg-yellow-500/10">
         <AlertDescription className="text-yellow-700 dark:text-yellow-400">
           <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
-          <Button 
-            onClick={handleSwitchChain}
-            variant="default"
-          >
+          <Button onClick={handleSwitchChain} variant="default">
             Switch to Local Base Fork
           </Button>
         </AlertDescription>
@@ -399,8 +387,6 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">{existingQCI ? `Edit QCI-${existingQCI.qciNumber}` : "Create New QCI"}</h2>
-
       {error && (
         <Alert variant="destructive" className="mb-4">
           <AlertDescription>{error}</AlertDescription>
