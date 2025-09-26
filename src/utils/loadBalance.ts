@@ -34,14 +34,13 @@ export const loadBalance = (_transports: Transport[]): Transport => {
  * Using multiple providers to avoid rate limits
  */
 export const BASE_RPC_ENDPOINTS = [
-  'https://base.api.onfinality.io/public',
-  'https://mainnet.base.org',
-  'https://base.llamarpc.com',
-  'https://base-mainnet.public.blastapi.io',
-  'https://base.blockpi.network/v1/rpc/public',
-  'https://base.meowrpc.com',
-  'https://base.publicnode.com',
-  'https://1rpc.io/base',
+  "https://mainnet.base.org",
+  "https://base.llamarpc.com",
+  "https://base-mainnet.public.blastapi.io",
+  "https://base.blockpi.network/v1/rpc/public",
+  "https://base.meowrpc.com",
+  "https://base.publicnode.com",
+  "https://1rpc.io/base",
 ];
 
 /**
