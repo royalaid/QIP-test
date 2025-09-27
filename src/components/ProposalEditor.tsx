@@ -262,7 +262,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         // Show success toast and navigate (prevent multiple navigations)
         if (!hasNavigatedRef.current) {
           if (existingQCI) {
-            toast.success(`QCI-${qciNumber} updated successfully!`);
+            toast.success(`QCI updated successfully!`);
             // Mark as navigated before actually navigating
             hasNavigatedRef.current = true;
             // Navigate back to the QCI detail page with transaction hash
@@ -277,7 +277,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           } else {
             // For new QCI, show success and reset form
             if (qciNumber > 0) {
-              toast.success(`QCI-${qciNumber} created successfully!`);
+              toast.success(`QCI created successfully!`);
               // Mark as navigated before actually navigating
               hasNavigatedRef.current = true;
               // Navigate to the new QCI page

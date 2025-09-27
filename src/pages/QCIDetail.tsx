@@ -84,23 +84,21 @@ const QCIDetail: React.FC = () => {
         window.history.replaceState({}, document.title)
 
         // Show success toast with Basescan link (only once)
-        const message = state.justCreated
-          ? `QCI-${qciNumberParsed} created successfully!`
-          : `QCI-${qciNumberParsed} updated successfully!`
+        const message = state.justCreated ? `QCI created successfully!` : `QCI updated successfully!`;
 
         toast.success(message, {
           description: "Your changes are now on-chain",
           action: {
             label: "View on Basescan",
             onClick: () => {
-              window.open(`https://basescan.org/tx/${state.txHash}`, '_blank')
-            }
+              window.open(`https://basescan.org/tx/${state.txHash}`, "_blank");
+            },
           },
-          duration: 8000 // Show for 8 seconds
-        })
+          duration: 8000, // Show for 8 seconds
+        });
 
         // Force invalidate and refetch both QCI and IPFS data
-        console.log(`[QCIDetail] Forcing complete cache invalidation for QCI-${qciNumberParsed}`)
+        console.log(`[QCIDetail] Forcing complete cache invalidation for QCI`);
         if (registryAddress && qciNumber) {
           const qciNum = parseInt(qciNumberParsed)
 
@@ -373,9 +371,7 @@ const QCIDetail: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-4xl font-bold mb-4">
-          QCI-{qciData.qciNumber}: {qciData.title}
-        </h1>
+        <h1 className="text-4xl font-bold mb-4">{qciData.title}</h1>
 
         {/* Display Snapshot status if proposal is linked */}
         {qciData.proposal && qciData.proposal !== "None" && qciData.proposal !== "TBU" && (

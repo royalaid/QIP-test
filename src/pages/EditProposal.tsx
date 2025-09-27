@@ -94,19 +94,15 @@ const EditProposal: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <Link to={`/qcis/${qciNumber}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <span>←</span>
-            <span>Back to QCI-{qciNumber}</span>
+            <span>Back to QCI</span>
           </Link>
         </div>
 
-        <h1 className="text-4xl font-bold mb-4">Edit QCI-{qciNumber}</h1>
-        <ProposalEditor
-          registryAddress={registryAddress}
-          rpcUrl={rpcUrl}
-          existingQCI={existingQCI}
-        />
+        <h1 className="text-4xl font-bold mb-4">Edit QCI</h1>
+        <ProposalEditor registryAddress={registryAddress} rpcUrl={rpcUrl} existingQCI={existingQCI} />
       </div>
     </div>
-  )
+  );
 }
 
 export default EditProposal
