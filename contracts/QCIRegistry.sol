@@ -128,6 +128,14 @@ contract QCIRegistry is AccessControl, Pausable {
         string snapshotProposalId
     );
 
+    event SnapshotProposalUpdated(
+        uint256 indexed qciNumber,
+        string oldProposalId,
+        string newProposalId,
+        address indexed updatedBy,
+        string reason
+    );
+
     event MigrationWarning(
         uint256 indexed qciNumber,
         string warning
@@ -304,6 +312,7 @@ contract QCIRegistry is AccessControl, Pausable {
         emit DebugUpdateAttempt(_qciNumber, msg.sender, "validation_passed");
 
 
+        bytes32 oldContentHash = qci.contentHash;
         delete contentHashToQCI[qci.contentHash];
         contentHashToQCI[_newContentHash] = _qciNumber;
 
@@ -315,7 +324,7 @@ contract QCIRegistry is AccessControl, Pausable {
         qci.lastUpdated = block.timestamp;
         qci.version++;
 
-        emit DebugStorage(_qciNumber, oldHash, _newContentHash, qci.version);
+        emit DebugStorage(_qciNumber, oldContentHash, _newContentHash, qci.version);
 
         qciVersions[_qciNumber][qci.version] = QCIVersion({
             contentHash: _newContentHash,
@@ -338,16 +347,32 @@ contract QCIRegistry is AccessControl, Pausable {
 
     /**
      * @dev Update QCI status using status string
+     * Authors can update their own QCI status except to "Posted to Snapshot"
+     * Editors can update any QCI to any status
      */
     function updateStatus(uint256 _qciNumber, string memory _newStatus)
         external
-        onlyRole(EDITOR_ROLE)
     {
         QCI storage qci = qcis[_qciNumber];
         if (qci.qciNumber == 0) revert QCIDoesNotExist();
 
         bytes32 newStatusId = keccak256(bytes(_newStatus));
         if (!_statuses.exists(newStatusId)) revert InvalidStatus();
+
+        // Check permissions
+        bool isAuthor = qci.author == msg.sender;
+        bool isEditor = hasRole(EDITOR_ROLE, msg.sender);
+        bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        // Authors can't set status to "Posted to Snapshot" - that must be done via linkSnapshotProposal
+        if (isAuthor && !isEditor && !isAdmin) {
+            if (newStatusId == STATUS_POSTED_SNAPSHOT) {
+                revert InvalidStatus();
+            }
+        } else if (!isEditor && !isAdmin) {
+            // Non-author, non-editor, non-admin cannot update status
+            revert OnlyAuthorOrEditor();
+        }
 
         bytes32 oldStatus = qci.status;
         qci.status = newStatusId;
@@ -385,12 +410,62 @@ contract QCIRegistry is AccessControl, Pausable {
     }
 
     /**
+     * @dev Update an existing Snapshot proposal ID (editor only, for moderation)
+     * This allows editors to update/replace an existing snapshot link for moderation purposes
+     * @param _qciNumber The QCI number
+     * @param _newSnapshotProposalId The new Snapshot proposal ID
+     * @param _reason The reason for the update (for audit trail)
+     */
+    function updateSnapshotProposal(
+        uint256 _qciNumber,
+        string memory _newSnapshotProposalId,
+        string memory _reason
+    ) external onlyRole(EDITOR_ROLE) {
+        QCI storage qci = qcis[_qciNumber];
+        if (qci.qciNumber == 0) revert QCIDoesNotExist();
+        if (bytes(_newSnapshotProposalId).length == 0) revert InvalidSnapshotID();
+
+        // Validate new ID is not a placeholder
+        if (keccak256(bytes(_newSnapshotProposalId)) == keccak256(bytes("TBU")) ||
+            keccak256(bytes(_newSnapshotProposalId)) == keccak256(bytes("tbu")) ||
+            keccak256(bytes(_newSnapshotProposalId)) == keccak256(bytes("None")) ||
+            keccak256(bytes(_newSnapshotProposalId)) == keccak256(bytes("TBD"))) {
+            revert InvalidSnapshotID();
+        }
+
+        // Store old ID for event
+        string memory oldProposalId = qci.snapshotProposalId;
+
+        // Update the proposal ID
+        qci.snapshotProposalId = _newSnapshotProposalId;
+
+        // Ensure status is "Posted to Snapshot" if not already
+        if (qci.status != STATUS_POSTED_SNAPSHOT) {
+            emit QCIStatusChanged(_qciNumber, qci.status, STATUS_POSTED_SNAPSHOT);
+            qci.status = STATUS_POSTED_SNAPSHOT;
+        }
+
+        qci.lastUpdated = block.timestamp;
+
+        // Emit event for transparency and audit trail
+        emit SnapshotProposalUpdated(
+            _qciNumber,
+            oldProposalId,
+            _newSnapshotProposalId,
+            msg.sender,
+            _reason
+        );
+
+        emit SnapshotProposalLinked(_qciNumber, _newSnapshotProposalId);
+    }
+
+    /**
      * @dev Clear invalid snapshot ID (admin only)
      * This allows fixing QCIs that have placeholder values like "TBU" stored
      */
-    function clearInvalidSnapshotId(uint256 _qciNumber) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
+    function clearInvalidSnapshotId(uint256 _qciNumber)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
     {
         QCI storage qci = qcis[_qciNumber];
         require(qci.qciNumber > 0, "QCI does not exist");

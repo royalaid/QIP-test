@@ -109,7 +109,13 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
     );
   }
 
-  const otherStatuses = availableStatuses.filter(s => s.name !== currentStatus);
+  // Filter out current status and, for authors (non-editors), also filter out "Posted to Snapshot"
+  const otherStatuses = availableStatuses.filter(s => {
+    if (s.name === currentStatus) return false;
+    // Authors cannot set status to "Posted to Snapshot" - must use linkSnapshotProposal
+    if (isAuthor && !isEditor && s.name === 'Posted to Snapshot') return false;
+    return true;
+  });
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -132,6 +138,16 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
+        {otherStatuses.length === 0 ? (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+            No other statuses available
+          </div>
+        ) : null}
+        {isAuthor && !isEditor && currentStatus === 'Ready for Snapshot' && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b mb-1">
+            Use "Submit to Snapshot" to post
+          </div>
+        )}
         {otherStatuses.map((status) => (
           <DropdownMenuItem
             key={status.hash}

@@ -502,6 +502,29 @@ export const QCIRegistryABI = [
   },
   {
     type: "function",
+    name: "updateSnapshotProposal",
+    inputs: [
+      {
+        name: "_qciNumber",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "_newSnapshotProposalId",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "_reason",
+        type: "string",
+        internalType: "string",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "migrateQCI",
     inputs: [
       {
@@ -1261,6 +1284,43 @@ export const QCIRegistryABI = [
       },
       {
         name: "snapshotProposalId",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "SnapshotProposalUpdated",
+    inputs: [
+      {
+        name: "qciNumber",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "oldProposalId",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
+      {
+        name: "newProposalId",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
+      {
+        name: "updatedBy",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "reason",
         type: "string",
         indexed: false,
         internalType: "string",

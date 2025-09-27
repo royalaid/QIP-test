@@ -92,38 +92,8 @@ contract QCIRegistryTest is Test {
         vm.stopPrank();
     }
     
-    function test_RoleBasedAccess() public {
-        // Grant editor role to Bob (only governance can call)
-        registry.setEditor(bob, true);
+    // Note: Role-based access for status updates is comprehensively tested in QCIAuthorStatusUpdate.t.sol
 
-        // Alice creates a QCI
-        vm.startPrank(alice);
-        uint256 qciNumber = registry.createQCI(
-            "Test Proposal",
-            "Base",
-            keccak256("content"),
-            "ipfs://test"
-        );
-        vm.stopPrank();
-
-        // Bob (editor) can update status
-        vm.startPrank(bob);
-        registry.updateStatus(qciNumber, "Ready for Snapshot");
-        vm.stopPrank();
-
-        // Charlie (non-editor) cannot update status
-        vm.startPrank(charlie);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                charlie,
-                registry.EDITOR_ROLE()
-            )
-        );
-        registry.updateStatus(qciNumber, "Posted to Snapshot");
-        vm.stopPrank();
-    }
-    
     function test_MigrateExistingQCI() public {
         // Grant editor role
         registry.setEditor(alice, true);
@@ -161,69 +131,33 @@ contract QCIRegistryTest is Test {
         vm.stopPrank();
     }
     
-    function test_SnapshotIntegration() public {
+    // Note: Snapshot linking and moderation is comprehensively tested in QCISnapshotModeration.t.sol
+
+    function test_CannotUpdateAfterSnapshot() public {
         vm.startPrank(alice);
-        
+
         uint256 qciNumber = registry.createQCI(
-            "Snapshot Test",
+            "Update Lock Test",
             "Polygon",
             keccak256("content"),
             "ipfs://test"
         );
-        
-        // First update to Ready for Snapshot status
+
+        // Set up editor and link to snapshot
         vm.stopPrank();
         registry.setEditor(alice, true);
         vm.startPrank(alice);
         registry.updateStatus(qciNumber, "Ready for Snapshot");
+        registry.linkSnapshotProposal(qciNumber, "0x1234567890abcdef");
 
-        // Now link snapshot proposal
-        string memory snapshotId = "0x1234567890abcdef";
-        registry.linkSnapshotProposal(qciNumber, snapshotId);
-        
-        // Verify status changed and snapshot linked
-        (,,,,,,,, bytes32 status,,, string memory linkedId,) = registry.qcis(qciNumber);
-        assertEq(status, keccak256(bytes("Posted to Snapshot")));
-        assertEq(linkedId, snapshotId);
-        
-        // Cannot update after snapshot submission
-        vm.expectRevert("Cannot update after posting to Snapshot");
+        // Cannot update content after snapshot submission
+        vm.expectRevert(QCIRegistry.AlreadySubmittedToSnapshot.selector);
         registry.updateQCI(qciNumber, "New Title", "Polygon", "None", keccak256("new"), "ipfs://new", "Should fail");
-        
-        vm.stopPrank();
-    }
-    
-    function test_ReviewWorkflow() public {
-        // Setup editor
-        registry.setEditor(bob, true);
 
-        // Create and submit for review
-        vm.startPrank(alice);
-        uint256 qciNumber = registry.createQCI(
-            "Review Test",
-            "Base",
-            keccak256("content"),
-            "ipfs://test"
-        );
-        
-        // Stop Alice prank before switching actors
         vm.stopPrank();
-        // Editor moves status to ReviewPending
-        vm.prank(bob);
-        registry.updateStatus(qciNumber, "Ready for Snapshot");
-        
-        // Editor moves status to VotePending
-        vm.prank(bob);
-        registry.updateStatus(qciNumber, "Posted to Snapshot");
-        
-        // Status should now be VotePending
-        (
-            , , , , , , , ,
-            bytes32 status,
-            , , ,
-        ) = registry.qcis(qciNumber);
-        assertEq(status, keccak256(bytes("Posted to Snapshot")));
     }
+
+    // Note: Status workflow testing is covered in QCIAuthorStatusUpdate.t.sol
 
     function test_PausePreventsCreation() public {
         // Pause by admin (DEFAULT_ADMIN_ROLE granted to this test via constructor argument)
