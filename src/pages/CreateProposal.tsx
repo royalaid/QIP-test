@@ -3,9 +3,10 @@ import { useLocation } from 'react-router-dom'
 import { ProposalEditor } from '../components/ProposalEditor'
 import { config } from '../config'
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { templates, Template } from '../data/templates'
-import { ImportExportDialog } from '@/components/ImportExportDialog'
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { templates, Template } from "../data/templates";
+import { ImportExportDialog } from "@/components/ImportExportDialog";
 import { Upload, FileText, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -114,22 +115,19 @@ const CreateProposal: React.FC = () => {
               </button>
             </div>
             <h1 className="text-4xl font-bold mb-4">Create a New Proposal</h1>
-            {(selectedTemplate || importedData) && (
+            {importedData && (
+              <Alert className="mb-6 border-blue-400 bg-blue-50 dark:bg-blue-950">
+                <AlertDescription className="text-blue-700 dark:text-blue-400">
+                  Data imported from JSON export. Review and modify as needed before saving.
+                </AlertDescription>
+              </Alert>
+            )}
+            {selectedTemplate && (
               <div className="flex items-center gap-3 mb-6 p-3 bg-muted/50 border border-border rounded-lg">
-                {selectedTemplate && (
-                  <>
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      Using template: <strong className="text-foreground">{selectedTemplate.name}</strong>
-                    </span>
-                  </>
-                )}
-                {importedData && (
-                  <>
-                    <Package className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm text-muted-foreground">Imported from JSON export</span>
-                  </>
-                )}
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Using template: <strong className="text-foreground">{selectedTemplate.name}</strong>
+                </span>
               </div>
             )}
             <ProposalEditor

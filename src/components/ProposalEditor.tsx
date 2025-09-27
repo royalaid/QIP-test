@@ -4,8 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { type Address } from 'viem';
 import { toast } from 'sonner';
-import { debounce } from 'lodash';
-import { QCIClient, QCIStatus, type QCIContent } from '../services/qciClient';
+import { QCIClient, type QCIContent } from "../services/qciClient";
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
@@ -78,11 +77,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     }
   };
 
-  // Check for imported data from the import dialog
   const importedData = (location.state as any)?.importedData;
-  const fromImport = (location.state as any)?.fromImport;
 
-  // Form state - prioritize existingQCI, then imported data, then initial props
   const [title, setTitle] = useState(existingQCI?.content.title || importedData?.title || initialTitle || "");
   const [combooxSelectedChain, setComboboxSelectedChain] = useState(
     existingQCI?.content.chain || importedData?.chain || initialChain || "Polygon"
@@ -397,14 +393,6 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       {success && (
         <Alert className="mb-4 border-green-400 bg-green-100 text-green-700">
           <AlertDescription>{success}</AlertDescription>
-        </Alert>
-      )}
-
-      {fromImport && (
-        <Alert className="mb-4 border-blue-400 bg-blue-50 dark:bg-blue-950">
-          <AlertDescription className="text-blue-700 dark:text-blue-400">
-            Data imported from JSON export. Review and modify as needed before saving.
-          </AlertDescription>
         </Alert>
       )}
 
