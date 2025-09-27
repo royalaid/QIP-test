@@ -88,6 +88,62 @@ export async function getProposals(space: string) {
   }
 }
 
+/**
+ * Extract QIP number from proposal title
+ * Handles various formats including voice-to-text errors
+ */
+function extractQipNumber(title: string): number | null {
+  const patterns = [
+    /(?:QIP|qip)[-\s#]*(\d+)[:]/i, // Main pattern with colon
+    /(?:QIP|qip)[-\s#]*(\d+)\b/i, // Without colon
+    /^(\d+)[:.-]\s*/, // Starting with just number
+  ];
+
+  for (const pattern of patterns) {
+    const match = title.match(pattern);
+    if (match && match[1]) {
+      const num = parseInt(match[1], 10);
+      if (!isNaN(num) && num > 0 && num < 10000) {
+        return num;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetch the latest QIP number from Snapshot proposals
+ * Always queries the production qidao.eth space for consistency
+ */
+export async function getLatestQipNumber(): Promise<number> {
+  try {
+    // Always fetch from production space for QIP numbers
+    const proposals = await getProposals("qidao.eth");
+
+    let highestQipNumber = 0;
+
+    // Find the highest QIP number from existing proposals
+    for (const proposal of proposals) {
+      const qipNumber = extractQipNumber(proposal.title);
+      if (qipNumber !== null && qipNumber > highestQipNumber) {
+        highestQipNumber = qipNumber;
+        console.log(`Found QIP-${qipNumber} in: "${proposal.title}"`);
+      }
+    }
+
+    // If no QIP found, start from 0 (will return 1 as next)
+    if (highestQipNumber === 0) {
+      console.warn("No existing QIP proposals found, starting from QIP-1");
+    }
+
+    console.log(`Latest QIP number: ${highestQipNumber}, next will be: ${highestQipNumber + 1}`);
+    return highestQipNumber;
+  } catch (error) {
+    console.error("Failed to fetch latest QIP number:", error);
+    return 0; // Return 0 so next will be 1
+  }
+}
+
 export async function getProposalById(proposalId: string) {
   const query = `
     query Proposal($id: String!) {

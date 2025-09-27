@@ -38,15 +38,21 @@ unset VITE_BASE_RPC_URLS  # Remove multiple RPC URLs
 unset VITE_MAI_API_URL
 unset VITE_USE_MAI_API
 
+# Enable test mode for Snapshot submissions (use testdevtest space)
+export VITE_SNAPSHOT_TEST_MODE=true
+export VITE_SNAPSHOT_TEST_SPACE=testdevtest.eth
+
 echo -e "${GREEN}Environment variables set for pure local mode:${NC}"
-echo "  VITE_USE_LOCAL_IPFS=true"
-echo "  VITE_USE_MAI_API=false"
-echo "  VITE_LOCAL_MODE=true"
-echo "  VITE_LOCAL_IPFS_API=http://localhost:5001"
-echo "  VITE_LOCAL_IPFS_GATEWAY=http://localhost:8080"
-echo "  VITE_BASE_RPC_URL=http://localhost:8545"
-echo "  VITE_IPFS_API_URL=(unset)"
-echo "  VITE_MAI_API_URL=(unset)"
+echo "  VITE_USE_LOCAL_IPFS=$VITE_USE_LOCAL_IPFS"
+echo "  VITE_USE_MAI_API=$VITE_USE_MAI_API"
+echo "  VITE_LOCAL_MODE=$VITE_LOCAL_MODE"
+echo "  VITE_LOCAL_IPFS_API=$VITE_LOCAL_IPFS_API"
+echo "  VITE_LOCAL_IPFS_GATEWAY=$VITE_LOCAL_IPFS_GATEWAY"
+echo "  VITE_BASE_RPC_URL=$VITE_BASE_RPC_URL"
+echo "  VITE_SNAPSHOT_TEST_MODE=$VITE_SNAPSHOT_TEST_MODE"
+echo "  VITE_SNAPSHOT_TEST_SPACE=$VITE_SNAPSHOT_TEST_SPACE"
+echo "  VITE_IPFS_API_URL=${VITE_IPFS_API_URL:-(unset)}"
+echo "  VITE_MAI_API_URL=${VITE_MAI_API_URL:-(unset)}"
 echo ""
 
 # Now run the standard local dev script with our environment

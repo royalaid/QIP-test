@@ -52,6 +52,14 @@ export VITE_WALLETCONNECT_PROJECT_ID=${VITE_WALLETCONNECT_PROJECT_ID:-"07aaa3b80
 # Snapshot space
 export VITE_SNAPSHOT_SPACE=${VITE_SNAPSHOT_SPACE:-"qidao.eth"}
 
+if [ "$TEST_MODE" = "true" ]; then
+    export VITE_SNAPSHOT_TEST_MODE=true
+    export VITE_SNAPSHOT_TEST_SPACE=${VITE_SNAPSHOT_TEST_SPACE:-"testdevtest.eth"}
+    echo -e "${YELLOW}📝 Snapshot TEST MODE enabled - will submit to testdevtest.eth space${NC}"
+else
+    export VITE_SNAPSHOT_TEST_MODE=false
+fi
+
 # Clear local-only variables to prevent conflicts
 unset VITE_LOCAL_IPFS_API
 unset VITE_LOCAL_IPFS_GATEWAY
@@ -66,6 +74,10 @@ echo "  VITE_USE_LOCAL_IPFS=false"
 echo "  VITE_MAI_API_URL=$VITE_MAI_API_URL"
 echo "  VITE_IPFS_API_URL=$VITE_IPFS_API_URL"
 echo "  VITE_QCI_REGISTRY_ADDRESS=$VITE_QCI_REGISTRY_ADDRESS"
+if [ "$TEST_MODE" = "true" ]; then
+    echo "  VITE_SNAPSHOT_TEST_MODE=true"
+    echo "  VITE_SNAPSHOT_TEST_SPACE=$VITE_SNAPSHOT_TEST_SPACE"
+fi
 echo ""
 
 # ============================================

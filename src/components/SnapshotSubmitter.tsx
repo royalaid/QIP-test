@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
 import { useWalletClient, usePublicClient } from "wagmi";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
+import { getLatestQipNumber } from "../utils/snapshotClient";
 
 interface SnapshotSubmitterProps {
   frontmatter: any;
@@ -30,7 +31,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   registryAddress,
   rpcUrl,
   isAuthor = false,
-  isEditor = false
+  isEditor = false,
 }) => {
   const signer = useEthersSigner();
   const publicClient = usePublicClient();
@@ -44,29 +45,55 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   // Wallet client for blockchain transactions
   const { data: walletClient } = useWalletClient();
 
+  // Fetch the next QIP number using React Query
+  const {
+    data: latestQipNumber,
+    isLoading: isLoadingQipNumber,
+    refetch: refetchQipNumber,
+  } = useQuery({
+    queryKey: ["latestQipNumber"],
+    queryFn: getLatestQipNumber,
+    staleTime: 60000, // Cache for 1 minute
+    refetchInterval: 300000, // Refetch every 5 minutes
+  });
 
-  const SNAPSHOT_SPACE = config.snapshotSpace;
-  const isDefaultSpace = SNAPSHOT_SPACE === "qidao.eth";
+  const nextQipNumber = latestQipNumber ? latestQipNumber + 1 : 1;
+  const previewQipTitle = `QIP-${nextQipNumber}: ${frontmatter.title}`;
+
+  // Determine which space to use based on test mode
+  const isTestMode = config.snapshotTestMode;
+  const SNAPSHOT_SPACE = isTestMode ? config.snapshotTestSpace : config.snapshotSpace;
+  const isDefaultSpace = config.snapshotSpace === "qidao.eth" && !isTestMode;
 
   // Conditional validation based on space
   const requiresTokenBalance = isDefaultSpace;
 
-  const formatProposalBody = (rawMarkdown: string, frontmatter: any) => {
+  const formatProposalBody = (rawMarkdown: string, frontmatter: any, transactions?: string[]) => {
     // Remove frontmatter from the beginning of the markdown
     const content = rawMarkdown.replace(/^---[\s\S]*?---\n?/, "").trim();
 
     // Add frontmatter information to the proposal body
     const frontmatterInfo = [];
+    if (frontmatter.qci) frontmatterInfo.push(`**Original QCI:** QCI-${frontmatter.qci}`);
     if (frontmatter.chain) frontmatterInfo.push(`**Chain:** ${frontmatter.chain}`);
     if (frontmatter.author) frontmatterInfo.push(`**Author:** ${frontmatter.author}`);
     if (frontmatter.implementor) frontmatterInfo.push(`**Implementor:** ${frontmatter.implementor}`);
     if (frontmatter["implementation-date"]) frontmatterInfo.push(`**Implementation Date:** ${frontmatter["implementation-date"]}`);
     if (frontmatter.created) frontmatterInfo.push(`**Created:** ${frontmatter.created}`);
 
-    // Combine frontmatter info with content
-    return frontmatterInfo.length > 0 ? `${frontmatterInfo.join("\n")}\n\n${content}` : content;
-  };
+    // Build the full body
+    let fullBody = frontmatterInfo.length > 0 ? `${frontmatterInfo.join("\n")}\n\n${content}` : content;
 
+    // Add transactions if present
+    if (transactions && transactions.length > 0) {
+      fullBody += "\n\n## Transactions\n\n";
+      transactions.forEach((tx, index) => {
+        fullBody += `### Transaction ${index + 1}\n\`\`\`\n${tx}\n\`\`\`\n\n`;
+      });
+    }
+
+    return fullBody;
+  };
 
   const TOKEN_CONTRACT_ADDRESS = "0x1bffabc6dfcafb4177046db6686e3f135e8bc732";
   const REQUIRED_BALANCE = 150000;
@@ -90,14 +117,37 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
   const space = SNAPSHOT_SPACE;
 
+  // Extract transactions from frontmatter if available
+  const extractTransactions = () => {
+    if (frontmatter.transactions && Array.isArray(frontmatter.transactions)) {
+      return frontmatter.transactions;
+    }
+    return [];
+  };
+
   const handleSubmit = async () => {
     if (!signer) {
       setStatus("Please connect your wallet first.");
       return;
     }
     setLoading(true);
-    setStatus(null);
+    setStatus(
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span className="animate-pulse">Fetching next QIP number...</span>
+      </div>
+    );
+
     try {
+      // Refetch to ensure we have the latest QIP number
+      await refetchQipNumber();
+
+      const qipTitle = previewQipTitle;
+
+      setStatus(
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="animate-pulse">Preparing {qipTitle} for submission...</span>
+        </div>
+      );
       // Always use Ethereum mainnet blocks for all Snapshot proposals
       const ethProvider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
       const snapshotBlock = await ethProvider.getBlockNumber();
@@ -107,11 +157,14 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       const startOffset = 86400; // Exactly 24 hours
       const endOffset = 345600; // Exactly 4 days
 
+      // Extract transactions for the body
+      const transactions = extractTransactions();
+
       const proposalOptions: Proposal = {
         space,
         type: "basic",
-        title: `QCI${frontmatter.qci}: ${frontmatter.title}`,
-        body: formatProposalBody(rawMarkdown, frontmatter),
+        title: qipTitle,
+        body: formatProposalBody(rawMarkdown, frontmatter, transactions),
         choices: ["For", "Against", "Abstain"],
         start: now + startOffset,
         end: now + endOffset,
@@ -133,6 +186,8 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
         setProposalId(newProposalId);
 
+        // Refetch QIP number after successful submission
+        refetchQipNumber();
 
         // Show success message and prompt for status update if user has permissions
         if (registryAddress && (isAuthor || isEditor)) {
@@ -185,7 +240,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   };
 
   const handleStatusUpdate = async () => {
-
     if (!registryAddress || !walletClient || !proposalId) {
       console.error("[SnapshotSubmitter] Cannot update status - missing required data:", {
         registryAddress: registryAddress || "MISSING",
@@ -219,7 +273,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       }
       return;
     }
-
 
     setIsUpdatingStatus(true);
     try {
@@ -256,7 +309,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           account: walletClient.account,
         });
 
-
         // Simulate the transaction with 20% buffer
         const gasWithBuffer = (estimatedGas * 120n) / 100n;
 
@@ -269,11 +321,8 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           gas: gasWithBuffer,
         });
 
-
         // Execute the transaction with the simulated request
         hash = await walletClient.writeContract(request);
-
-
       } catch (contractError: any) {
         const errorMessage = contractError?.message || "Unknown contract error";
         const isSimulationError = errorMessage.includes("simulation") || errorMessage.includes("revert");
@@ -355,13 +404,38 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="text-center">
         <CardTitle className="flex items-center justify-center gap-2">
-          Submit to Snapshot
-          {!isDefaultSpace && <span className="text-base font-normal text-primary">({SNAPSHOT_SPACE})</span>}
+          Graduate QCI to QIP on Snapshot
+          {isTestMode && <span className="text-base font-normal text-orange-500">(TEST MODE: {SNAPSHOT_SPACE})</span>}
+          {!isDefaultSpace && !isTestMode && <span className="text-base font-normal text-primary">({SNAPSHOT_SPACE})</span>}
         </CardTitle>
-        <CardDescription>Create a governance proposal on Snapshot for community voting</CardDescription>
+        <CardDescription>
+          {isTestMode
+            ? "Submit test proposal (QIP numbers from production)"
+            : "Create a governance proposal on Snapshot for community voting"}
+        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {!isLoadingQipNumber && (
+          <div className="p-4 rounded-lg border bg-muted/30">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Will be submitted as:</span>
+                {isTestMode && <span className="text-xs text-orange-500 font-medium">TEST MODE</span>}
+              </div>
+              <div className="space-y-1">
+                <div className="text-lg font-semibold text-foreground">{previewQipTitle}</div>
+                <div className="text-xs text-muted-foreground">
+                  Original QCI-{frontmatter.qci} → Graduating to QIP-{nextQipNumber}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Target space: <span className="font-mono">{space}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Messages */}
         {status && (
           <div
@@ -390,7 +464,6 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               <span>Token balance: {tokenBalance.toLocaleString()} (meets requirement)</span>
             </div>
           )}
-
         </div>
 
         {/* Submit Button */}
@@ -398,10 +471,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           <Button
             onClick={handleSubmit}
             disabled={
-              !signer ||
-              (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) ||
-              loading ||
-              (requiresTokenBalance && checkingBalance)
+              !signer || (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) || loading || (requiresTokenBalance && checkingBalance)
             }
             className="w-full"
             size="lg"
@@ -414,9 +484,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               ? "Connect Wallet"
               : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
               ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
+              : isTestMode
+              ? `Submit Test QIP to ${SNAPSHOT_SPACE}`
               : !isDefaultSpace
-              ? `Submit to ${SNAPSHOT_SPACE}`
-              : "Submit to Snapshot"}
+              ? `Submit QIP to ${SNAPSHOT_SPACE}`
+              : "Submit QIP to Snapshot"}
           </Button>
         </div>
 

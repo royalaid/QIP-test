@@ -57,13 +57,15 @@ export const config = {
 
   // Mai API Configuration for QCI fetching
   maiApiUrl: getEnvVar("VITE_MAI_API_URL", "https://api.mai.finance"),
-  
+
   // App Configuration
   localMode: getBoolEnvVar("VITE_LOCAL_MODE", false),
   useTestnet: getBoolEnvVar("VITE_USE_TESTNET", false),
-  
+
   // Snapshot Configuration
   snapshotSpace: getEnvVar("VITE_SNAPSHOT_SPACE", "qidao.eth"),
+  snapshotTestMode: getBoolEnvVar("VITE_SNAPSHOT_TEST_MODE", false),
+  snapshotTestSpace: getEnvVar("VITE_SNAPSHOT_TEST_SPACE", "testdevtest.eth"),
 
   // Development Configuration
   isDevelopment: process.env.NODE_ENV === "development",
