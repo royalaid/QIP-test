@@ -5,9 +5,10 @@ import { Proposal } from "@snapshot-labs/snapshot.js/dist/src/sign/types";
 import { ethers } from "ethers";
 import { useQuery } from "@tanstack/react-query";
 import { config } from "../config";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
-import { AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { AlertCircle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useWalletClient, usePublicClient } from "wagmi";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 import { getLatestQipNumber } from "../utils/snapshotClient";
@@ -41,6 +42,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   const [proposalUrl, setProposalUrl] = useState<string | null>(null);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusLevel, setStatusLevel] = useState<"info" | "success" | "error" | null>(null);
 
   // Wallet client for blockchain transactions
   const { data: walletClient } = useWalletClient();
@@ -128,14 +130,17 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   const handleSubmit = async () => {
     if (!signer) {
       setStatus("Please connect your wallet first.");
+      setStatusLevel("info");
       return;
     }
     setLoading(true);
     setStatus(
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="animate-pulse">Fetching next QIP number...</span>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Fetching next QIP number...</span>
       </div>
     );
+    setStatusLevel("info");
 
     try {
       // Refetch to ensure we have the latest QIP number
@@ -145,9 +150,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
       setStatus(
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="animate-pulse">Preparing {qipTitle} for submission...</span>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Preparing {qipTitle} for submission...</span>
         </div>
       );
+      setStatusLevel("info");
       // Always use Ethereum mainnet blocks for all Snapshot proposals
       const ethProvider = new ethers.providers.JsonRpcProvider("https://eth.llamarpc.com");
       const snapshotBlock = await ethProvider.getBlockNumber();
@@ -206,6 +213,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               </a>
             </div>
           );
+          setStatusLevel("success");
         } else {
           setStatus(
             <div className="flex items-center gap-2 text-sm">
@@ -221,9 +229,11 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               </a>
             </div>
           );
+          setStatusLevel("success");
         }
       } else {
         setStatus(`Proposal created: ${JSON.stringify(receipt)}`);
+        setStatusLevel("success");
       }
     } catch (e: any) {
       console.error("Snapshot submission error:", e);
@@ -234,6 +244,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       } else {
         setStatus(`Error: ${e.message || "Failed to create proposal. Please try again."}`);
       }
+      setStatusLevel("error");
     } finally {
       setLoading(false);
     }
@@ -256,6 +267,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
             <span>Error: No proposal ID found. Please create the proposal first.</span>
           </div>
         );
+        setStatusLevel("error");
       } else if (!walletClient) {
         setStatus(
           <div className="flex items-center gap-2 text-sm text-destructive">
@@ -263,6 +275,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
             <span>Error: Wallet not connected. Please connect your wallet.</span>
           </div>
         );
+        setStatusLevel("error");
       } else if (!registryAddress) {
         setStatus(
           <div className="flex items-center gap-2 text-sm text-destructive">
@@ -270,6 +283,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
             <span>Error: Registry address not configured.</span>
           </div>
         );
+        setStatusLevel("error");
       }
       return;
     }
@@ -391,6 +405,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           <span>Failed to link Snapshot proposal: {errorMessage}</span>
         </div>
       );
+      setStatusLevel("error");
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -402,35 +417,18 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="flex items-center justify-center gap-2">
-          Graduate QCI to QIP on Snapshot
-          {isTestMode && <span className="text-base font-normal text-orange-500">(TEST MODE: {SNAPSHOT_SPACE})</span>}
-          {!isDefaultSpace && !isTestMode && <span className="text-base font-normal text-primary">({SNAPSHOT_SPACE})</span>}
-        </CardTitle>
-        <CardDescription>
-          {isTestMode
-            ? "Submit test proposal (QIP numbers from production)"
-            : "Create a governance proposal on Snapshot for community voting"}
-        </CardDescription>
-      </CardHeader>
-
       <CardContent className="space-y-4">
         {!isLoadingQipNumber && (
-          <div className="p-4 rounded-lg border bg-muted/30">
-            <div className="space-y-2">
+          <div className="p-5 px-0 rounded-lg">
+            <div className="">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Will be submitted as:</span>
-                {isTestMode && <span className="text-xs text-orange-500 font-medium">TEST MODE</span>}
+                <span className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Will be submitted as</span>
               </div>
               <div className="space-y-1">
-                <div className="text-lg font-semibold text-foreground">{previewQipTitle}</div>
+                <div className="text-xl font-bold text-foreground">{previewQipTitle}</div>
                 <div className="text-xs text-muted-foreground">
-                  Original QCI-{frontmatter.qci} → Graduating to QIP-{nextQipNumber}
+                  Graduating QCI-{frontmatter.qci} → QIP-{nextQipNumber}
                 </div>
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Target space: <span className="font-mono">{space}</span>
               </div>
             </div>
           </div>
@@ -440,57 +438,33 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
         {status && (
           <div
             className={`p-4 rounded-lg border ${
-              typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled"))
+              statusLevel === "error"
                 ? "bg-destructive/10 border-destructive/20 text-destructive"
-                : "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-400"
+                : statusLevel === "success"
+                ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-400"
+                : "bg-muted/30 border-border text-muted-foreground"
             }`}
           >
             <div className="flex items-start gap-2">
-              {typeof status === "string" && (status.includes("Error") || status.includes("failed") || status.includes("cancelled")) ? (
+              {statusLevel === "error" ? (
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              ) : (
+              ) : statusLevel === "success" ? (
                 <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              )}
+              ) : null}
               <div className="flex-1">{status}</div>
             </div>
           </div>
         )}
 
         {/* Prerequisites Info */}
-        <div className="space-y-2">
-          {signer && requiresTokenBalance && tokenBalance >= REQUIRED_BALANCE && (
+        {signer && requiresTokenBalance && tokenBalance >= REQUIRED_BALANCE && (
+          <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <span>Token balance: {tokenBalance.toLocaleString()} (meets requirement)</span>
             </div>
-          )}
-        </div>
-
-        {/* Submit Button */}
-        <div className="pt-4">
-          <Button
-            onClick={handleSubmit}
-            disabled={
-              !signer || (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) || loading || (requiresTokenBalance && checkingBalance)
-            }
-            className="w-full"
-            size="lg"
-          >
-            {loading
-              ? "Submitting..."
-              : requiresTokenBalance && checkingBalance
-              ? "Checking prerequisites..."
-              : !signer
-              ? "Connect Wallet"
-              : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
-              ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
-              : isTestMode
-              ? `Submit Test QIP to ${SNAPSHOT_SPACE}`
-              : !isDefaultSpace
-              ? `Submit QIP to ${SNAPSHOT_SPACE}`
-              : "Submit QIP to Snapshot"}
-          </Button>
-        </div>
+          </div>
+        )}
 
         {/* Status Update Prompt */}
         {showStatusUpdatePrompt && (
@@ -526,6 +500,31 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           </div>
         )}
       </CardContent>
+      <CardFooter>
+        <Button
+          onClick={handleSubmit}
+          disabled={
+            !signer || (requiresTokenBalance && tokenBalance < REQUIRED_BALANCE) || loading || (requiresTokenBalance && checkingBalance)
+          }
+          className="w-full"
+          size="xl"
+          variant="gradient-primary"
+        >
+          {loading
+            ? "Submitting..."
+            : requiresTokenBalance && checkingBalance
+            ? "Checking prerequisites..."
+            : !signer
+            ? "Connect Wallet"
+            : requiresTokenBalance && tokenBalance < REQUIRED_BALANCE
+            ? `Insufficient Balance (${tokenBalance.toLocaleString()} / ${REQUIRED_BALANCE.toLocaleString()} required)`
+            : isTestMode
+            ? `Submit Test QIP to ${SNAPSHOT_SPACE}`
+            : !isDefaultSpace
+            ? `Submit QIP to ${SNAPSHOT_SPACE}`
+            : "Submit QIP to Snapshot"}
+        </Button>
+      </CardFooter>
     </Card>
   );
 };

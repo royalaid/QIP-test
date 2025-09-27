@@ -521,7 +521,7 @@ Implementation details...`}
       {preview && (
         <div className="mt-8 border-t pt-8">
           <h3 className="text-xl font-bold mb-4">Preview</h3>
-          <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
+          <div className="p-6">
             <h1 className="text-2xl font-bold mb-2">{title || "Untitled"}</h1>
             <div className="text-sm text-muted-foreground mb-4">
               <span>Chain: {combooxSelectedChain}</span> •<span> Author: {author || address}</span> •<span> Status: Draft</span>

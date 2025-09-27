@@ -347,12 +347,7 @@ const QCIDetail: React.FC = () => {
                 <span>Edit</span>
               </Button>
             )}
-            <MarkdownExportButton
-              qciData={qciData}
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-            />
+            <MarkdownExportButton qciData={qciData} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" />
             <ExportMenu
               qciData={qciData}
               registryAddress={registryAddress}
@@ -382,13 +377,9 @@ const QCIDetail: React.FC = () => {
         </h1>
 
         {/* Display Snapshot status if proposal is linked */}
-        {qciData.proposal && qciData.proposal !== 'None' && qciData.proposal !== 'TBU' && (
+        {qciData.proposal && qciData.proposal !== "None" && qciData.proposal !== "TBU" && (
           <div className="mb-6">
-            <SnapshotStatus
-              proposalIdOrUrl={qciData.proposal}
-              showVotes={true}
-              className="bg-muted/50 p-4 rounded-lg border"
-            />
+            <SnapshotStatus proposalIdOrUrl={qciData.proposal} showVotes={true} className="bg-muted/50 p-4 rounded-lg border" />
           </div>
         )}
 
@@ -465,11 +456,11 @@ const QCIDetail: React.FC = () => {
         {/* Snapshot submission for QCIs ready for snapshot submission */}
         {canSubmitSnapshot && qciData.status === "Ready for Snapshot" && (!qciData.proposal || qciData.proposal === "None") && (
           <div className="mt-8 border-t pt-8">
-            <h2 className="text-2xl font-bold mb-4">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
               Submit to Snapshot
-              {config.snapshotSpace !== "qidao.eth" && (
-                <span className="text-base font-normal text-primary ml-2">(Space: {config.snapshotSpace})</span>
-              )}
+              <span className="text-xs px-2 py-0.5 rounded-md border text-muted-foreground">
+                {config.snapshotTestMode ? `TEST MODE: ${config.snapshotTestSpace}` : config.snapshotSpace}
+              </span>
             </h2>
             {isClient ? (
               <SnapshotSubmitter
@@ -514,8 +505,6 @@ const QCIDetail: React.FC = () => {
             )}
           </div>
         )}
-
-
       </div>
     </div>
   );
