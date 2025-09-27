@@ -47,7 +47,7 @@ const FrontmatterTable: React.FC<Props> = ({
         rpcUrl={rpcUrl}
       />
     ) : (
-      <StatusBadge statusName={frontmatter.status} size="sm" />
+      <StatusBadge status={frontmatter.status} size="sm" />
     ),
   ]);
   if (frontmatter.type) rows.push(["Type", frontmatter.type]);

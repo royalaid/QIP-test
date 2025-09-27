@@ -72,19 +72,43 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
 
   const formatProposalBody = (rawMarkdown: string, frontmatter: any, transactions?: string[]) => {
     // Remove frontmatter from the beginning of the markdown
-    const content = rawMarkdown.replace(/^---[\s\S]*?---\n?/, "").trim();
+    let content = rawMarkdown.replace(/^---[\s\S]*?---\n?/, "").trim();
 
-    // Add frontmatter information to the proposal body
-    const frontmatterInfo = [];
-    if (frontmatter.qci) frontmatterInfo.push(`**Original QCI:** QCI-${frontmatter.qci}`);
-    if (frontmatter.chain) frontmatterInfo.push(`**Chain:** ${frontmatter.chain}`);
-    if (frontmatter.author) frontmatterInfo.push(`**Author:** ${frontmatter.author}`);
-    if (frontmatter.implementor) frontmatterInfo.push(`**Implementor:** ${frontmatter.implementor}`);
-    if (frontmatter["implementation-date"]) frontmatterInfo.push(`**Implementation Date:** ${frontmatter["implementation-date"]}`);
-    if (frontmatter.created) frontmatterInfo.push(`**Created:** ${frontmatter.created}`);
+    // Remove title if it appears at the beginning of the content
+    // This handles various title formats like "## QIP247 Title" or "## **QIP247 Title**"
+    content = content.replace(/^##\s*\*?\*?QIP\d+[:\s].*?\*?\*?\n+/i, "");
 
-    // Build the full body
-    let fullBody = frontmatterInfo.length > 0 ? `${frontmatterInfo.join("\n")}\n\n${content}` : content;
+    // Build YAML frontmatter for the proposal body
+    const yamlFields = [];
+    yamlFields.push("---");
+
+    // Use "network" instead of "chain"
+    if (frontmatter.chain) {
+      yamlFields.push(`network: ${frontmatter.chain}`);
+    }
+
+    if (frontmatter.author) {
+      yamlFields.push(`author: ${frontmatter.author}`);
+    }
+
+    // Only include implementor if it's not "None"
+    if (frontmatter.implementor && frontmatter.implementor !== "None") {
+      yamlFields.push(`implementor: ${frontmatter.implementor}`);
+    }
+
+    // Only include implementation-date if it's not "None"
+    if (frontmatter["implementation-date"] && frontmatter["implementation-date"] !== "None") {
+      yamlFields.push(`implementation-date: ${frontmatter["implementation-date"]}`);
+    }
+
+    if (frontmatter.created) {
+      yamlFields.push(`created: ${frontmatter.created}`);
+    }
+
+    yamlFields.push("---");
+
+    // Build the full body with YAML frontmatter
+    let fullBody = yamlFields.join("\n") + "\n\n" + content;
 
     // Add transactions if present
     if (transactions && transactions.length > 0) {
