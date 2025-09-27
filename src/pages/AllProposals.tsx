@@ -7,21 +7,23 @@ import CacheStatusIndicator from '../components/CacheStatusIndicator'
 import { StatusGroupSkeleton } from '../components/QCISkeleton'
 import { config } from '../config/env'
 import { showDevTools } from '../config/debug'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 
 // Map blockchain status strings to display strings
 const statusDisplayMap: Record<string, string> = {
-  'Draft': 'Draft',
-  'Ready for Snapshot': 'Ready for Snapshot',
-  'Posted to Snapshot': 'Posted to Snapshot'
-}
+  Draft: "Draft",
+  "Ready for Snapshot": "Ready for Snapshot",
+  "Posted to Snapshot": "Posted to Snapshot",
+  Archived: "Archived",
+};
 
 // Status order for display
-const statusOrder = ['Draft', 'Ready for Snapshot', 'Posted to Snapshot']
+const statusOrder = ["Draft", "Ready for Snapshot", "Posted to Snapshot", "Archived"];
 
 const AllProposals: React.FC = () => {
-  const localMode = config.localMode
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const localMode = config.localMode;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [archivedCollapsed, setArchivedCollapsed] = useState(true);
 
   const {
     blockchainQCIs: qcis,
@@ -29,30 +31,30 @@ const AllProposals: React.FC = () => {
     isError,
     invalidateQCIs: invalidate,
     isFetching,
-    dataUpdatedAt
+    dataUpdatedAt,
   } = useQCIData({
-    enabled: true
-  })
+    enabled: true,
+  });
 
   // Handle manual refresh
   const handleRefresh = async () => {
-    setIsRefreshing(true)
+    setIsRefreshing(true);
     try {
-      await invalidate()
-      console.log('[AllProposals] Manual refresh triggered')
+      await invalidate();
+      console.log("[AllProposals] Manual refresh triggered");
     } finally {
-      setIsRefreshing(false)
+      setIsRefreshing(false);
     }
-  }
+  };
 
   // Group QCIs by status
   const groupedQCIs = useMemo(() => {
-    const groups: Record<string, any[]> = {}
-    
-    qcis.forEach(qci => {
-      const status = qci.status
+    const groups: Record<string, any[]> = {};
+
+    qcis.forEach((qci) => {
+      const status = qci.status;
       if (!groups[status]) {
-        groups[status] = []
+        groups[status] = [];
       }
       groups[status].push({
         ...qci,
@@ -65,34 +67,34 @@ const AllProposals: React.FC = () => {
           proposal: qci.proposal,
           implementor: qci.implementor,
           created: qci.created,
-          status: qci.status
-        }
-      })
-    })
+          status: qci.status,
+        },
+      });
+    });
 
     // Sort QCIs within each group by number (descending)
-    Object.keys(groups).forEach(status => {
-      groups[status] = sortBy(p => -p.qciNumber, groups[status])
-    })
+    Object.keys(groups).forEach((status) => {
+      groups[status] = sortBy((p) => -p.qciNumber, groups[status]);
+    });
 
-    return groups
-  }, [qcis])
+    return groups;
+  }, [qcis]);
 
   // Get ordered status groups
   const orderedGroups = statusOrder
-    .filter(status => groupedQCIs[status] && groupedQCIs[status].length > 0)
-    .map(status => ({
+    .filter((status) => groupedQCIs[status] && groupedQCIs[status].length > 0)
+    .map((status) => ({
       status,
       qcis: groupedQCIs[status],
-      displayName: statusDisplayMap[status] || status
-    }))
+      displayName: statusDisplayMap[status] || status,
+    }));
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl font-bold">All Proposals</h1>
+            <h1 className="text-4xl font-bold">All QiDAO Community Ideas</h1>
             {showDevTools && (
               <button
                 onClick={handleRefresh}
@@ -100,26 +102,23 @@ const AllProposals: React.FC = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Refresh proposals"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing || isFetching ? 'animate-spin' : ''}`} />
-                {isRefreshing || isFetching ? 'Refreshing...' : 'Refresh'}
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || isFetching ? "animate-spin" : ""}`} />
+                {isRefreshing || isFetching ? "Refreshing..." : "Refresh"}
               </button>
             )}
           </div>
 
           {localMode && <LocalModeBanner />}
 
-          {/* Show last updated time - development only */}
           {showDevTools && dataUpdatedAt && !isLoading && (
-            <div className="text-sm text-muted-foreground mb-2">
-              Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
-            </div>
+            <div className="text-sm text-muted-foreground mb-2">Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}</div>
           )}
-          
+
           {isError && (
             <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               <p className="font-bold">Error loading data</p>
               <p className="text-sm">Please check your connection and try again.</p>
-              <button 
+              <button
                 onClick={() => invalidate()}
                 className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
@@ -155,18 +154,33 @@ const AllProposals: React.FC = () => {
         )}
 
         {/* Show actual content when not fetching or when we have cached data */}
-        <div className={`space-y-8 ${isFetching && !isLoading ? 'hidden' : ''}`}>
-          {orderedGroups.map(({ status, qcis, displayName }) => (
-            <div key={status}>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                {displayName}
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({qcis.length})
-                </span>
-              </h2>
-              <ProposalListItem proposals={qcis} />
-            </div>
-          ))}
+        <div className={`space-y-8 ${isFetching && !isLoading ? "hidden" : ""}`}>
+          {orderedGroups.map(({ status, qcis, displayName }) => {
+            const isArchived = status === "Archived";
+            const isCollapsed = isArchived && archivedCollapsed;
+
+            return (
+              <div key={status}>
+                <h2
+                  className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isArchived ? "cursor-pointer select-none" : ""}`}
+                  onClick={isArchived ? () => setArchivedCollapsed(!archivedCollapsed) : undefined}
+                >
+                  {isArchived && (
+                    <span className="transition-transform duration-200">
+                      {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </span>
+                  )}
+                  {displayName}
+                  <span className="text-sm font-normal text-muted-foreground">({qcis.length})</span>
+                </h2>
+                {!isCollapsed && (
+                  <div className={`${isArchived ? "animate-in slide-in-from-top-2 duration-200" : ""}`}>
+                    <ProposalListItem proposals={qcis} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Total count indicator */}
@@ -181,12 +195,12 @@ const AllProposals: React.FC = () => {
           dataUpdatedAt={dataUpdatedAt}
           isFetching={isFetching}
           isStale={false}
-          source={config.useMaiApi ? 'api' : 'blockchain'}
+          source={config.useMaiApi ? "api" : "blockchain"}
           cacheHit={!isLoading && dataUpdatedAt ? true : false}
         />
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default AllProposals

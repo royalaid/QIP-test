@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { QCIClient, QCIStatus } from '../services/qciClient';
+import { ALL_STATUS_NAMES, ALL_STATUS_HASHES } from "../config/statusConfig";
 import { useStatusUpdateMutation } from '../hooks/useStatusUpdateMutation';
 import {
   DropdownMenu,
@@ -23,9 +24,10 @@ interface InlineStatusEditorProps {
 }
 
 const statusStyles = {
-  'Draft': 'bg-gray-100 text-gray-800 hover:bg-gray-200',
-  'Ready for Snapshot': 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200',
-  'Posted to Snapshot': 'bg-green-100 text-green-800 hover:bg-green-200'
+  Draft: "bg-gray-100 text-gray-800 hover:bg-gray-200",
+  "Ready for Snapshot": "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+  "Posted to Snapshot": "bg-green-100 text-green-800 hover:bg-green-200",
+  Archived: "bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:text-gray-300",
 };
 
 const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
@@ -36,7 +38,7 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
   isEditor,
   onStatusUpdate,
   registryAddress,
-  rpcUrl
+  rpcUrl,
 }) => {
   const statusUpdateMutation = useStatusUpdateMutation();
   const [availableStatuses, setAvailableStatuses] = useState<{ name: string; hash: string }[]>([]);
@@ -48,20 +50,18 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
       try {
         const qciClient = new QCIClient(registryAddress, rpcUrl, false);
         const result = await qciClient.fetchAllStatuses();
-        // Convert the result to the expected format
         const statusArray = result.names.map((name, index) => ({
           name: name,
-          hash: result.hashes[index]
+          hash: result.hashes[index],
         }));
         setAvailableStatuses(statusArray);
       } catch (error) {
-        console.error('Failed to fetch statuses:', error);
-        // Fallback to default statuses
-        setAvailableStatuses([
-          { name: 'Draft', hash: '0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382' },
-          { name: 'Ready for Snapshot', hash: '0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb' },
-          { name: 'Posted to Snapshot', hash: '0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c' }
-        ]);
+        console.error("Failed to fetch statuses:", error);
+        const statusArray = ALL_STATUS_NAMES.map((name, index) => ({
+          name: name,
+          hash: ALL_STATUS_HASHES[index],
+        }));
+        setAvailableStatuses(statusArray);
       }
     };
     fetchStatuses();
@@ -84,7 +84,7 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
         qciNumber: BigInt(qciNumber),
         newStatus,
         registryAddress,
-        rpcUrl
+        rpcUrl,
       });
 
       // Trigger refresh callback if provided
@@ -92,28 +92,28 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
         onStatusUpdate();
       }
     } catch (error) {
-      // Error handling is done by the mutation hook
-      console.error('[InlineStatusEditor] Status update failed:', error);
+      console.error("Status update failed:", error);
     }
   };
 
   if (!canEdit) {
-    // Just display the status badge if user can't edit
     return (
-      <span className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-        statusStyles[currentStatus as keyof typeof statusStyles] || 'bg-gray-100 text-gray-800'
-      )}>
+      <span
+        className={cn(
+          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+          statusStyles[currentStatus as keyof typeof statusStyles] || "bg-gray-100 text-gray-800"
+        )}
+      >
         {currentStatus}
       </span>
     );
   }
 
-  // Filter out current status and, for authors (non-editors), also filter out "Posted to Snapshot"
-  const otherStatuses = availableStatuses.filter(s => {
+  // Filter out current status and apply permission restrictions
+  const otherStatuses = availableStatuses.filter((s) => {
     if (s.name === currentStatus) return false;
-    // Authors cannot set status to "Posted to Snapshot" - must use linkSnapshotProposal
-    if (isAuthor && !isEditor && s.name === 'Posted to Snapshot') return false;
+    if (isAuthor && !isEditor && s.name === "Posted to Snapshot") return false;
+    if (isAuthor && !isEditor && currentStatus === "Archived") return false;
     return true;
   });
 
@@ -125,39 +125,32 @@ const InlineStatusEditor: React.FC<InlineStatusEditorProps> = ({
           size="sm"
           className={cn(
             "h-auto py-0.5 px-2.5 font-medium text-xs",
-            statusStyles[currentStatus as keyof typeof statusStyles] || 'bg-gray-100 text-gray-800',
+            statusStyles[currentStatus as keyof typeof statusStyles] || "bg-gray-100 text-gray-800",
             statusUpdateMutation.isPending && "opacity-50 cursor-not-allowed"
           )}
           disabled={statusUpdateMutation.isPending}
         >
-          {statusUpdateMutation.isPending ? (
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-          ) : null}
+          {statusUpdateMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
           {currentStatus}
           <ChevronDown className="h-3 w-3 ml-1" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        {otherStatuses.length === 0 ? (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            No other statuses available
-          </div>
-        ) : null}
-        {isAuthor && !isEditor && currentStatus === 'Ready for Snapshot' && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b mb-1">
-            Use "Submit to Snapshot" to post
-          </div>
+        {otherStatuses.length === 0 ? <div className="px-2 py-1.5 text-xs text-muted-foreground">No other statuses available</div> : null}
+        {isAuthor && !isEditor && currentStatus === "Ready for Snapshot" && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b mb-1">Use "Submit to Snapshot" to post</div>
+        )}
+        {isAuthor && !isEditor && currentStatus === "Archived" && (
+          <div className="px-2 py-1.5 text-xs text-muted-foreground border-b mb-1">Only editors can unarchive</div>
         )}
         {otherStatuses.map((status) => (
-          <DropdownMenuItem
-            key={status.hash}
-            onClick={() => handleStatusChange(status.name)}
-            className="cursor-pointer"
-          >
-            <span className={cn(
-              "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mr-2",
-              statusStyles[status.name as keyof typeof statusStyles] || 'bg-gray-100 text-gray-800'
-            )}>
+          <DropdownMenuItem key={status.hash} onClick={() => handleStatusChange(status.name)} className="cursor-pointer">
+            <span
+              className={cn(
+                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mr-2",
+                statusStyles[status.name as keyof typeof statusStyles] || "bg-gray-100 text-gray-800"
+              )}
+            >
               {status.name}
             </span>
           </DropdownMenuItem>

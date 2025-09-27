@@ -54,7 +54,6 @@ contract QCIAuthorStatusUpdateTest is Test {
         vm.expectRevert(QCIRegistry.InvalidStatus.selector);
         registry.updateStatus(qciNumber, "Posted to Snapshot");
 
-        // Verify status hasn't changed
         (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
         assertEq(status, keccak256("Draft"));
     }
@@ -175,5 +174,172 @@ contract QCIAuthorStatusUpdateTest is Test {
             keccak256("Ready for Snapshot")
         );
         registry.updateStatus(qciNumber, "Ready for Snapshot");
+    }
+
+    function testAuthorCanArchiveOwnQCI() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+
+        (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
+        assertEq(status, keccak256("Archived"));
+    }
+
+    function testAuthorCannotUnarchiveQCI() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(author);
+        vm.expectRevert(QCIRegistry.OnlyEditorCanUnarchive.selector);
+        registry.updateStatus(qciNumber, "Draft");
+
+        vm.prank(author);
+        vm.expectRevert(QCIRegistry.OnlyEditorCanUnarchive.selector);
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
+
+        (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
+        assertEq(status, keccak256("Archived"));
+    }
+
+    function testEditorCanUnarchiveQCI() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(editor);
+        registry.updateStatus(qciNumber, "Draft");
+
+        (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
+        assertEq(status, keccak256("Draft"));
+
+        vm.prank(editor);
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(editor);
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
+
+        (,,,,,,,,bytes32 status2,,,,) = registry.qcis(qciNumber);
+        assertEq(status2, keccak256("Ready for Snapshot"));
+    }
+
+    function testAdminCanUnarchiveQCI() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(admin);
+        registry.updateStatus(qciNumber, "Draft");
+
+        (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
+        assertEq(status, keccak256("Draft"));
+    }
+
+    function testArchiveStatusTransitions() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+        (,,,,,,,,bytes32 status1,,,,) = registry.qcis(qciNumber);
+        assertEq(status1, keccak256("Archived"));
+
+        vm.prank(editor);
+        registry.updateStatus(qciNumber, "Ready for Snapshot");
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+        (,,,,,,,,bytes32 status2,,,,) = registry.qcis(qciNumber);
+        assertEq(status2, keccak256("Archived"));
+
+        vm.prank(editor);
+        registry.updateStatus(qciNumber, "Posted to Snapshot");
+
+        vm.prank(author);
+        registry.updateStatus(qciNumber, "Archived");
+        (,,,,,,,,bytes32 status3,,,,) = registry.qcis(qciNumber);
+        assertEq(status3, keccak256("Archived"));
+    }
+
+    function testNonAuthorCannotArchive() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(otherAuthor);
+        vm.expectRevert(QCIRegistry.OnlyAuthorOrEditor.selector);
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(user);
+        vm.expectRevert(QCIRegistry.OnlyAuthorOrEditor.selector);
+        registry.updateStatus(qciNumber, "Archived");
+
+        (,,,,,,,,bytes32 status,,,,) = registry.qcis(qciNumber);
+        assertEq(status, keccak256("Draft"));
+    }
+
+    function testArchiveStatusEmitsCorrectEvent() public {
+        vm.prank(author);
+        uint256 qciNumber = registry.createQCI(
+            "Test QCI",
+            "Ethereum",
+            keccak256("test content"),
+            "ipfs://QmTest"
+        );
+
+        vm.prank(author);
+        vm.expectEmit(true, true, false, true);
+        emit QCIRegistry.QCIStatusChanged(
+            qciNumber,
+            keccak256("Draft"),
+            keccak256("Archived")
+        );
+        registry.updateStatus(qciNumber, "Archived");
+
+        vm.prank(editor);
+        vm.expectEmit(true, true, false, true);
+        emit QCIRegistry.QCIStatusChanged(
+            qciNumber,
+            keccak256("Archived"),
+            keccak256("Draft")
+        );
+        registry.updateStatus(qciNumber, "Draft");
     }
 }

@@ -31,12 +31,14 @@ contract QCIRegistry is AccessControl, Pausable {
     error MigrationModeDisabled();
     error QCIAlreadyExists();
     error OnlyPlaceholderCanBeCleared();
+    error OnlyEditorCanUnarchive();
 
     bytes32 public constant EDITOR_ROLE = keccak256("EDITOR_ROLE");
 
     bytes32 internal constant STATUS_DRAFT = keccak256("Draft");
     bytes32 internal constant STATUS_READY_SNAPSHOT = keccak256("Ready for Snapshot");
     bytes32 internal constant STATUS_POSTED_SNAPSHOT = keccak256("Posted to Snapshot");
+    bytes32 internal constant STATUS_ARCHIVED = keccak256("Archived");
     struct QCI {
         uint256 qciNumber;
         address author;
@@ -176,9 +178,10 @@ contract QCIRegistry is AccessControl, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, _initialAdmin);
         _grantRole(EDITOR_ROLE, _initialAdmin);
 
-        _initializeStatus("Draft");               
-        _initializeStatus("Ready for Snapshot");   
-        _initializeStatus("Posted to Snapshot");  
+        _initializeStatus("Draft");
+        _initializeStatus("Ready for Snapshot");
+        _initializeStatus("Posted to Snapshot");
+        _initializeStatus("Archived");  
     }
 
     function _initializeStatus(string memory statusName) private {
@@ -348,6 +351,7 @@ contract QCIRegistry is AccessControl, Pausable {
     /**
      * @dev Update QCI status using status string
      * Authors can update their own QCI status except to "Posted to Snapshot"
+     * Authors cannot unarchive (change from Archived status)
      * Editors can update any QCI to any status
      */
     function updateStatus(uint256 _qciNumber, string memory _newStatus)
@@ -364,10 +368,16 @@ contract QCIRegistry is AccessControl, Pausable {
         bool isEditor = hasRole(EDITOR_ROLE, msg.sender);
         bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-        // Authors can't set status to "Posted to Snapshot" - that must be done via linkSnapshotProposal
+        // Authors have restrictions:
+        // 1. Can't set status to "Posted to Snapshot" - that must be done via linkSnapshotProposal
+        // 2. Can't change status FROM "Archived" (unarchiving requires editor role)
         if (isAuthor && !isEditor && !isAdmin) {
             if (newStatusId == STATUS_POSTED_SNAPSHOT) {
                 revert InvalidStatus();
+            }
+            // Prevent authors from unarchiving
+            if (qci.status == STATUS_ARCHIVED) {
+                revert OnlyEditorCanUnarchive();
             }
         } else if (!isEditor && !isAdmin) {
             // Non-author, non-editor, non-admin cannot update status
@@ -739,6 +749,7 @@ contract QCIRegistry is AccessControl, Pausable {
         if (_statusId == STATUS_DRAFT) return "Draft";
         if (_statusId == STATUS_READY_SNAPSHOT) return "Ready for Snapshot";
         if (_statusId == STATUS_POSTED_SNAPSHOT) return "Posted to Snapshot";
+        if (_statusId == STATUS_ARCHIVED) return "Archived";
 
         return "Custom Status";
     }

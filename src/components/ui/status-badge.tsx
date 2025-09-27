@@ -3,7 +3,7 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { QCIStatus, DEFAULT_STATUSES } from '@/services/qciClient';
 
-export type StatusType = QCIStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot';
+export type StatusType = QCIStatus | 'Draft' | 'Ready for Snapshot' | 'Posted to Snapshot' | 'Archived';
 
 interface StatusBadgeProps extends Omit<BadgeProps, 'variant'> {
   status: StatusType | string;
@@ -25,6 +25,10 @@ const STATUS_CONFIG: Record<number | string, { label: string; className: string 
     label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
   },
+  [DEFAULT_STATUSES.Archived]: {
+    label: 'Archived',
+    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40',
+  },
   // String values for custom statuses
   'Draft': {
     label: 'Draft',
@@ -37,6 +41,10 @@ const STATUS_CONFIG: Record<number | string, { label: string; className: string 
   'Posted to Snapshot': {
     label: 'Posted to Snapshot',
     className: 'bg-primary/10 text-primary hover:bg-primary/20',
+  },
+  'Archived': {
+    label: 'Archived',
+    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40',
   }
 };
 

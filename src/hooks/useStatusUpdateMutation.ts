@@ -37,8 +37,12 @@ export function useStatusUpdateMutation() {
 
       const qciClient = new QCIClient(registryAddress, rpcUrl, false);
 
-      console.log(`[StatusUpdate] Updating QCI ${qciNumber} to ${newStatus}`);
-      const hash = await qciClient.updateQCIStatus(walletClient, qciNumber, newStatus);
+      let hash: Hash;
+      try {
+        hash = await qciClient.updateQCIStatus(walletClient, qciNumber, newStatus);
+      } catch (error) {
+        throw error;
+      }
 
       // Wait for transaction confirmation
       const publicClient = walletClient.chain

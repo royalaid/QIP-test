@@ -1,33 +1,28 @@
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Hash, keccak256, toBytes, type Address } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
-import { loadBalance, getRPCEndpoints } from '../utils/loadBalance';
+import { createPublicClient, http, type PublicClient, type WalletClient, type Hash, keccak256, toBytes, type Address } from "viem";
+import { base, baseSepolia } from "viem/chains";
+import { loadBalance, getRPCEndpoints } from "../utils/loadBalance";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
+import {
+  QCIStatus,
+  STATUS_ENUM_TO_NAME,
+  getStatusByHash,
+  getStatusName as getStatusNameHelper,
+  ALL_STATUS_HASHES,
+  ALL_STATUS_NAMES,
+} from "../config/statusConfig";
 
 // Use the full ABI from the JSON file
 const QCI_REGISTRY_ABI = QCIRegistryABI;
 
-// Status enum - only three statuses supported
-export enum QCIStatus {
-  Draft = 0,
-  ReadyForSnapshot = 1,
-  PostedToSnapshot = 2,
-}
+// Re-export QCIStatus from centralized config
+export { QCIStatus } from "../config/statusConfig";
 
-// Map bytes32 status hashes to enum values
-const STATUS_HASH_TO_ENUM: Record<string, QCIStatus> = {
-  // keccak256("Draft")
-  "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382": QCIStatus.Draft,
-  // keccak256("Ready for Snapshot")
-  "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb": QCIStatus.ReadyForSnapshot,
-  // keccak256("Posted to Snapshot")
-  "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c": QCIStatus.PostedToSnapshot,
-};
-
-// Default status IDs (initialized in contract constructor)
+// Default status IDs (for backward compatibility)
 export const DEFAULT_STATUSES = {
-  Draft: 0,
-  ReadyForSnapshot: 1,
-  PostedToSnapshot: 2,
+  Draft: QCIStatus.Draft,
+  ReadyForSnapshot: QCIStatus.ReadyForSnapshot,
+  PostedToSnapshot: QCIStatus.PostedToSnapshot,
+  Archived: QCIStatus.Archived,
 } as const;
 
 export interface QCIContent {
@@ -174,7 +169,6 @@ export class QCIClient {
     });
 
     const hash = await walletClient.writeContract(request);
-    console.log("Transaction submitted:", hash);
 
     // Add timeout for local development (Anvil sometimes doesn't auto-mine)
     const receipt = await this.publicClient
@@ -229,7 +223,6 @@ export class QCIClient {
 
     // Decode the QCI number from the event
     const qciNumber = BigInt(log.topics[1]!);
-    console.log("QCI created:", qciNumber.toString());
 
     return { hash, qciNumber };
   }
@@ -273,15 +266,9 @@ export class QCIClient {
     } catch (gasError) {
       console.error("Gas estimation failed:", gasError);
       if (gasError instanceof Error) {
-        // Try to extract more details
         const errorStr = gasError.message.toLowerCase();
         if (errorStr.includes("revert")) {
-          console.error("Transaction would revert. Possible causes:");
-          console.error("1. User does not have editor role or is not the author");
-          console.error("2. QCI does not exist");
-          console.error("3. QCI status does not allow updates");
-          console.error("4. QCI already has a snapshot ID");
-          console.error("5. Wrong network selected in wallet");
+          console.error("Transaction would revert");
         }
         if (errorStr.includes("insufficient funds")) {
           console.error("Insufficient funds for gas");
@@ -308,7 +295,6 @@ export class QCIClient {
 
     try {
       const hash = await walletClient.writeContract(request);
-      console.log("QCI update transaction submitted:", hash);
       return hash;
     } catch (writeError) {
       console.error("Write contract failed:", writeError);
@@ -535,29 +521,15 @@ ${qciData.content}`;
               const statusHex = "0x" + statusValue.toString(16).padStart(64, "0");
 
               // Map known status hashes to enum values
-              if (statusHex === "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c") {
-                status = QCIStatus.PostedToSnapshot; // 2
-              } else if (statusHex === "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb") {
-                status = QCIStatus.ReadyForSnapshot; // 1
-              } else if (statusHex === "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382") {
-                status = QCIStatus.Draft; // 0
-              } else {
-                status = QCIStatus.Draft; // Default to Draft
-              }
+              // Use centralized status lookup
+              status = getStatusByHash(statusHex) ?? QCIStatus.Draft;
             }
             // If it's a string (hex), convert directly
             else if (typeof statusValue === "string" && statusValue.startsWith("0x")) {
               const statusHex = statusValue.toLowerCase();
 
-              if (statusHex === "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c") {
-                status = QCIStatus.PostedToSnapshot; // 2
-              } else if (statusHex === "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb") {
-                status = QCIStatus.ReadyForSnapshot; // 1
-              } else if (statusHex === "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382") {
-                status = QCIStatus.Draft; // 0
-              } else {
-                status = QCIStatus.Draft; // Default to Draft
-              }
+              // Use centralized status lookup
+              status = getStatusByHash(statusHex) ?? QCIStatus.Draft;
             }
             // If it's a small number (0, 1, 2), it's already the correct enum value
             else if (typeof statusValue === "number" && statusValue <= 2) {
@@ -765,25 +737,72 @@ ${qciData.content}`;
    * Fetch all statuses from contract
    */
   async fetchAllStatuses(): Promise<{ hashes: string[]; names: string[] }> {
-    // Since we have fixed statuses with uint8 values, just return them directly
-    return {
-      hashes: ["0", "1", "2"], // Using status values as "hashes" for compatibility
-      names: ["Draft", "Ready for Snapshot", "Posted to Snapshot"],
-    };
+    try {
+      // Get the total count of statuses
+      const count = (await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: QCI_REGISTRY_ABI,
+        functionName: "statusCount",
+      })) as bigint;
+
+      const hashes: string[] = [];
+      const names: string[] = [];
+
+      // Fetch each status
+      for (let i = 0; i < Number(count); i++) {
+        const statusHash = (await this.publicClient.readContract({
+          address: this.contractAddress,
+          abi: QCI_REGISTRY_ABI,
+          functionName: "statusAt",
+          args: [BigInt(i)],
+        })) as `0x${string}`;
+
+        const statusName = (await this.publicClient.readContract({
+          address: this.contractAddress,
+          abi: QCI_REGISTRY_ABI,
+          functionName: "getStatusName",
+          args: [statusHash],
+        })) as string;
+
+        hashes.push(statusHash);
+        names.push(statusName);
+      }
+
+      return { hashes, names };
+    } catch (error) {
+      console.error("Failed to fetch statuses from contract:", error);
+      // Fallback to known statuses from centralized config if contract call fails
+      return {
+        hashes: ALL_STATUS_HASHES,
+        names: ALL_STATUS_NAMES,
+      };
+    }
   }
 
   /**
    * Convert bytes32 hash to readable status name
+   * This should use the contract's getStatusName function for accuracy
    */
-  private getStatusStringFromHash(statusHash: string): string {
-    // Map of known status hashes to their names
-    const hashToName: Record<string, string> = {
-      "0xbffca6d7a13b72cfdfdf4a97d0ffb89fac6c686a62ced4a04137794363a3e382": "Draft",
-      "0x7070e08f253402b7697ed999df8646627439945a954330fcee1b731dac30d7fb": "Ready for Snapshot",
-      "0x4ea8e9bba2b921001f72db15ceea1abf86759499f1e2f63f81995578937fc34c": "Posted to Snapshot",
-    };
+  private async getStatusStringFromHash(statusHash: string): Promise<string> {
+    try {
+      // Call the contract's getStatusName function
+      const statusName = (await this.publicClient.readContract({
+        address: this.contractAddress,
+        abi: QCI_REGISTRY_ABI,
+        functionName: "getStatusName",
+        args: [statusHash as `0x${string}`],
+      })) as string;
 
-    return hashToName[statusHash.toLowerCase()] || "Unknown Status";
+      return statusName || "Unknown Status";
+    } catch (error) {
+      console.error("[QCIClient] Failed to get status name from contract:", error);
+      // Fallback to centralized config if contract call fails
+      const statusEnum = getStatusByHash(statusHash);
+      if (statusEnum !== undefined) {
+        return getStatusNameHelper(statusEnum);
+      }
+      return "Unknown Status";
+    }
   }
 
   /**
@@ -795,8 +814,8 @@ ${qciData.content}`;
       return statusHash as QCIStatus;
     }
 
-    // Convert bytes32 hash to enum
-    const enumValue = STATUS_HASH_TO_ENUM[statusHash.toLowerCase()];
+    // Convert bytes32 hash to enum using centralized config
+    const enumValue = getStatusByHash(statusHash);
     if (enumValue !== undefined) {
       return enumValue;
     }
@@ -807,7 +826,7 @@ ${qciData.content}`;
   }
 
   /**
-   * Get status string from ID (synchronous - uses predefined mappings)
+   * Get status string from ID (synchronous - uses centralized config)
    */
   getStatusString(status: QCIStatus | string): string {
     // If it's a string (bytes32 hash), convert to enum first
@@ -815,13 +834,8 @@ ${qciData.content}`;
       status = this.convertStatusHashToEnum(status);
     }
 
-    const statusMap: Record<number, string> = {
-      [QCIStatus.Draft]: "Draft",
-      [QCIStatus.ReadyForSnapshot]: "Ready for Snapshot",
-      [QCIStatus.PostedToSnapshot]: "Posted to Snapshot",
-    };
-
-    return statusMap[status] || "Unknown";
+    // Use centralized config for status names
+    return getStatusNameHelper(status as QCIStatus);
   }
 
   /**
@@ -883,34 +897,39 @@ ${qciData.content}`;
       // Already a string, use as-is
       statusString = newStatus;
     } else {
-      // Convert enum value to status string
-      const statusNames: Record<number, string> = {
-        [QCIStatus.Draft]: "Draft",
-        [QCIStatus.ReadyForSnapshot]: "Ready for Snapshot",
-        [QCIStatus.PostedToSnapshot]: "Posted to Snapshot",
-      };
-      statusString = statusNames[newStatus] ?? "Draft";
+      // Convert enum value to status string using centralized config
+      statusString = STATUS_ENUM_TO_NAME[newStatus as QCIStatus] ?? "Draft";
     }
 
-    // First estimate gas
-    const estimatedGas = await this.publicClient.estimateContractGas({
-      address: this.contractAddress,
-      abi: QCI_REGISTRY_ABI,
-      functionName: "updateStatus",
-      args: [qciNumber, statusString], // Pass the status string, not the enum value
-      account: walletClient.account,
-    });
-
-    const { request } = await this.publicClient.simulateContract({
-      address: this.contractAddress,
-      abi: QCI_REGISTRY_ABI,
-      functionName: "updateStatus",
-      args: [qciNumber, statusString], // Pass the status string, not the enum value
-      account: walletClient.account,
-      gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
-    });
-
-    return await walletClient.writeContract(request);
+    try {
+      // First estimate gas
+      const estimatedGas = await this.publicClient.estimateContractGas({
+        address: this.contractAddress,
+        abi: QCI_REGISTRY_ABI,
+        functionName: "updateStatus",
+        args: [qciNumber, statusString], // Pass the status string, not the enum value
+        account: walletClient.account,
+      });
+      const { request } = await this.publicClient.simulateContract({
+        address: this.contractAddress,
+        abi: QCI_REGISTRY_ABI,
+        functionName: "updateStatus",
+        args: [qciNumber, statusString], // Pass the status string, not the enum value
+        account: walletClient.account,
+        gas: (estimatedGas * 120n) / 100n, // Add 20% buffer
+      });
+      const hash = await walletClient.writeContract(request);
+      return hash;
+    } catch (error) {
+      console.error("updateQCIStatus failed:", error);
+      console.error("Error details:", {
+        message: (error as any)?.message,
+        cause: (error as any)?.cause,
+        shortMessage: (error as any)?.shortMessage,
+        details: (error as any)?.details,
+      });
+      throw error;
+    }
   }
 
   /**

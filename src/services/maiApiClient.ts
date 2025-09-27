@@ -178,7 +178,8 @@ export class MaiAPIClient {
     const statusMap: Record<number, string> = {
       0: 'Draft',
       1: 'Ready for Snapshot',
-      2: 'Posted to Snapshot'
+      2: 'Posted to Snapshot',
+      3: 'Archived'
     };
 
     return statusMap[status] || `Status ${status}`;
