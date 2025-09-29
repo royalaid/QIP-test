@@ -67,6 +67,8 @@ export function useAllStatuses({
     gcTime: 60 * 60 * 1000, // 1 hour garbage collection
     retry: 1, // Only retry once before falling back
     retryDelay: 1000, // 1 second delay between retries
+    refetchOnMount: false, // Don't refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus
     ...queryOptions,
   });
 }
