@@ -60,7 +60,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   });
 
   const nextQipNumber = latestQipNumber ? latestQipNumber + 1 : 1;
-  const previewQipTitle = `QIP-${nextQipNumber}: ${frontmatter.title}`;
+  const previewQipTitle = `QIP${nextQipNumber}: ${frontmatter.title}`;
 
   // Determine which space to use based on test mode
   const isTestMode = config.snapshotTestMode;
@@ -451,7 +451,7 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
               <div className="space-y-1">
                 <div className="text-xl font-bold text-foreground">{previewQipTitle}</div>
                 <div className="text-xs text-muted-foreground">
-                  Graduating QCI-{frontmatter.qci} → QIP-{nextQipNumber}
+                  Graduating QCI{frontmatter.qci} → QIP{nextQipNumber}
                 </div>
               </div>
             </div>
