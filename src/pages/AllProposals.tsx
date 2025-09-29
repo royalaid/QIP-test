@@ -196,7 +196,7 @@ const AllProposals: React.FC = () => {
                         <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.drafts.length})</span>
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3 ml-6">
-                        Drafts that are posted to gather feedback and support.
+                        Early-stage ideas, open for community feedback.
                       </p>
                       {!draftsCollapsed && (
                         <div className="animate-in slide-in-from-top-2 duration-200">
@@ -220,7 +220,7 @@ const AllProposals: React.FC = () => {
                         <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.readyForSnapshot.length})</span>
                       </h3>
                       <p className="text-sm text-muted-foreground mb-3 ml-6">
-                        Ideas ready to be pushed by anyone with enough aveQI.
+                        Any DAO member with ≥150K aveQI can promote these QCIs into QIPs.
                       </p>
                       {!readyForSnapshotCollapsed && (
                         <div className="animate-in slide-in-from-top-2 duration-200">
@@ -261,7 +261,7 @@ const AllProposals: React.FC = () => {
                     <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qip.postedToSnapshot.length})</span>
                   </h3>
                   <p className="text-sm text-muted-foreground mb-3 ml-6">
-                    Posted on Snapshot. Dynamic status (voting open, closed, passed, rejected, etc) depending on the outcome. IPFS linked.
+                    Governance in its final form, any user with an aveQI balance can vote to decide the outcome.
                   </p>
                   {!postedToSnapshotCollapsed && (
                     <div className="animate-in slide-in-from-top-2 duration-200">
@@ -287,7 +287,7 @@ const AllProposals: React.FC = () => {
                 <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.archived.length})</span>
               </h2>
               <p className="text-sm text-muted-foreground mb-3 ml-6">
-                QCIs that didn't gather support to become a QIP within X time to be defined.
+                Ideas discarded by the author or that didn't meet quorum to advance into a QIP.
               </p>
               {!archivedCollapsed && (
                 <div className="animate-in slide-in-from-top-2 duration-200">
