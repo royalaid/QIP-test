@@ -23,7 +23,6 @@ const Layout: React.FC<Props> = ({ children }) => {
                 <div className="wrapper">{children}</div>
             </main>
 
-            <Footer />
             <Toaster />
         </main>
     );
