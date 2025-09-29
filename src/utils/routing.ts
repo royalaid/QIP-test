@@ -10,7 +10,7 @@ export function getBasePath(): string {
     // GitHub Pages pattern: username.github.io/repository-name
     if (hostname.includes('github.io')) {
       // Extract the repository name from the path (first segment)
-      // Example: /QIPs/some/page -> basePath should be /QIPs
+      // Example: /QCIs/some/page -> basePath should be /QCIs
       const pathSegments = pathname.split("/").filter(Boolean);
       if (pathSegments.length > 0) {
         return `/${pathSegments[0]}`;

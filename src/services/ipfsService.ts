@@ -1,6 +1,6 @@
 import type { Hash } from 'viem';
 import { keccak256, toBytes } from 'viem';
-import type { QIPContent } from './qipClient';
+import type { QCIContent } from './qciClient';
 // @ts-ignore - no types for ipfs-only-hash
 import * as IPFSOnlyHash from 'ipfs-only-hash';
 
@@ -8,7 +8,7 @@ import * as IPFSOnlyHash from 'ipfs-only-hash';
  * Metadata for IPFS uploads
  */
 export interface UploadMetadata {
-  qipNumber?: number | string;
+  qciNumber?: number | string;
   groupId?: string;
 }
 
@@ -72,12 +72,26 @@ export class LocalIPFSProvider implements IPFSProvider {
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
+    let finalContent: string;
+    if (content instanceof Blob) {
+      finalContent = await content.text();
+    } else {
+      finalContent = content;
+    }
+
+    // IMPORTANT: Match the wrapping behavior used in calculateCID
+    const isMarkdown = finalContent.trim().startsWith('---');
+    if (isMarkdown) {
+      const wrappedContent = { content: finalContent };
+      finalContent = JSON.stringify(wrappedContent);
+    }
+
     const formData = new FormData();
-    const blob = content instanceof Blob ? content : new Blob([content], { type: "text/plain" });
+    const blob = new Blob([finalContent], { type: "application/json" });
     formData.append("file", blob);
 
-    // Request CIDv1 from local IPFS daemon
-    const response = await fetch(`${this.apiUrl}/api/v0/add?cid-version=1`, {
+    // Request CIDv1 with raw codec to match calculateCID
+    const response = await fetch(`${this.apiUrl}/api/v0/add?cid-version=1&raw-leaves=true`, {
       method: "POST",
       body: formData,
     });
@@ -92,55 +106,44 @@ export class LocalIPFSProvider implements IPFSProvider {
 
   async fetch(cid: string): Promise<string> {
     // Use the API endpoint for fetching content in local development
-    const response = await fetch(`${this.apiUrl}/api/v0/cat?arg=${cid}`, {
+    const url = `${this.apiUrl}/api/v0/cat?arg=${cid}`;
+
+    const response = await fetch(url, {
       method: "POST",
     });
+
     if (!response.ok) {
+      console.error(`Local IPFS fetch failed: ${response.status} ${response.statusText}`);
       throw new Error(`Local IPFS fetch failed: ${response.statusText}. Ensure IPFS daemon is running at ${this.apiUrl}`);
     }
-    return response.text();
+
+    const content = await response.text();
+    return content;
   }
 }
 
 /**
- * Default IPFS gateways for load balancing
+ * Get IPFS gateway from environment or use default
  */
-export const IPFS_GATEWAYS = [
-  "https://gateway.pinata.cloud",
-  "https://ipfs.io",
-  "https://dweb.link",
-  "https://nftstorage.link",
-  "https://gateway.ipfs.io",
-];
+export const getIPFSGateway = (): string => {
+  // Check for environment variable
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_IPFS_GATEWAY) {
+    return import.meta.env.VITE_IPFS_GATEWAY;
+  }
+  // Fallback to default
+  return "https://gateway.pinata.cloud";
+};
 
 /**
- * Pinata implementation with load balanced gateways
+ * Pinata implementation with IPFS gateway
  */
 export class PinataProvider implements IPFSProvider {
   private jwt: string;
-  public readonly gateways: string[];
-  private currentGatewayIndex: number = 0;
+  public readonly gateway: string;
 
-  constructor(jwt: string, gateway?: string | string[]) {
+  constructor(jwt: string, gateway?: string) {
     this.jwt = jwt;
-    
-    // Support single gateway, array of gateways, or default to all gateways
-    if (Array.isArray(gateway)) {
-      this.gateways = gateway;
-    } else if (gateway) {
-      this.gateways = [gateway, ...IPFS_GATEWAYS.filter(g => g !== gateway)];
-    } else {
-      this.gateways = [...IPFS_GATEWAYS];
-    }
-  }
-
-  /**
-   * Get the next gateway in round-robin fashion
-   */
-  private getNextGateway(): string {
-    const gateway = this.gateways[this.currentGatewayIndex];
-    this.currentGatewayIndex = (this.currentGatewayIndex + 1) % this.gateways.length;
-    return gateway;
+    this.gateway = gateway || getIPFSGateway();
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
@@ -167,10 +170,10 @@ export class PinataProvider implements IPFSProvider {
         ...(metadata?.groupId && { groupId: metadata.groupId }),
       },
       pinataMetadata: {
-        name: `QIP-${metadata?.qipNumber || data.qip || "draft"}.json`,
+        name: `QCI-${metadata?.qciNumber || data.qci || "draft"}.json`,
         keyvalues: {
-          type: "qip-proposal",
-          qip: String(metadata?.qipNumber || data.qip || "draft"),
+          type: "qci-proposal",
+          qci: String(metadata?.qciNumber || data.qci || "draft"),
           network: data.network || "unknown",
         },
       },
@@ -199,14 +202,14 @@ export class PinataProvider implements IPFSProvider {
     const blob = content instanceof Blob ? content : new Blob([content], { type: "text/plain" });
 
     // Generate a filename based on content
-    const filename = content instanceof Blob ? "file.txt" : "qip-content.md";
+    const filename = content instanceof Blob ? "file.txt" : "qci-content.md";
     formData.append("file", blob, filename);
 
     // Add pinata metadata
     const pinataMetadataJson = JSON.stringify({
       name: filename,
       keyvalues: {
-        type: "qip-content",
+        type: "qci-content",
       },
     });
     formData.append("pinataMetadata", pinataMetadataJson);
@@ -236,155 +239,75 @@ export class PinataProvider implements IPFSProvider {
   }
 
   async fetch(cid: string): Promise<string> {
-    // Race multiple gateways in parallel for fastest response
-    const gatewaysToRace = Math.min(3, this.gateways.length);
-    const usedGateways = new Set<string>();
-    
-    // Create abort controller for canceling slower requests
-    const abortController = new AbortController();
-    
-    const fetchFromGateway = async (gateway: string): Promise<string> => {
-      const url = `${gateway}/ipfs/${cid}`;
-      
-      try {
-        console.debug(`[IPFS] Racing fetch from: ${gateway}`);
-        const response = await fetch(url, {
-          signal: abortController.signal,
-        });
-        
-        if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error(`Rate limited on ${gateway}`);
-          }
-          throw new Error(`${gateway} failed: ${response.statusText}`);
-        }
-        
-        const text = await response.text();
-        console.debug(`[IPFS] ✅ Fastest response from: ${gateway}`);
-        
-        // Cancel other requests since we got a response
-        abortController.abort();
-        
-        return text;
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.debug(`[IPFS] Request to ${gateway} was cancelled (slower)`);
-        } else {
-          console.warn(`[IPFS] Failed to fetch from ${gateway}:`, error.message);
-        }
-        throw error;
-      }
-    };
-    
-    // Get unique gateways for racing
-    const gatewaysForRacing: string[] = [];
-    for (let i = 0; i < gatewaysToRace; i++) {
-      const gateway = this.getNextGateway();
-      if (!usedGateways.has(gateway)) {
-        usedGateways.add(gateway);
-        gatewaysForRacing.push(gateway);
-      }
-    }
-    
+
+    const url = `${this.gateway}/ipfs/${cid}`;
+    const startTime = Date.now();
+
     try {
-      // Race all gateways in parallel
-      const result = await Promise.race(
-        gatewaysForRacing.map(gateway => fetchFromGateway(gateway))
-      );
-      
-      return result;
-    } catch (firstRaceError) {
-      console.warn('[IPFS] First race failed, trying backup gateways...');
-      
-      // If all racing gateways failed, try remaining gateways sequentially
-      let lastError: Error = firstRaceError as Error;
-      
-      for (const gateway of this.gateways) {
-        if (usedGateways.has(gateway)) continue;
-        
-        try {
-          console.debug(`[IPFS] Trying backup gateway: ${gateway}`);
-          const url = `${gateway}/ipfs/${cid}`;
-          const response = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Fetch failed: ${response.statusText}`);
-          }
-          
-          return response.text();
-        } catch (error: any) {
-          lastError = error;
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
+
+      console.log(`[IPFS-FETCH-DEBUG] Response status: ${response.status}`);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`Rate limited on gateway`);
         }
+        throw new Error(`Gateway failed: ${response.statusText}`);
       }
-      
-      throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
+
+      const text = await response.text();
+      const fetchTime = Date.now() - startTime;
+
+      // Validate response content
+      if (!text || text.length === 0) {
+        throw new Error(`Empty response from gateway`);
+      }
+
+      // Check if response looks like an error page
+      if (text.includes("404") || text.includes("Not Found") || text.includes("Gateway Timeout")) {
+        throw new Error(`Invalid response from gateway: possibly an error page`);
+      }
+
+      console.log(`[IPFS-FETCH-DEBUG] ✅ Got response in ${fetchTime}ms (${text.length} bytes)`);
+      return text;
+
+    } catch (error: any) {
+      console.error(`[IPFS-FETCH-DEBUG] ❌ Failed to fetch from gateway:`, error.message);
+      throw error;
     }
   }
 
   /**
-   * Fetch multiple CIDs concurrently using different gateways
+   * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[Pinata] Fetching ${cids.length} QIPs concurrently across ${this.gateways.length} gateways`);
-    
+    console.debug(`[Pinata] Fetching ${cids.length} QCIs`);
+
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
-    
-    // Create fetch promises with rotating gateways
-    const fetchPromises = cids.map(async (cid, index) => {
-      // Use a different gateway for each CID to spread the load
-      const gateway = this.gateways[index % this.gateways.length];
-      const url = `${gateway}/ipfs/${cid}`;
-      
+
+    // Create fetch promises
+    const fetchPromises = cids.map(async (cid) => {
       try {
-        console.debug(`[Pinata] Fetching CID ${cid} from gateway ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout per request
-        });
-        
-        if (!response.ok) {
-          throw new Error(`${gateway} returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const content = await response.text();
+        const content = await this.fetch(cid);
         results.set(cid, content);
-        console.debug(`[Pinata] ✅ Successfully fetched ${cid} from ${gateway}`);
+        console.debug(`[Pinata] ✅ Successfully fetched ${cid}`);
       } catch (error: any) {
-        console.warn(`[Pinata] Failed to fetch ${cid} from ${gateway}:`, error.message);
+        console.warn(`[Pinata] Failed to fetch ${cid}:`, error.message);
         errors.set(cid, error);
-        
-        // Retry with a different gateway
-        const retryGateway = this.gateways[(index + 1) % this.gateways.length];
-        const retryUrl = `${retryGateway}/ipfs/${cid}`;
-        
-        try {
-          console.debug(`[Pinata] Retrying ${cid} with ${retryGateway}`);
-          const response = await fetch(retryUrl, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (response.ok) {
-            const content = await response.text();
-            results.set(cid, content);
-            errors.delete(cid);
-            console.debug(`[Pinata] ✅ Retry successful for ${cid} from ${retryGateway}`);
-          }
-        } catch (retryError: any) {
-          console.error(`[Pinata] Retry failed for ${cid}:`, retryError.message);
-        }
       }
     });
-    
+
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
-    
-    console.debug(`[Pinata] Fetched ${results.size}/${cids.length} QIPs successfully`);
+
+    console.debug(`[Pinata] Fetched ${results.size}/${cids.length} QCIs successfully`);
     if (errors.size > 0) {
-      console.warn(`[Pinata] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
+      console.warn(`[Pinata] Failed to fetch ${errors.size} QCIs:`, Array.from(errors.keys()));
     }
-    
+
     return results;
   }
 }
@@ -394,27 +317,16 @@ export class PinataProvider implements IPFSProvider {
  */
 export class MaiAPIProvider implements IPFSProvider {
   private apiUrl: string;
-  public readonly gateways: string[];
-  private currentGatewayIndex: number = 0;
+  public readonly gateway: string;
 
   constructor(apiUrl: string = "http://localhost:3001/v2/ipfs-upload") {
     this.apiUrl = apiUrl;
-    this.gateways = [...IPFS_GATEWAYS];
-  }
-
-  /**
-   * Get the next gateway in round-robin fashion
-   */
-  private getNextGateway(): string {
-    const gateway = this.gateways[this.currentGatewayIndex];
-    this.currentGatewayIndex = (this.currentGatewayIndex + 1) % this.gateways.length;
-    return gateway;
+    this.gateway = getIPFSGateway();
   }
 
   async upload(content: string | Blob, metadata?: UploadMetadata): Promise<string> {
     // Convert Blob to string if needed
     let contentString: string;
-    let isJson = false;
 
     if (content instanceof Blob) {
       contentString = await content.text();
@@ -422,65 +334,80 @@ export class MaiAPIProvider implements IPFSProvider {
       contentString = content;
     }
 
-    // Try to parse as JSON to determine the upload format
-    let jsonData: any = null;
-    try {
-      jsonData = JSON.parse(contentString);
-      isJson = true;
-    } catch {
-      // Not JSON, treat as plain text/markdown
-      isJson = false;
-    }
+    // IMPORTANT: Match the wrapping behavior used in calculateCID and LocalIPFSProvider
+    // This ensures consistent CID calculation across all providers
 
     let requestBody: any;
 
-    if (isJson) {
-      // For JSON data, use Pinata's JSON upload format
-      // Check if it already has QIP structure
-      const hasQIPStructure = jsonData.qip !== undefined || jsonData.title !== undefined;
+    // Try to parse as JSON to check if it's already structured
+    try {
+      const jsonData = JSON.parse(contentString);
 
-      if (hasQIPStructure) {
-        // Upload with metadata
+      // If it has QCI structure, send with metadata
+      if (jsonData.qci !== undefined || jsonData.title !== undefined) {
         requestBody = {
           pinataContent: jsonData,
           pinataMetadata: {
-            name: `QIP-${metadata?.qipNumber || jsonData.qip || "draft"}.json`,
+            name: `QCI-${metadata?.qciNumber || jsonData.qci || "draft"}.json`,
             keyvalues: {
-              type: "qip-proposal",
-              qip: String(metadata?.qipNumber || jsonData.qip || "draft"),
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || jsonData.qci || "draft"),
               network: jsonData.network || "unknown",
               author: jsonData.author || "unknown",
             },
           },
           pinataOptions: {
-            cidVersion: 1,  // Use CIDv1 (modern IPFS standard)
+            cidVersion: 1,
             ...(metadata?.groupId && { groupId: metadata.groupId }),
           },
         };
       } else {
-        // Direct JSON upload
-        requestBody = jsonData;
-      }
-    } else {
-      // For plain text/markdown, wrap it in a JSON structure
-      requestBody = {
-        pinataContent: {
-          content: contentString,
-          type: "markdown",
-        },
-        pinataMetadata: {
-          name: `QIP-${metadata?.qipNumber || "content"}.json`,
-          keyvalues: {
-            type: "qip-content",
-            format: "markdown",
-            ...(metadata?.qipNumber && { qip: String(metadata.qipNumber) }),
+        // It's JSON but not QCI structure, send as-is
+        requestBody = {
+          pinataContent: jsonData,
+          pinataMetadata: {
+            name: `QCI-${metadata?.qciNumber || "draft"}.json`,
+            keyvalues: {
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
+            },
           },
-        },
-        pinataOptions: {
-          cidVersion: 1,  // Use CIDv1 (modern IPFS standard)
-          ...(metadata?.groupId && { groupId: metadata.groupId }),
-        },
-      };
+        };
+      }
+    } catch {
+      // Not JSON - check if it's markdown that needs wrapping
+      const isMarkdown = contentString.trim().startsWith('---');
+
+      if (isMarkdown) {
+        // Wrap markdown in JSON structure to match LocalIPFSProvider and calculateCID
+        const wrappedContent = { content: contentString };
+        requestBody = {
+          pinataContent: wrappedContent,
+          pinataMetadata: {
+            name: `QCI-${metadata?.qciNumber || "draft"}.json`,
+            keyvalues: {
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
+            },
+          },
+          pinataOptions: {
+            cidVersion: 1,
+            ...(metadata?.groupId && { groupId: metadata.groupId }),
+          },
+        };
+      } else {
+        // Plain text or other content - send as-is
+        requestBody = {
+          pinataContent: contentString,
+          pinataMetadata: {
+            name: `QCI-${metadata?.qciNumber || "draft"}.txt`,
+            keyvalues: {
+              type: "qci-proposal",
+              qci: String(metadata?.qciNumber || "draft"),
+            },
+          },
+        };
+      }
     }
 
     const response = await fetch(this.apiUrl, {
@@ -517,7 +444,7 @@ export class MaiAPIProvider implements IPFSProvider {
     if (cid.startsWith("Qm307")) {
       console.log("Development mode: Mock IPFS hash detected, returning placeholder content");
       return `---
-qip: 999
+qci: 999
 title: Mock Content
 network: Base
 status: Draft
@@ -533,112 +460,65 @@ created: 2024-01-01
 This is placeholder content for development mode.`;
     }
 
-    // Try multiple gateways with load balancing
-    let lastError: Error | null = null;
-    const maxRetries = Math.min(3, this.gateways.length);
-    
-    for (let i = 0; i < maxRetries; i++) {
-      const gateway = this.getNextGateway();
-      const url = `${gateway}/ipfs/${cid}`;
-      
-      try {
-        console.debug(`MaiAPI: Fetching from IPFS gateway ${i + 1}/${maxRetries}: ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-        
-        if (!response.ok) {
-          if (response.status === 429) {
-            console.warn(`Rate limited on ${gateway}, trying next...`);
-            lastError = new Error(`Rate limited: ${response.statusText}`);
-            continue;
-          }
-          throw new Error(`Fetch failed: ${response.statusText}`);
+    // Fetch from the gateway
+    const url = `${this.gateway}/ipfs/${cid}`;
+
+    try {
+      console.debug(`MaiAPI: Fetching from IPFS gateway: ${this.gateway}`);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`Rate limited: ${response.statusText}`);
         }
-        
-        return response.text();
-      } catch (error: any) {
-        console.warn(`Failed to fetch from ${gateway}:`, error.message);
-        lastError = error;
-        
-        if (i < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        throw new Error(`Fetch failed: ${response.statusText}`);
       }
+
+      return response.text();
+    } catch (error: any) {
+      console.error(`Failed to fetch from gateway:`, error.message);
+      throw error;
     }
-    
-    throw lastError || new Error(`Failed to fetch CID ${cid} from all gateways`);
   }
 
   /**
-   * Fetch multiple CIDs concurrently using different gateways
+   * Fetch multiple CIDs concurrently
    */
   async fetchMultiple(cids: string[]): Promise<Map<string, string>> {
-    console.debug(`[MaiAPI] Fetching ${cids.length} QIPs concurrently across ${this.gateways.length} gateways`);
-    
+    console.debug(`[MaiAPI] Fetching ${cids.length} QCIs`);
+
     const results = new Map<string, string>();
     const errors = new Map<string, Error>();
-    
-    // Create fetch promises with rotating gateways
-    const fetchPromises = cids.map(async (cid, index) => {
-      // Use a different gateway for each CID
-      const gateway = this.gateways[index % this.gateways.length];
-      const url = `${gateway}/ipfs/${cid}`;
-      
+
+    // Create fetch promises
+    const fetchPromises = cids.map(async (cid) => {
       try {
-        console.debug(`[MaiAPI] Fetching CID ${cid} from gateway ${gateway}`);
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(15000), // 15 second timeout per request
-        });
-        
-        if (!response.ok) {
-          throw new Error(`${gateway} returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const content = await response.text();
+        const content = await this.fetch(cid);
         results.set(cid, content);
-        console.debug(`[MaiAPI] ✅ Successfully fetched ${cid} from ${gateway}`);
+        console.debug(`[MaiAPI] ✅ Successfully fetched ${cid}`);
       } catch (error: any) {
-        console.warn(`[MaiAPI] Failed to fetch ${cid} from ${gateway}:`, error.message);
+        console.warn(`[MaiAPI] Failed to fetch ${cid}:`, error.message);
         errors.set(cid, error);
-        
-        // Retry with a different gateway
-        const retryGateway = this.gateways[(index + 1) % this.gateways.length];
-        const retryUrl = `${retryGateway}/ipfs/${cid}`;
-        
-        try {
-          console.debug(`[MaiAPI] Retrying ${cid} with ${retryGateway}`);
-          const response = await fetch(retryUrl, {
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (response.ok) {
-            const content = await response.text();
-            results.set(cid, content);
-            errors.delete(cid);
-            console.debug(`[MaiAPI] ✅ Retry successful for ${cid} from ${retryGateway}`);
-          }
-        } catch (retryError: any) {
-          console.error(`[MaiAPI] Retry failed for ${cid}:`, retryError.message);
-        }
       }
     });
-    
+
     // Wait for all fetches to complete
     await Promise.allSettled(fetchPromises);
-    
-    console.debug(`[MaiAPI] Fetched ${results.size}/${cids.length} QIPs successfully`);
+
+    console.debug(`[MaiAPI] Fetched ${results.size}/${cids.length} QCIs successfully`);
     if (errors.size > 0) {
-      console.warn(`[MaiAPI] Failed to fetch ${errors.size} QIPs:`, Array.from(errors.keys()));
+      console.warn(`[MaiAPI] Failed to fetch ${errors.size} QCIs:`, Array.from(errors.keys()));
     }
-    
+
     return results;
   }
 
 }
 
 /**
- * Main IPFS service for managing QIPs
+ * Main IPFS service for managing QCIs
  */
 export class IPFSService {
   public readonly provider: IPFSProvider;
@@ -654,76 +534,71 @@ export class IPFSService {
    */
   async calculateCID(content: string): Promise<string> {
     try {
-      // Check which provider is being used to determine content format
+      // IMPORTANT: The Mai API wraps markdown content in { content: "..." } before uploading
+      // We need to match this wrapping when calculating the CID
+
+      const isMarkdown = content.trim().startsWith('---');
+
       let contentToHash: string;
-      
-      // If using MaiAPIProvider and content is markdown (not JSON)
-      if (this.provider instanceof MaiAPIProvider) {
-        try {
-          // Try to parse as JSON - if it succeeds, it's already JSON
-          JSON.parse(content);
-          contentToHash = content;
-        } catch {
-          // Not JSON, so it's markdown that will be wrapped
-          // MaiAPIProvider wraps markdown in this format for IPFS storage
-          const wrappedContent = {
-            content: content,
-            type: "markdown"
-          };
-          contentToHash = JSON.stringify(wrappedContent);
-        }
+      if (isMarkdown) {
+        // Wrap markdown in JSON structure to match what the API does
+        const wrappedContent = { content: content };
+        contentToHash = JSON.stringify(wrappedContent);
+        // Wrap markdown in JSON structure to match what the API does
       } else {
-        // For other providers, use content as-is
+        // Already JSON or other format, use as-is
         contentToHash = content;
       }
-      
+
       // Use ipfs-only-hash to calculate the CID
       // IMPORTANT: Use CIDv1 with raw codec to match Pinata's behavior
       // Pinata uses raw codec for JSON uploads, which produces bafkrei... CIDs
-      const cid = await IPFSOnlyHash.of(contentToHash, { 
+      const cid = await IPFSOnlyHash.of(contentToHash, {
         cidVersion: 1,
         rawLeaves: true,
         codec: 'raw'
       });
+
       return cid;
     } catch (error) {
-      console.error("Error calculating CID:", error);
+      console.error("[IPFSService] Error calculating CID:", error);
       throw new Error("Failed to calculate IPFS CID");
     }
   }
 
   /**
    * Calculate content hash for blockchain storage
-   * Uses keccak256 hash of the QIP content
+   * Uses keccak256 hash of the QCI content
    */
-  calculateContentHash(qipContent: QIPContent): Hash {
-    // Calculate content hash including title, author, timestamp, and content to ensure uniqueness
+  calculateContentHash(qciContent: QCIContent): Hash {
+    // Calculate content hash including title, author, timestamp, content, and transactions to ensure uniqueness
     const uniqueContent = JSON.stringify({
-      title: qipContent.title,
-      author: qipContent.author,
+      title: qciContent.title,
+      author: qciContent.author,
       timestamp: Date.now(),
-      content: qipContent.content,
+      content: qciContent.content,
+      transactions: qciContent.transactions || []
     });
     return keccak256(toBytes(uniqueContent));
   }
 
   /**
-   * Upload QIP content to IPFS from structured data
+   * Upload QCI content to IPFS from structured data
    */
-  async uploadQIPFromContent(qipContent: QIPContent): Promise<{
+  async uploadQCIFromContent(qciContent: QCIContent): Promise<{
     cid: string;
     ipfsUrl: string;
     contentHash: Hash;
   }> {
     // Format as markdown with YAML frontmatter
-    const fullContent = this.formatQIPContent(qipContent);
+    const fullContent = this.formatQCIContent(qciContent);
 
     // Calculate content hash including title, author, timestamp, and content to ensure uniqueness
     const uniqueContent = JSON.stringify({
-      title: qipContent.title,
-      author: qipContent.author,
-      content: qipContent.content,
-      created: qipContent.created,
+      title: qciContent.title,
+      author: qciContent.author,
+      content: qciContent.content,
+      created: qciContent.created,
       timestamp: Date.now(),
     });
     const contentHash = keccak256(toBytes(uniqueContent));
@@ -740,22 +615,50 @@ export class IPFSService {
   }
 
   /**
-   * Format QIP content with YAML frontmatter
+   * Format QCI content with YAML frontmatter
    */
-  public formatQIPContent(qipData: QIPContent): string {
-    return `---
-qip: ${qipData.qip}
-title: ${qipData.title}
-network: ${qipData.network}
-status: ${qipData.status}
-author: ${qipData.author}
-implementor: ${qipData.implementor}
-implementation-date: ${qipData["implementation-date"]}
-proposal: ${qipData.proposal}
-created: ${qipData.created}
+  public formatQCIContent(qciData: QCIContent): string {
+    let formatted = `---
+qci: ${qciData.qci}
+title: ${qciData.title}
+chain: ${qciData.chain}
+status: ${qciData.status}
+author: ${qciData.author}
+implementor: ${qciData.implementor}
+implementation-date: ${qciData["implementation-date"]}
+proposal: ${qciData.proposal}
+created: ${qciData.created}
 ---
 
-${qipData.content}`;
+${qciData.content}`;
+
+    // Append transactions if they exist
+    if (qciData.transactions && qciData.transactions.length > 0) {
+      formatted += '\n\n## Transactions\n\n';
+      formatted += '```json\n';
+      
+      // Convert all transactions to proper JSON format
+      const jsonTransactions = qciData.transactions.map(tx => {
+        if (typeof tx === 'string') {
+          // Try to parse if it's already JSON
+          try {
+            return JSON.parse(tx);
+          } catch {
+            // Legacy format or plain string, skip for now
+            return null;
+          }
+        } else if (typeof tx === 'object') {
+          return tx;
+        }
+        return null;
+      }).filter(tx => tx !== null);
+      
+      // Format as JSON array
+      formatted += JSON.stringify(jsonTransactions, null, 2);
+      formatted += '\n```\n';
+    }
+
+    return formatted;
   }
 
   /**
@@ -781,27 +684,28 @@ ${qipData.content}`;
   }
 
   /**
-   * Fetch and parse QIP from IPFS
+   * Fetch and parse QCI from IPFS
    */
-  async fetchQIP(cidOrUrl: string): Promise<string> {
+  async fetchQCI(cidOrUrl: string): Promise<string> {
     // Extract CID from URL if needed
     const cid = cidOrUrl.startsWith("ipfs://") ? cidOrUrl.slice(7) : cidOrUrl;
 
     const rawContent = await this.provider.fetch(cid);
     const processed = this.processIPFSContent(rawContent, cid);
+
     return processed;
   }
 
   /**
-   * Convert JSON QIP structure to markdown format
+   * Convert JSON QCI structure to markdown format
    */
-  private formatQIPFromJSON(data: any): string {
+  private formatQCIFromJSON(data: any): string {
     // Extract content if it exists
     const content = data.content || "";
     
     // Build frontmatter from the JSON data
     const frontmatter = [
-      `qip: ${data.qip || "unknown"}`,
+      `qci: ${data.qci || "unknown"}`,
       `title: ${data.title || "Untitled"}`,
       `network: ${data.network || "unknown"}`,
       `status: ${data.status || "Draft"}`,
@@ -816,19 +720,19 @@ ${qipData.content}`;
   }
 
   /**
-   * Fetch multiple QIPs concurrently using provider's optimized method if available
+   * Fetch multiple QCIs concurrently using provider's optimized method if available
    */
-  async fetchMultipleQIPs(cids: string[]): Promise<Map<string, string>> {
+  async fetchMultipleQCIs(cids: string[]): Promise<Map<string, string>> {
     // Use provider's optimized fetchMultiple if available
     if (this.provider.fetchMultiple) {
       console.debug(`[IPFSService] Using provider's optimized fetchMultiple for ${cids.length} CIDs`);
       const results = await this.provider.fetchMultiple(cids);
       
-      // Process each result to handle JSON unwrapping (same logic as fetchQIP but without fetching)
+      // Process each result to handle JSON unwrapping (same logic as fetchQCI but without fetching)
       const processedResults = new Map<string, string>();
       for (const [cid, rawContent] of results) {
         try {
-          // Apply the same JSON unwrapping logic as fetchQIP
+          // Apply the same JSON unwrapping logic as fetchQCI
           const processedContent = this.processIPFSContent(rawContent, cid);
           processedResults.set(cid, processedContent);
         } catch (error) {
@@ -847,7 +751,7 @@ ${qipData.content}`;
     
     for (const cid of cids) {
       try {
-        const content = await this.fetchQIP(cid);
+        const content = await this.fetchQCI(cid);
         results.set(cid, content);
       } catch (error) {
         console.error(`[IPFSService] Failed to fetch CID ${cid}:`, error);
@@ -864,15 +768,14 @@ ${qipData.content}`;
     // Try to parse as JSON
     try {
       const parsed = JSON.parse(rawContent);
-      
+
       // Check if it's a valid JSON object
       if (typeof parsed === "object" && parsed !== null) {
-        // Case 1: Full QIP JSON structure (has qip, title, etc. - check this first)
-        if ("qip" in parsed || "title" in parsed) {
-          console.debug(`Converting full QIP JSON structure to markdown for CID: ${cid}`);
+        // Case 1: Full QCI JSON structure (has qci, title, etc. - check this first)
+        if ("qci" in parsed || "title" in parsed) {
           // Convert the JSON structure to markdown format
           const frontmatter = [
-            `qip: ${parsed.qip || "unknown"}`,
+            `qci: ${parsed.qci || "unknown"}`,
             `title: ${parsed.title || "Untitled"}`,
             `network: ${parsed.network || "unknown"}`,
             `status: ${parsed.status || "Draft"}`,
@@ -882,20 +785,18 @@ ${qipData.content}`;
             `proposal: ${parsed.proposal || "None"}`,
             `created: ${parsed.created || new Date().toISOString().split("T")[0]}`,
           ].join("\n");
-          
+
           const content = parsed.content || "";
           return `---\n${frontmatter}\n---\n\n${content}`;
         }
-        
+
         // Case 2: JSON with 'content' field and 'type' field (MaiAPIProvider format)
         if ("content" in parsed && "type" in parsed && parsed.type === "markdown") {
-          console.debug(`Unwrapping MaiAPI JSON-wrapped markdown for CID: ${cid}`);
           return parsed.content;
         }
-        
+
         // Case 3: Simple JSON with just 'content' field
         if ("content" in parsed && typeof parsed.content === "string") {
-          console.debug(`Unwrapping simple JSON-wrapped content for CID: ${cid}`);
           return parsed.content;
         }
       }
@@ -909,13 +810,13 @@ ${qipData.content}`;
   }
 
   /**
-   * Upload pre-formatted QIP markdown content with metadata
+   * Upload pre-formatted QCI markdown content with metadata
    */
-  async uploadQIP(
+  async uploadQCI(
     markdownContent: string,
     _metadata?: {
       name?: string;
-      qipNumber?: string;
+      qciNumber?: string;
       title?: string;
       author?: string;
       version?: string;
@@ -928,9 +829,9 @@ ${qipData.content}`;
   }
 
   /**
-   * Generate QIP markdown from frontmatter and content
+   * Generate QCI markdown from frontmatter and content
    */
-  generateQIPMarkdown(frontmatter: Record<string, any>, content: string): string {
+  generateQCIMarkdown(frontmatter: Record<string, any>, content: string): string {
     const frontmatterLines = Object.entries(frontmatter)
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n");
@@ -939,23 +840,23 @@ ${qipData.content}`;
   }
 
   /**
-   * Parse QIP markdown to extract frontmatter and content
+   * Parse QCI markdown to extract frontmatter and content
    */
-  parseQIPMarkdown(markdown: string | any): {
+  parseQCIMarkdown(markdown: string | any): {
     frontmatter: Record<string, any>;
     content: string;
   } {
     
     // Ensure we have a string to work with
     if (typeof markdown !== "string") {
-      console.error("parseQIPMarkdown received non-string:", typeof markdown, markdown);
+      console.error("parseQCIMarkdown received non-string:", typeof markdown, markdown);
       // Try to handle JSON objects that might have been passed directly
       if (typeof markdown === "object" && markdown !== null) {
-        // If it's already a parsed QIP object, convert it to markdown first
-        if ("qip" in markdown || "title" in markdown) {
+        // If it's already a parsed QCI object, convert it to markdown first
+        if ("qci" in markdown || "title" in markdown) {
           const obj = markdown as any;
           const frontmatter = [
-            `qip: ${obj.qip || "unknown"}`,
+            `qci: ${obj.qci || "unknown"}`,
             `title: ${obj.title || "Untitled"}`,
             `network: ${obj.network || "unknown"}`,
             `status: ${obj.status || "Draft"}`,
@@ -969,10 +870,10 @@ ${qipData.content}`;
           const content = obj.content || "";
           markdown = `---\n${frontmatter}\n---\n\n${content}`;
         } else {
-          throw new Error("Invalid QIP format: expected string content or QIP object");
+          throw new Error("Invalid QCI format: expected string content or QCI object");
         }
       } else {
-        throw new Error("Invalid QIP format: expected string content");
+        throw new Error("Invalid QCI format: expected string content");
       }
     }
 
@@ -980,7 +881,7 @@ ${qipData.content}`;
     markdown = markdown.trim();
 
     if (!markdown) {
-      throw new Error("Invalid QIP format: empty content");
+      throw new Error("Invalid QCI format: empty content");
     }
 
     // Check for frontmatter
@@ -988,8 +889,8 @@ ${qipData.content}`;
 
     if (!match) {
       // Log the first 200 chars for debugging
-      console.error("Failed to parse QIP markdown. First 200 chars:", markdown.substring(0, 200));
-      throw new Error('Invalid QIP format: missing frontmatter. Content must start with "---" delimiter');
+      console.error("Failed to parse QCI markdown. First 200 chars:", markdown.substring(0, 200));
+      throw new Error('Invalid QCI format: missing frontmatter. Content must start with "---" delimiter');
     }
 
     const yamlContent = match[1];
@@ -1014,7 +915,7 @@ ${qipData.content}`;
   }
 
   /**
-   * Verify QIP content matches hash
+   * Verify QCI content matches hash
    */
   verifyContentHash(content: string, expectedHash: Hash): boolean {
     const actualHash = keccak256(toBytes(content));
@@ -1030,8 +931,8 @@ ${qipData.content}`;
     if (this.provider instanceof Web3StorageProvider) {
       return `https://w3s.link/ipfs/${cid}`;
     } else if (this.provider instanceof PinataProvider || this.provider instanceof MaiAPIProvider) {
-      // Use the first available gateway from the provider's list
-      const gateway = this.provider.gateways?.[0] || 'https://gateway.pinata.cloud';
+      // Use the provider's gateway
+      const gateway = this.provider.gateway || getIPFSGateway();
       return `${gateway}/ipfs/${cid}`;
     } else if (this.provider instanceof LocalIPFSProvider) {
       return `http://localhost:8080/ipfs/${cid}`;
@@ -1053,7 +954,7 @@ ${qipData.content}`;
    * Fetch and parse JSON from IPFS
    */
   async fetchJSON<T = any>(cidOrUrl: string): Promise<T> {
-    const content = await this.fetchQIP(cidOrUrl);
+    const content = await this.fetchQCI(cidOrUrl);
     return JSON.parse(content);
   }
 }

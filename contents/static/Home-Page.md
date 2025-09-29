@@ -1,6 +1,6 @@
 ### QiDao Proposals
 
-QiDao Improvement Proposals (QIPs) describe standards for the QiDao Protocol, including core protocol specifications, client APIs, contract standards, and strategic charters. They also request parameter changes to existing smart contracts that make up the protocol.
+QiDao Community Ideas (QCIs) describe suggestions for improvements to the QiDao Protocol, including core protocol specifications, client APIs, contract standards, and strategic charters. They also request parameter changes to existing smart contracts that make up the protocol.
 
 ### Contributing
 

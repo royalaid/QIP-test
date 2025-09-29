@@ -1,5 +1,5 @@
 ---
-qip: 000
+qci: 000
 title: General template
 network: <CHAIN NAME>
 status: <Draft>
@@ -10,7 +10,7 @@ proposal: https://snapshot.org # Link to the proposal on snapshot.org (optional)
 created: 1970-01-01
 ---
 
-This is the suggested template for new QIPs. Note that Proposals number will be assigned by an editor. When opening a pull request to submit your Proposal, please use an abbreviated title in the filename, qip-draft_title_abbrev.md. The title should be 44 characters or less
+This is the suggested template for new QCIs. Note that Proposals number will be assigned by an editor. When opening a pull request to submit your Proposal, please use an abbreviated title in the filename, qip-draft_title_abbrev.md. The title should be 44 characters or less
 
 ### Summary
 
@@ -18,7 +18,7 @@ In clear and simple terms, describe the proposal and its intended goal. This sho
 
 ### Abstract
 
-A short (~200 word) description of the proposed change, the abstract should clearly describe the proposed change. This is what will be done if the QIP is implemented, not why it should be done or how it will be done.
+A short (~200 word) description of the proposed change, the abstract should clearly describe the proposed change. This is what will be done if the QCI is implemented, not why it should be done or how it will be done.
 
 ### Motivation
 

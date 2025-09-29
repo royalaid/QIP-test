@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {QIPRegistry} from "../contracts/QIPRegistry.sol";
+import {QCIRegistry} from "../contracts/QCIRegistry.sol";
 
 /**
  * @title Deploy with Standard CREATE2 Deployer
@@ -14,7 +14,7 @@ contract DeployWithStandardCreate2 is Script {
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     
     // Salt for deterministic deployment
-    bytes32 constant SALT = keccak256("QIPRegistry.v1.base");
+    bytes32 constant SALT = keccak256("QCIRegistry.v4.base");
     
     function run() public returns (address) {
         // When using keystore (--account flag), msg.sender is the authenticated account
@@ -30,17 +30,17 @@ contract DeployWithStandardCreate2 is Script {
         }
         
         // Get the bytecode with constructor args
-        // Start at QIP 209 to allow migration of existing QIPs
+        // Start at QCI 209 to allow migration of existing QCIs
         // Pass the initial admin address
-        bytes memory bytecode = abi.encodePacked(type(QIPRegistry).creationCode, abi.encode(209, initialAdmin));
+        bytes memory bytecode = abi.encodePacked(type(QCIRegistry).creationCode, abi.encode(209, initialAdmin));
         
         // Compute the expected address
         address expectedAddress = computeCreate2Address(bytecode, SALT);
-        console.log("Expected QIPRegistry address:", expectedAddress);
+        console.log("Expected QCIRegistry address:", expectedAddress);
         
         // Check if already deployed
         if (expectedAddress.code.length > 0) {
-            console.log("QIPRegistry already deployed at:", expectedAddress);
+            console.log("QCIRegistry already deployed at:", expectedAddress);
             return expectedAddress;
         }
         
@@ -58,11 +58,11 @@ contract DeployWithStandardCreate2 is Script {
         // The deployer returns the deployed address
         address deployedAddress = address(uint160(bytes20(result)));
         
-        console.log("QIPRegistry deployed at:", deployedAddress);
+        console.log("QCIRegistry deployed at:", deployedAddress);
         require(deployedAddress == expectedAddress, "Deployed address mismatch");
         
         // Verify admin role was granted correctly
-        QIPRegistry registry = QIPRegistry(deployedAddress);
+        QCIRegistry registry = QCIRegistry(deployedAddress);
         require(registry.hasRole(registry.DEFAULT_ADMIN_ROLE(), initialAdmin), "Admin not set correctly");
         
         vm.stopBroadcast();
@@ -94,12 +94,12 @@ contract DeployWithStandardCreate2 is Script {
     function getExpectedAddress() public pure returns (address) {
         // Backward-compatible helper for local dev default admin
         address defaultDevAdmin = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-        bytes memory bytecode = abi.encodePacked(type(QIPRegistry).creationCode, abi.encode(209, defaultDevAdmin));
+        bytes memory bytecode = abi.encodePacked(type(QCIRegistry).creationCode, abi.encode(209, defaultDevAdmin));
         return computeCreate2Address(bytecode, SALT);
     }
 
     function getExpectedAddressFor(address initialAdmin) public pure returns (address) {
-        bytes memory bytecode = abi.encodePacked(type(QIPRegistry).creationCode, abi.encode(209, initialAdmin));
+        bytes memory bytecode = abi.encodePacked(type(QCIRegistry).creationCode, abi.encode(209, initialAdmin));
         return computeCreate2Address(bytecode, SALT);
     }
 }

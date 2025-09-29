@@ -36,30 +36,36 @@ const getBoolEnvVar = (key: string, defaultValue = false): boolean => {
   return value === "true";
 };
 
+const rawRegistryAddress = getEnvVar("VITE_QCI_REGISTRY_ADDRESS");
+const registryAddressValue = rawRegistryAddress || "0x0bd64B68473Fb5747fa1884F7882615d09C8c161";
+
 export const config = {
   // Blockchain Configuration
-  qipRegistryAddress: getEnvVar("VITE_QIP_REGISTRY_ADDRESS") as `0x${string}`,
+  qciRegistryAddress: registryAddressValue as `0x${string}`,
+  registryAddress: registryAddressValue as `0x${string}`, // Add alias for compatibility
   baseRpcUrl: getEnvVar("VITE_BASE_RPC_URL", "http://localhost:8545"),
   walletConnectProjectId: getEnvVar("VITE_WALLETCONNECT_PROJECT_ID"),
 
   // IPFS Configuration
   useLocalIPFS: getBoolEnvVar("VITE_USE_LOCAL_IPFS", false),
-  pinataGateway: getEnvVar("VITE_PINATA_GATEWAY", "https://gateway.pinata.cloud"),
+  ipfsGateway: getEnvVar("VITE_IPFS_GATEWAY", "https://gateway.pinata.cloud"),
   pinataGroupId: getEnvVar("VITE_PINATA_GROUP_ID", ""),
   localIPFSApi: getEnvVar("VITE_LOCAL_IPFS_API", "http://localhost:5001"),
-  localIPFSGateway: getEnvVar("VITE_LOCAL_IPFS_GATEWAY", "http://localhost:8080"),
+  localIPFSGateway: getEnvVar("VITE_IPFS_GATEWAY", getEnvVar("VITE_LOCAL_IPFS_GATEWAY", "http://localhost:8080")),
   ipfsApiUrl: getEnvVar("VITE_IPFS_API_URL", ""),
   useMaiApi: getBoolEnvVar("VITE_USE_MAI_API", false),
 
-  // Mai API Configuration for QIP fetching
+  // Mai API Configuration for QCI fetching
   maiApiUrl: getEnvVar("VITE_MAI_API_URL", "https://api.mai.finance"),
-  
+
   // App Configuration
   localMode: getBoolEnvVar("VITE_LOCAL_MODE", false),
   useTestnet: getBoolEnvVar("VITE_USE_TESTNET", false),
-  
+
   // Snapshot Configuration
   snapshotSpace: getEnvVar("VITE_SNAPSHOT_SPACE", "qidao.eth"),
+  snapshotTestMode: getBoolEnvVar("VITE_SNAPSHOT_TEST_MODE", false),
+  snapshotTestSpace: getEnvVar("VITE_SNAPSHOT_TEST_SPACE", "testdevtest.eth"),
 
   // Development Configuration
   isDevelopment: process.env.NODE_ENV === "development",
@@ -70,8 +76,8 @@ export const config = {
 export const validateConfig = () => {
   const errors: string[] = [];
 
-  if (!config.qipRegistryAddress) {
-    errors.push("QIP Registry address is not configured");
+  if (!config.qciRegistryAddress) {
+    errors.push("QCI Registry address is not configured");
   }
 
   if (!config.walletConnectProjectId && config.isProduction) {
@@ -89,7 +95,7 @@ export const validateConfig = () => {
 // Log configuration in development
 if (config.isDevelopment) {
   console.log("🔧 App Configuration:", {
-    registryAddress: config.qipRegistryAddress,
+    registryAddress: config.qciRegistryAddress,
     useLocalIPFS: config.useLocalIPFS,
     localMode: config.localMode,
     walletConnectConfigured: !!config.walletConnectProjectId,

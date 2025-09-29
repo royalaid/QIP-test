@@ -1,7 +1,7 @@
-// Re-export all QIP-related hooks
-export { useQIPData, useQIPsByStatus, useQIPCounts, type QIPData } from './useQIPData';
-export { useQIP } from './useQIP';
-export { useQIPList } from './useQIPList';
-export { useCreateQIP } from './useCreateQIP';
-export { useUpdateQIP } from './useUpdateQIP';
-export { useQIPVersionHistory } from './useQIPVersionHistory';
+// Re-export all QCI-related hooks
+export { useQCIData, useQCIsByStatus, useQCICounts, type QCIData } from './useQCIData';
+export { useQCI } from './useQCI';
+export { useQCIList } from './useQCIList';
+export { useCreateQCI } from './useCreateQCI';
+export { useUpdateQCI } from './useUpdateQCI';
+export { useQCIVersionHistory } from './useQCIVersionHistory';

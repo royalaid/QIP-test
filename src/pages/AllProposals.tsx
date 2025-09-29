@@ -1,97 +1,134 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import ProposalListItem from '../components/ProposalListItem'
 import { sortBy } from 'lodash/fp'
-import { useQIPsFromAPI } from '../hooks/useQIPsFromAPI'
+import { useQCIData } from '../hooks/useQCIData'
 import LocalModeBanner from '../components/LocalModeBanner'
+import CacheStatusIndicator from '../components/CacheStatusIndicator'
+import { StatusGroupSkeleton } from '../components/QCISkeleton'
 import { config } from '../config/env'
+import { showDevTools } from '../config/debug'
+import { RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 
-// Map blockchain status strings to display strings
-const statusDisplayMap: Record<string, string> = {
-  'Draft': 'Draft',
-  'Review': 'Review Pending',
-  'Vote': 'Vote Pending',
-  'Approved': 'Approved',
-  'Rejected': 'Rejected',
-  'Implemented': 'Implemented',
-  'Superseded': 'Deprecated',
-  'Withdrawn': 'Deprecated'
-}
-
-// Status order for display
-const statusOrder = ['Draft', 'Review', 'Vote', 'Approved', 'Implemented', 'Rejected', 'Withdrawn']
 
 const AllProposals: React.FC = () => {
-  // Configuration
-  const localMode = config.localMode
+  const localMode = config.localMode;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [archivedCollapsed, setArchivedCollapsed] = useState(true);
+  const [qciSectionCollapsed, setQciSectionCollapsed] = useState(false);
+  const [qipSectionCollapsed, setQipSectionCollapsed] = useState(false);
+  const [draftsCollapsed, setDraftsCollapsed] = useState(false);
+  const [readyForSnapshotCollapsed, setReadyForSnapshotCollapsed] = useState(false);
+  const [postedToSnapshotCollapsed, setPostedToSnapshotCollapsed] = useState(false);
 
-  // Always use API for fetching QIPs (24x faster)
-  const { 
-    qips: blockchainQIPs, 
-    isLoading: blockchainLoading, 
-    isError: blockchainError,
-    invalidateQIPs,
+  const {
+    blockchainQCIs: qcis,
+    isLoading,
+    isError,
+    invalidateQCIs: invalidate,
     isFetching,
-    refreshQIPs
-  } = useQIPsFromAPI({
-    apiUrl: config.maiApiUrl,
-    pollingInterval: 30000, // 30 seconds
-    enabled: true
-  })
+    dataUpdatedAt,
+  } = useQCIData({
+    enabled: true,
+  });
 
-  // Group QIPs by status
-  const groupedQIPs = useMemo(() => {
-    const groups: Record<string, any[]> = {}
-    
-    blockchainQIPs.forEach(qip => {
-      const status = qip.status
-      if (!groups[status]) {
-        groups[status] = []
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await invalidate();
+      console.log("[AllProposals] Manual refresh triggered");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Group QCIs by category and status
+  const categorizedQCIs = useMemo(() => {
+    const categories = {
+      qci: {
+        drafts: [] as any[],
+        readyForSnapshot: [] as any[]
+      },
+      qip: {
+        postedToSnapshot: [] as any[]
+      },
+      archived: [] as any[]
+    };
+
+    qcis.forEach((qci) => {
+      const proposalData = {
+        ...qci,
+        id: `blockchain-${qci.qciNumber}`,
+        frontmatter: {
+          qci: qci.qciNumber,
+          title: qci.title,
+          author: qci.author,
+          chain: qci.chain,
+          proposal: qci.proposal,
+          implementor: qci.implementor,
+          created: qci.created,
+          status: qci.status,
+        },
+      };
+
+      // Categorize by status
+      switch (qci.status) {
+        case "Draft":
+          categories.qci.drafts.push(proposalData);
+          break;
+        case "Ready for Snapshot":
+          categories.qci.readyForSnapshot.push(proposalData);
+          break;
+        case "Posted to Snapshot":
+          categories.qip.postedToSnapshot.push(proposalData);
+          break;
+        case "Archived":
+          categories.archived.push(proposalData);
+          break;
       }
-      // Just pass the QIP as-is since ProposalListItem handles blockchain QIPs directly
-      groups[status].push({
-        ...qip,
-        id: `api-${qip.qipNumber}`
-      })
-    })
+    });
 
-    // Sort QIPs within each group by number (descending)
-    Object.keys(groups).forEach(status => {
-      groups[status] = sortBy(p => -p.qipNumber, groups[status])
-    })
+    // Sort QCIs within each category by number (descending)
+    categories.qci.drafts = sortBy((p) => -p.qciNumber, categories.qci.drafts);
+    categories.qci.readyForSnapshot = sortBy((p) => -p.qciNumber, categories.qci.readyForSnapshot);
+    categories.qip.postedToSnapshot = sortBy((p) => -p.qciNumber, categories.qip.postedToSnapshot);
+    categories.archived = sortBy((p) => -p.qciNumber, categories.archived);
 
-    return groups
-  }, [blockchainQIPs])
+    return categories;
+  }, [qcis]);
 
-  // Get ordered status groups
-  const orderedGroups = statusOrder
-    .filter(status => groupedQIPs[status] && groupedQIPs[status].length > 0)
-    .map(status => ({
-      status,
-      qips: groupedQIPs[status],
-      displayName: statusDisplayMap[status] || status
-    }))
 
   return (
-    <>
-      <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">All Proposals</h1>
-          
-          {localMode && <LocalModeBanner />}
-          
-          {/* API Mode Indicator - Always shown since we're always using API */}
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
-              ⚡ Using Mai API for faster QIP loading (24x performance improvement)
-            </p>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-4xl font-bold">Governance Hub</h1>
+            {showDevTools && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || isFetching}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Refresh proposals"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing || isFetching ? "animate-spin" : ""}`} />
+                {isRefreshing || isFetching ? "Refreshing..." : "Refresh"}
+              </button>
+            )}
           </div>
-          
-          {blockchainError && (
+
+          {localMode && <LocalModeBanner />}
+
+          {showDevTools && dataUpdatedAt && !isLoading && (
+            <div className="text-sm text-muted-foreground mb-2">Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}</div>
+          )}
+
+          {isError && (
             <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
-              <p className="font-bold">Error loading from API</p>
+              <p className="font-bold">Error loading data</p>
               <p className="text-sm">Please check your connection and try again.</p>
-              <button 
-                onClick={() => refreshQIPs()}
+              <button
+                onClick={() => invalidate()}
                 className="mt-2 bg-destructive text-white px-3 py-1 rounded text-sm hover:bg-destructive/90"
               >
                 Retry
@@ -99,14 +136,16 @@ const AllProposals: React.FC = () => {
             </div>
           )}
 
-          {blockchainLoading && !blockchainQIPs.length && (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-              <span className="ml-3">Loading proposals from API...</span>
+          {/* Show skeletons on initial load */}
+          {isLoading && qcis.length === 0 && (
+            <div className="space-y-8">
+              <StatusGroupSkeleton />
+              <StatusGroupSkeleton />
+              <StatusGroupSkeleton />
             </div>
           )}
 
-          {!blockchainLoading && !blockchainError && blockchainQIPs.length === 0 && (
+          {!isLoading && !isError && qcis.length === 0 && (
             <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
               <p className="font-bold">No proposals found</p>
               <p className="text-sm">There are no proposals in the registry yet.</p>
@@ -114,50 +153,169 @@ const AllProposals: React.FC = () => {
           )}
         </div>
 
-        <div className="space-y-8">
-          {orderedGroups.map(({ status, qips, displayName }) => (
-            <div key={status}>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                {displayName}
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({qips.length})
-                </span>
-                {isFetching && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-muted-foreground"></div>
-                )}
-              </h2>
-              <ProposalListItem proposals={qips} />
-            </div>
-          ))}
-        </div>
-
-        {/* Refresh button for development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 right-4">
-            <button
-              onClick={() => invalidateQIPs()}
-              className="bg-primary text-white px-4 py-2 rounded-full shadow-lg hover:bg-primary/90 flex items-center"
-              disabled={isFetching}
-            >
-              {isFetching ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </>
-              )}
-            </button>
+        {/* Show skeletons while refetching in background */}
+        {isFetching && !isLoading && (
+          <div className="space-y-8">
+            <StatusGroupSkeleton />
+            <StatusGroupSkeleton />
+            <StatusGroupSkeleton />
           </div>
         )}
+
+        {/* Show actual content when not fetching or when we have cached data */}
+        <div className={`space-y-8 ${isFetching && !isLoading ? "hidden" : ""}`}>
+          {/* QCI Section */}
+          {(categorizedQCIs.qci.drafts.length > 0 || categorizedQCIs.qci.readyForSnapshot.length > 0) && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setQciSectionCollapsed(!qciSectionCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {qciSectionCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                🧠 QiDao Community Ideas (QCI)
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({categorizedQCIs.qci.drafts.length + categorizedQCIs.qci.readyForSnapshot.length})
+                </span>
+              </h2>
+
+              {!qciSectionCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200 ml-6 space-y-6">
+                  {/* Drafts Subsection */}
+                  {categorizedQCIs.qci.drafts.length > 0 && (
+                    <div>
+                      <h3
+                        className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                        onClick={() => setDraftsCollapsed(!draftsCollapsed)}
+                      >
+                        <span className="transition-transform duration-200">
+                          {draftsCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </span>
+                        Drafts
+                        <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.drafts.length})</span>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3 ml-6">
+                        Early-stage ideas, open for community feedback.
+                      </p>
+                      {!draftsCollapsed && (
+                        <div className="animate-in slide-in-from-top-2 duration-200">
+                          <ProposalListItem proposals={categorizedQCIs.qci.drafts} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Ready for Snapshot Subsection */}
+                  {categorizedQCIs.qci.readyForSnapshot.length > 0 && (
+                    <div>
+                      <h3
+                        className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                        onClick={() => setReadyForSnapshotCollapsed(!readyForSnapshotCollapsed)}
+                      >
+                        <span className="transition-transform duration-200">
+                          {readyForSnapshotCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </span>
+                        Ready for Snapshot
+                        <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.readyForSnapshot.length})</span>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3 ml-6">
+                        Any DAO member with ≥150K aveQI can promote these QCIs into QIPs.
+                      </p>
+                      {!readyForSnapshotCollapsed && (
+                        <div className="animate-in slide-in-from-top-2 duration-200">
+                          <ProposalListItem proposals={categorizedQCIs.qci.readyForSnapshot} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* QIP Section */}
+          {categorizedQCIs.qip.postedToSnapshot.length > 0 && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setQipSectionCollapsed(!qipSectionCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {qipSectionCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                ⚡️ QiDao Improvement Proposals (QIP)
+                <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qip.postedToSnapshot.length})</span>
+              </h2>
+
+              {!qipSectionCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200 ml-6">
+                  <h3
+                    className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setPostedToSnapshotCollapsed(!postedToSnapshotCollapsed)}
+                  >
+                    <span className="transition-transform duration-200">
+                      {postedToSnapshotCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </span>
+                    Posted on Snapshot
+                    <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qip.postedToSnapshot.length})</span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-3 ml-6">
+                    Governance in its final form, any user with an aveQI balance can vote to decide the outcome.
+                  </p>
+                  {!postedToSnapshotCollapsed && (
+                    <div className="animate-in slide-in-from-top-2 duration-200">
+                      <ProposalListItem proposals={categorizedQCIs.qip.postedToSnapshot} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Archived Section */}
+          {categorizedQCIs.archived.length > 0 && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setArchivedCollapsed(!archivedCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {archivedCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                🗄️ Archived
+                <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.archived.length})</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mb-3 ml-6">
+                Ideas discarded by the author or that didn't meet quorum to advance into a QIP.
+              </p>
+              {!archivedCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200">
+                  <ProposalListItem proposals={categorizedQCIs.archived} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Total count indicator */}
+        {qcis.length > 0 && (
+          <div className="py-8 text-center text-gray-500">
+            <p>{qcis.length} proposals total</p>
+          </div>
+        )}
+
+        {/* Cache status indicator for debugging */}
+        <CacheStatusIndicator
+          dataUpdatedAt={dataUpdatedAt}
+          isFetching={isFetching}
+          isStale={false}
+          source={config.useMaiApi ? "api" : "blockchain"}
+          cacheHit={!isLoading && dataUpdatedAt ? true : false}
+        />
       </div>
-    </>
-  )
-}
+    </div>
+  );
+};
 
 export default AllProposals

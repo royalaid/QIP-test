@@ -22,10 +22,10 @@ export function useCachedIPFS(cid: string | undefined, options: UseIPFSOptions =
       if (!cid) throw new Error('No CID provided');
       
       console.debug(`[useCachedIPFS] Fetching CID: ${cid}`);
-      const content = await ipfsService.fetchQIP(cid);
+      const content = await ipfsService.fetchQCI(cid);
       
       // Parse the content to validate it
-      const { frontmatter, content: body } = ipfsService.parseQIPMarkdown(content);
+      const { frontmatter, content: body } = ipfsService.parseQCIMarkdown(content);
       
       return {
         raw: content,
@@ -70,8 +70,8 @@ export function useIPFSPrefetch() {
     await queryClient.prefetchQuery({
       queryKey: ['ipfs', cid],
       queryFn: async () => {
-        const content = await ipfsService.fetchQIP(cid);
-        const { frontmatter, content: body } = ipfsService.parseQIPMarkdown(content);
+        const content = await ipfsService.fetchQCI(cid);
+        const { frontmatter, content: body } = ipfsService.parseQCIMarkdown(content);
         return { raw: content, frontmatter, body, cid };
       },
       staleTime: CACHE_TIMES.STALE_TIME.IPFS_CONTENT,

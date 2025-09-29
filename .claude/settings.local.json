@@ -33,9 +33,24 @@
       "WebSearch",
       "Bash(git submodule:*)",
       "Bash(npx tsc:*)",
-      "WebFetch(domain:21st.dev)"
+      "WebFetch(domain:21st.dev)",
+      "Bash(git add:*)",
+      "Bash(pgrep:*)",
+      "Read(//private/tmp/**)",
+      "Bash(sed:*)",
+      "Bash(xxd:*)",
+      "Bash(open http://localhost:3000)",
+      "Bash(cast send:*)",
+      "Bash(open http://localhost:3000/qips/248)",
+      "Bash(cast logs:*)",
+      "Bash(cast:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(ipfs cat:*)"
     ],
-    "deny": []
-  },
-  "outputStyle": "Explanatory"
+    "deny": [
+      "Bash(rm-rf:*)"
+    ]
+  }
 }

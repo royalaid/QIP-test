@@ -8,16 +8,15 @@ import Layout from './layout'
 // Pages
 import HomePage from './pages/HomePage'
 import AllProposals from './pages/AllProposals'
-import AllProposalsPaginated from './pages/AllProposalsPaginated'
 import CreateProposal from './pages/CreateProposal'
-import QIPDetail from './pages/QIPDetail'
-import TemplatesPage from './pages/TemplatesPage'
+import QCIDetail from "./pages/QCIDetail";
 import EditProposal from "./pages/EditProposal";
+import Debug from "./pages/Debug";
 
 function App() {
   // Get the base path for React Router
   const basePath = getBasePath();
-  console.log('React Router basename:', basePath || '/');
+  console.log("React Router basename:", basePath || "/");
 
   return (
     <ThemeProvider>
@@ -26,11 +25,11 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />
-              <Route path="/all-proposals" element={<AllProposalsPaginated />} />
-              <Route path="/qips/:qipNumber" element={<QIPDetail />} />
+              <Route path="/all-proposals" element={<AllProposals />} />
+              <Route path="/qcis/:qciNumber" element={<QCIDetail />} />
               <Route path="/create-proposal" element={<CreateProposal />} />
               <Route path="/edit-proposal" element={<EditProposal />} />
-              <Route path="/templates" element={<TemplatesPage />} />
+              <Route path="/debug" element={<Debug />} />
             </Routes>
           </Layout>
         </Router>

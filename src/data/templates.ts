@@ -3,7 +3,7 @@ export interface Template {
   name: string;
   description: string;
   title: string;
-  network: string;
+  chain: string;
   implementor: string;
   content: string;
 }
@@ -11,10 +11,10 @@ export interface Template {
 export const templates: Template[] = [
   {
     id: 'general',
-    name: 'General QIP Template',
+    name: 'General QCI Template',
     description: 'For protocol improvements and changes',
     title: 'General template',
-    network: 'Polygon',
+    chain: 'Polygon',
     implementor: 'None',
     content: `### Summary
 
@@ -22,7 +22,7 @@ In clear and simple terms, describe the proposal and its intended goal. This sho
 
 ### Abstract
 
-A short (~200 word) description of the proposed change, the abstract should clearly describe the proposed change. This is what will be done if the QIP is implemented, not why it should be done or how it will be done.
+A short (~200 word) description of the proposed change, the abstract should clearly describe the proposed change. This is what will be done if the QCI is implemented, not why it should be done or how it will be done.
 
 ### Motivation
 
@@ -49,7 +49,7 @@ Please list all values configurable under this implementation, if applicable.`
     name: 'New Asset Template',
     description: 'For adding new collateral assets to QiDAO',
     title: 'Add [Asset Name] as Collateral',
-    network: 'Polygon',
+    chain: 'Polygon',
     implementor: 'None',
     content: `### Summary
 

@@ -7,7 +7,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🔧 Setting up IPFS for QIPs Development${NC}"
+echo -e "${BLUE}🔧 Setting up IPFS for QCIs Development${NC}"
 echo "=============================================="
 
 # Check if IPFS is installed
@@ -44,7 +44,7 @@ else
 fi
 
 # Configure IPFS for local development
-echo -e "${YELLOW}Configuring IPFS for QIPs development...${NC}"
+echo -e "${YELLOW}Configuring IPFS for QCIs development...${NC}"
 
 # CORS configuration for browser access
 echo -e "${BLUE}Setting up CORS headers...${NC}"
@@ -82,7 +82,7 @@ ipfs config --json Experimental.P2pHttpProxy 'false'
 # Set reasonable resource limits
 ipfs config --json Swarm.ResourceMgr.Enabled 'true'
 
-echo -e "${GREEN}✅ IPFS configured for QIPs development${NC}"
+echo -e "${GREEN}✅ IPFS configured for QCIs development${NC}"
 
 # Test the configuration
 echo -e "${YELLOW}Testing IPFS configuration...${NC}"
@@ -117,7 +117,7 @@ fi
 
 # Test basic functionality
 echo -e "${YELLOW}Testing IPFS functionality...${NC}"
-TEST_CONTENT="QIPs IPFS setup test - $(date)"
+TEST_CONTENT="QCIs IPFS setup test - $(date)"
 TEST_CID=$(echo "$TEST_CONTENT" | ipfs add -q 2>/dev/null)
 
 if [ -z "$TEST_CID" ]; then
@@ -169,7 +169,7 @@ echo "2. Run local development: ./scripts/start-local-dev.sh"
 echo "3. Or check IPFS status: ./scripts/check-ipfs.sh"
 echo ""
 echo -e "${YELLOW}💡 Tips:${NC}"
-echo "- The daemon needs to be running for QIPs development"
+echo "- The daemon needs to be running for QCIs development"
 echo "- Use 'ipfs daemon &' to run in background"
 echo "- Check logs with: tail -f ~/.ipfs/logs/*"
 echo "- Reset config with: ipfs config replace ~/.ipfs/config"

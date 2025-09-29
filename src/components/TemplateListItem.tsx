@@ -47,24 +47,24 @@ const TemplateListItem = (props: any) => {
                                             </span>
                                         </div>
                                         <a
-                                            href={`https://github.com/publu/QIPs/blob/main/contents/Templates/${template?.parent?.base}`}
+                                            href={`https://github.com/publu/QCIs/blob/main/contents/Templates/${template?.parent?.base}`}
                                             className="cursor-pointer"
                                         >
                                             <div className="relative flex mb-1 mt-3 break-words pr-[80px] leading-[32px]">
                                                 <h3 className="inline pr-2">
-                                                    QIP{' '}
+                                                    QCI{' '}
                                                     {template?.frontmatter
-                                                        ?.qip !== undefined &&
+                                                        ?.qci !== undefined &&
                                                     template?.frontmatter
-                                                        ?.qip !== null
-                                                        ? template.frontmatter.qip
+                                                        ?.qci !== null
+                                                        ? template.frontmatter.qci
                                                               .toString()
                                                               .padStart(3, '0')
                                                         : '<to be assigned>'}
                                                     :{' '}
                                                     {template?.frontmatter
                                                         ?.title ||
-                                                        '<QIP title>'}
+                                                        '<QCI title>'}
                                                 </h3>
                                             </div>
                                             <p className="line-clamp-2 break-words text-md font-semibold" />

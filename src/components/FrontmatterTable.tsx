@@ -1,133 +1,80 @@
-import React from 'react';
-import { format } from 'date-fns';
-import { graphql } from 'gatsby';
+import React from "react";
+import { format } from "date-fns";
 
-import Author from './Author';
-
-// Status color mapping
-const statusColor: any = {
-    Draft: '#757575',
-    Review: '#FFEB3B',
-    'Review Pending': '#FFEB3B',
-    Vote: '#FFEB3B',
-    'Vote Pending': '#FFEB3B',
-    Rejected: '#F44336',
-    Approved: '#4CAF50',
-    Implemented: '#4CAF50',
-    Superseded: '#9E9E9E',
-    Withdrawn: '#9E9E9E',
-};
+import Author from "./Author";
+import InlineStatusEditor from "./InlineStatusEditor";
+import { QCIStatus } from "../services/qciClient";
+import { StatusBadge } from "./ui/status-badge";
 
 interface Props {
-    frontmatter: any;
+  frontmatter: any;
+  // Optional editing props
+  qciNumber?: number;
+  statusEnum?: QCIStatus;
+  isAuthor?: boolean;
+  isEditor?: boolean;
+  onStatusUpdate?: () => void;
+  registryAddress?: `0x${string}`;
+  rpcUrl?: string;
+  enableStatusEdit?: boolean;
 }
 
-const FrontmatterTable: React.FC<Props> = ({ frontmatter }) => {
-    return (
-        <table className="border border-collapse bg-muted/30 dark:bg-zinc-800/50 min-w-full divide-y divide-border">
-            <tbody className="bg-card divide-y divide-border">
-                <tr>
-                    <th className="py-3 px-6 text-left font-bold">Author</th>
-                    <td className="py-3 px-6">
-                        <Author author={frontmatter.author} showName={true} />
-                    </td>
-                </tr>
-                <tr>
-                    <th className="py-3 px-6 text-left font-bold">Status</th>
-                    <td className="py-3 px-6">
-                        <span
-                            style={{ backgroundColor: statusColor[frontmatter.status] || '#757575' }}
-                            className="text-white text-xs px-3 py-1 rounded-full font-medium inline-block"
-                        >
-                            {frontmatter.status}
-                        </span>
-                    </td>
-                </tr>
-                {frontmatter.type && (
-                    <tr>
-                        <th className="py-3 px-6 text-left font-bold">Type</th>
-                        <td className="py-3 px-6">{frontmatter.type}</td>
-                    </tr>
-                )}
-                {frontmatter.network && (
-                    <tr>
-                        <th className="py-3 px-6 text-left font-bold">
-                            Network
-                        </th>
-                        <td className="py-3 px-6">{frontmatter.network}</td>
-                    </tr>
-                )}
-                <tr>
-                    <th className="py-3 px-6 text-left font-bold">
-                        Implementor
-                    </th>
-                    <td className="py-3 px-6">
-                        {frontmatter.implementor || 'TBD'}
-                    </td>
-                </tr>
-                <tr>
-                    <th className="py-3 px-6 text-left font-bold">Release</th>
-                    <td className="py-3 px-6">
-                        {frontmatter.release || 'TBD'}
-                    </td>
-                </tr>
-                {frontmatter.created && (
-                    <tr>
-                        <th className="py-3 px-6 text-left font-bold">
-                            Created
-                        </th>
-                        <td className="py-3 px-6">
-                            {format(
-                                new Date(frontmatter.created),
-                                'yyyy-MM-dd'
-                            )}
-                        </td>
-                    </tr>
-                )}
-                {frontmatter.updated && (
-                    <tr>
-                        <th className="py-3 px-6 text-left font-bold">
-                            Updated
-                        </th>
-                        <td className="py-3 px-6">
-                            {format(
-                                new Date(frontmatter.created),
-                                'yyyy-MM-dd'
-                            )}
-                        </td>
-                    </tr>
-                )}
-            </tbody>
+const FrontmatterTable: React.FC<Props> = ({
+  frontmatter,
+  qciNumber,
+  statusEnum,
+  isAuthor = false,
+  isEditor = false,
+  onStatusUpdate,
+  registryAddress,
+  rpcUrl,
+  enableStatusEdit = false,
+}) => {
+  // Assemble rows as [label, value]
+  const rows: Array<[string, React.ReactNode]> = [];
+  rows.push(["Author", <Author author={frontmatter.author} showName={true} />]);
+  rows.push([
+    "Status",
+    enableStatusEdit && qciNumber && registryAddress ? (
+      <InlineStatusEditor
+        qciNumber={qciNumber}
+        currentStatus={frontmatter.status}
+        currentStatusEnum={statusEnum}
+        isAuthor={isAuthor}
+        isEditor={isEditor}
+        onStatusUpdate={onStatusUpdate}
+        registryAddress={registryAddress}
+        rpcUrl={rpcUrl}
+      />
+    ) : (
+      <StatusBadge status={frontmatter.status} size="sm" />
+    ),
+  ]);
+  if (frontmatter.type) rows.push(["Type", frontmatter.type]);
+  if (frontmatter.chain) rows.push(["Chain", frontmatter.chain]);
+  rows.push(["Implementor", frontmatter.implementor || "TBD"]);
+  rows.push(["Release", frontmatter.release || "TBD"]);
+  if (frontmatter.created) rows.push(["Created", format(new Date(frontmatter.created), "yyyy-MM-dd")]);
+  if (frontmatter.updated) rows.push(["Updated", format(new Date(frontmatter.updated), "yyyy-MM-dd")]);
 
-            <tfoot>
-                <tr className="bg-muted/30 dark:bg-zinc-800/50">
-                    
-                </tr>
-            </tfoot>
-        </table>
-    );
+  return (
+    <div className="rounded-lg border bg-muted/30 dark:bg-zinc-800/50 overflow-hidden">
+      <div className="grid grid-cols-[max-content,1fr]">
+        {rows.map(([label, value], idx) => {
+          const cellBase = "p-4 text-sm text-left";
+          const leftCell = `font-semibold text-muted-foreground whitespace-nowrap ${cellBase}`;
+          const rightCell = `${cellBase}`;
+          const borderTop = idx === 0 ? "" : "border-t border-border";
+          return (
+            <React.Fragment key={idx}>
+              <div className={`${leftCell} ${borderTop}`}>{label}</div>
+              <div className={`${rightCell} ${borderTop}`}>{value}</div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
-
-// export const query = graphql`
-//     query ($frontmatter__qip: Int) {
-//         markdownRemark(frontmatter: { qip: { eq: $frontmatter__qip } }) {
-//             fileAbsolutePath
-//             frontmatter {
-//                 qip
-//                 title
-//                 author
-//                 network
-//                 type
-//                 proposal
-//                 implementor
-//                 release
-//                 created
-//                 updated
-//                 status
-//             }
-//             html
-//         }
-//     }
-// `;
 
 export default FrontmatterTable;

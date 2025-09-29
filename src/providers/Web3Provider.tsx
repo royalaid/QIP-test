@@ -6,8 +6,11 @@ import { ConnectKitProvider } from "connectkit";
 import { mainnet } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 import { config, getChains, getDefaultChainId, localBaseFork } from "../config";
-import { createQueryClient, setupPersistentCache } from "../config/queryClient";
+import { createQueryClient, setupPersistentCache, clearQCICacheOnFreshLoad, CACHE_TIMES } from "../config/queryClient";
 import { useTheme } from "../providers/ThemeProvider";
+import { queryKeys } from "../utils/queryKeys";
+import { QCIClient } from "../services/qciClient";
+import { ALL_STATUS_NAMES, ALL_STATUS_HASHES } from "../config/statusConfig";
 
 // Get chains from config
 const chains = getChains();
@@ -33,11 +36,10 @@ const wagmiConfig = createConfig({
   ],
 });
 
-// Create query client with optimized caching
 const queryClient = createQueryClient();
 
-// Setup persistent caching to localStorage
 if (typeof window !== "undefined") {
+  clearQCICacheOnFreshLoad();
   setupPersistentCache(queryClient);
 }
 
@@ -61,6 +63,54 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
       console.log("- WalletConnect Project ID:", config.walletConnectProjectId ? "✅ Set" : "❌ Not set");
       console.log("- Base RPC URL:", config.baseRpcUrl !== "http://localhost:8545" ? "✅ Custom" : "❌ Using default");
     }
+  }, []);
+
+  // Preload statuses on app initialization
+  React.useEffect(() => {
+    const preloadStatuses = async () => {
+      if (!config.qciRegistryAddress) {
+        console.log('[Web3Provider] No registry address available, skipping status preload');
+        return;
+      }
+
+      try {
+        console.log('[Web3Provider] 🚀 Preloading statuses...');
+
+        // Use prefetchQuery to load data into cache without triggering component re-renders
+        await queryClient.prefetchQuery({
+          queryKey: queryKeys.allStatuses(config.qciRegistryAddress),
+          queryFn: async () => {
+            try {
+              const qciClient = new QCIClient(config.qciRegistryAddress!, config.baseRpcUrl, false);
+              const result = await qciClient.fetchAllStatuses();
+
+              const statusArray = result.names.map((name, index) => ({
+                name,
+                hash: result.hashes[index],
+              }));
+
+              console.log(`[Web3Provider] ✓ Preloaded ${statusArray.length} statuses`);
+              return statusArray;
+            } catch (error) {
+              console.error('[Web3Provider] Status preload failed, using fallback:', error);
+              // Fallback to static config
+              return ALL_STATUS_NAMES.map((name, index) => ({
+                name,
+                hash: ALL_STATUS_HASHES[index],
+              }));
+            }
+          },
+          staleTime: 15 * 60 * 1000, // 15 minutes
+          gcTime: 60 * 60 * 1000, // 1 hour garbage collection
+        });
+      } catch (error) {
+        console.error('[Web3Provider] Failed to preload statuses:', error);
+      }
+    };
+
+    // Delay preloading slightly to avoid blocking initial render
+    const timeoutId = setTimeout(preloadStatuses, 100);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   return (

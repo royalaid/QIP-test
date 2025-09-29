@@ -2,10 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {QIPRegistry} from "../contracts/QIPRegistry.sol";
+import {QCIRegistry} from "../contracts/QCIRegistry.sol";
 
-contract LocalQIPTest is Script {
-    QIPRegistry public registry;
+contract LocalQCITest is Script {
+    QCIRegistry public registry;
     
     // Test accounts from Anvil's default mnemonic
     address constant GOVERNANCE = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -18,9 +18,9 @@ contract LocalQIPTest is Script {
         uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
         
         // Get registry address from environment variable
-        address registryAddress = vm.envAddress("QIP_REGISTRY_ADDRESS");
-        registry = QIPRegistry(registryAddress);
-        console.log("Using QIPRegistry at:", address(registry));
+        address registryAddress = vm.envAddress("QCI_REGISTRY_ADDRESS");
+        registry = QCIRegistry(registryAddress);
+        console.log("Using QCIRegistry at:", address(registry));
         
         vm.startBroadcast(deployerPrivateKey);
         
@@ -30,174 +30,168 @@ contract LocalQIPTest is Script {
         
         vm.stopBroadcast();
         
-        // Create test QIPs as different authors
-        _createTestQIPs();
+        // Create test QCIs as different authors
+        _createTestQCIs();
         
-        // Don't create fake historical QIPs - we have real ones from migration
-        // _migrateHistoricalQIPs();
+        // Don't create fake historical QCIs - we have real ones from migration
+        // _migrateHistoricalQCIs();
         
-        // Simulate QIP lifecycle
-        _simulateQIPLifecycle();
+        // Simulate QCI lifecycle
+        _simulateQCILifecycle();
         
-        console.log("\n=== Local QIP Test Setup Complete ===");
+        console.log("\n=== Local QCI Test Setup Complete ===");
         console.log("Registry Address:", address(registry));
         console.log("Governance:", GOVERNANCE);
         console.log("Editor:", EDITOR);
         console.log("Test Authors:", AUTHOR1, AUTHOR2, AUTHOR3);
-        console.log("\nNext QIP Number:", registry.nextQIPNumber());
+        console.log("\nNext QCI Number:", registry.nextQCINumber());
     }
     
-    function _createTestQIPs() internal {
-        // Check if we need to create test QIPs or if they already exist
-        uint256 currentNextQIP = registry.nextQIPNumber();
+    function _createTestQCIs() internal {
+        // Check if we need to create test QCIs or if they already exist
+        uint256 currentNextQCI = registry.nextQCINumber();
         
-        // With the new setup, we start at 209, so test QIPs would be created at 209, 210, 211
-        // But we want to preserve 209-248 for migration, so let's create test QIPs at 249+
-        if (currentNextQIP > 252) {
-            console.log("Test QIPs already exist, skipping creation");
-            console.log("Current nextQIPNumber:", currentNextQIP);
+        // With the new setup, we start at 209, so test QCIs would be created at 209, 210, 211
+        // But we want to preserve 209-248 for migration, so let's create test QCIs at 249+
+        if (currentNextQCI > 252) {
+            console.log("Test QCIs already exist, skipping creation");
+            console.log("Current nextQCINumber:", currentNextQCI);
             return;
         }
         
-        // If we're starting fresh at 209, we need to skip to 249 for test QIPs
-        if (currentNextQIP < 249) {
-            console.log("Registry starts at", currentNextQIP, "- will create test QIPs at 249+");
-            // We'll use migrateQIP to create them at specific numbers
+        // If we're starting fresh at 209, we need to skip to 249 for test QCIs
+        if (currentNextQCI < 249) {
+            console.log("Registry starts at", currentNextQCI, "- will create test QCIs at 249+");
+            // We'll use migrateQCI to create them at specific numbers
             return;
         }
         
-        // Use governance account to migrate test QIPs at specific numbers
+        // Use governance account to migrate test QCIs at specific numbers
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
-        // Check if QIP-249 already exists
-        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, QIPRegistry.QIPStatus, string memory, uint256, string memory, uint256) {
-            if (qipNum == 249) {
-                console.log("QIP-249 already exists, skipping test QIP creation");
+        // Check if QCI-249 already exists
+        try registry.qcis(249) returns (uint256 qciNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, bytes32, string memory, uint256, string memory, uint256) {
+            if (qciNum == 249) {
+                console.log("QCI-249 already exists, skipping test QCI creation");
                 vm.stopBroadcast();
                 return;
             }
         } catch {
-            // QIP doesn't exist, continue with creation
+            // QCI doesn't exist, continue with creation
         }
         
-        // Migrate test QIPs at specific numbers with real IPFS content
-        registry.migrateQIP(
+        // Migrate test QCIs at specific numbers with real IPFS content
+        registry.migrateQCI(
             249,
             AUTHOR1,
             "Implement Dynamic Interest Rates",
             "Polygon",
-            keccak256("QIP-249: Dynamic Interest Rate Model Implementation"),
+            keccak256("QCI-249: Dynamic Interest Rate Model Implementation"),
             "ipfs://QmWYqKxQPcsAkTLvkGZmZP9oWAEeCYP8J7X5XvKeEHEeC1",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
         );
-        console.log("Created QIP-249 (Draft) by AUTHOR1");
+        console.log("Created QCI-249 (Draft) by AUTHOR1");
         
-        registry.migrateQIP(
+        registry.migrateQCI(
             250,
             AUTHOR2,
             "Add Support for New Collateral Types",
             "Base",
-            keccak256("QIP-250: Multi-Collateral Support"),
+            keccak256("QCI-250: Multi-Collateral Support"),
             "ipfs://QmXRwXY9QBdAnu3r6hWCaCYKv2Xn5jtB8ZzyS53dQzHDuo",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
         );
-        console.log("Created QIP-250 (Draft) by AUTHOR2");
+        console.log("Created QCI-250 (Draft) by AUTHOR2");
         
-        registry.migrateQIP(
+        registry.migrateQCI(
             251,
             AUTHOR3,
             "Governance Token Staking Rewards",
             "Ethereum",
-            keccak256("QIP-251: Staking Rewards Program"),
+            keccak256("QCI-251: Staking Rewards Program"),
             "ipfs://QmUJcCwZBKtgF5PjbwSEBVT9royDfpwtt6FRE36N42km1M",
             block.timestamp,
-            QIPRegistry.QIPStatus.Draft,
+            "Draft",
             "None",
             0,
             ""
         );
-        console.log("Created QIP-251 (Draft) by AUTHOR3");
+        console.log("Created QCI-251 (Draft) by AUTHOR3");
         
         vm.stopBroadcast();
     }
     
-    // Removed _migrateHistoricalQIPs - we use real QIPs from migration instead
+    // Removed _migrateHistoricalQCIs - we use real QCIs from migration instead
     
-    function _simulateQIPLifecycle() internal {
-        // Check if test QIP-249 exists before trying to simulate lifecycle
-        try registry.qips(249) returns (uint256 qipNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, QIPRegistry.QIPStatus, string memory, uint256, string memory, uint256) {
-            if (qipNum != 249) {
-                console.log("QIP-249 does not exist, skipping lifecycle simulation");
+    function _simulateQCILifecycle() internal {
+        // Check if test QCI-249 exists before trying to simulate lifecycle
+        try registry.qcis(249) returns (uint256 qciNum, address, string memory, string memory, bytes32, string memory, uint256, uint256, bytes32, string memory, uint256, string memory, uint256) {
+            if (qciNum != 249) {
+                console.log("QCI-249 does not exist, skipping lifecycle simulation");
                 return;
             }
         } catch {
-            console.log("QIP-249 does not exist, skipping lifecycle simulation");
+            console.log("QCI-249 does not exist, skipping lifecycle simulation");
             return;
         }
         
-        // Only simulate lifecycle if QIP-249 exists and is in Draft status
-        (, , , , , , , , QIPRegistry.QIPStatus status249, , , ,) = registry.qips(249);
-        if (status249 != QIPRegistry.QIPStatus.Draft) {
-            console.log("QIP-249 is not in Draft status, skipping lifecycle simulation");
+        // Only simulate lifecycle if QCI-249 exists and is in Draft status
+        (, , , , , , , , bytes32 status249, , , ,) = registry.qcis(249);
+        if (status249 != keccak256("Draft")) {
+            console.log("QCI-249 is not in Draft status, skipping lifecycle simulation");
             return;
         }
         
-        // Move QIP-249 through lifecycle (use governance account for editor operations)
+        // Move QCI-249 through lifecycle (use governance account for editor operations)
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
-        // Update status to ReviewPending
-        registry.updateStatus(249, QIPRegistry.QIPStatus.ReviewPending);
-        console.log("\nQIP-249: Draft -> ReviewPending");
+        registry.updateStatus(249, "Ready for Snapshot");
+        console.log("\nQCI-249: Draft -> Ready for Snapshot");
         
         vm.stopBroadcast();
         
-        // Author updates the QIP content
+        // Author updates the QCI content
         vm.startBroadcast(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
         
-        registry.updateQIP(
+        registry.updateQCI(
             249,
             "Implement Dynamic Interest Rates (Revised)",
-            keccak256("QIP-249: Dynamic Interest Rate Model Implementation v2"),
+            "Polygon",
+            "Core Team",
+            keccak256("QCI-249: Dynamic Interest Rate Model Implementation v2"),
             "ipfs://QmWYqKxQPcsAkTLvkGZmZP9oWAEeCYP8J7X5XvKeEHEeC1", // Using same CID for simplicity
             "Added more detailed implementation specs"
         );
-        console.log("QIP-249: Updated to version 2");
+        console.log("QCI-249: Updated to version 2");
         
         // Link to Snapshot
         registry.linkSnapshotProposal(249, "snapshot.org/#/qidao.eth/proposal/0x249test");
-        console.log("QIP-249: Linked to Snapshot (auto-status: VotePending)");
+        console.log("QCI-249: Linked to Snapshot (auto-status: VotePending)");
         
         vm.stopBroadcast();
         
         // Editor approves after vote passes (use governance account for editor operations)
         vm.startBroadcast(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         
-        registry.updateStatus(249, QIPRegistry.QIPStatus.Approved);
-        console.log("QIP-249: VotePending -> Approved");
+        registry.updateStatus(249, "Posted to Snapshot");
+        console.log("QCI-249: Ready for Snapshot -> Posted to Snapshot");
         
         // Set implementation details
         registry.setImplementation(249, "Core Team", block.timestamp + 7 days);
-        console.log("QIP-249: Implementation scheduled");
+        console.log("QCI-249: Implementation scheduled");
         
-        // Mark as implemented
-        registry.updateStatus(249, QIPRegistry.QIPStatus.Implemented);
-        console.log("QIP-249: Approved -> Implemented");
         
-        // Move QIP-250 to voting
-        registry.updateStatus(250, QIPRegistry.QIPStatus.ReviewPending);
-        console.log("\nQIP-250: Draft -> ReviewPending");
-        
-        // Update status for QIP-251 to withdrawn
-        registry.updateStatus(251, QIPRegistry.QIPStatus.Withdrawn);
-        console.log("\nQIP-251: Draft -> Withdrawn");
+        // Move QCI-250 to voting
+        registry.updateStatus(250, "Ready for Snapshot");
+        console.log("\nQCI-250: Draft -> Ready for Snapshot");
         
         vm.stopBroadcast();
         

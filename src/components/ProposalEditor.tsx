@@ -1,62 +1,74 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { type Address } from 'viem';
-import { QIPClient, QIPStatus, type QIPContent } from '../services/qipClient';
+import { toast } from 'sonner';
+import { QCIClient, type QCIContent } from "../services/qciClient";
 import { getIPFSService } from '../services/getIPFSService';
 import { IPFSService } from '../services/ipfsService';
 import { config } from '../config/env';
-import { GradientButton } from '@/components/gradient-button';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ChainCombobox } from "./ChainCombobox";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TransactionFormatter } from "./TransactionFormatter";
+import { type TransactionData, ABIParser } from "../utils/abiParser";
+import { Plus, Edit2, Trash2 } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ProposalEditorProps {
   registryAddress: Address;
   rpcUrl?: string;
-  existingQIP?: {
-    qipNumber: bigint;
-    content: QIPContent;
+  existingQCI?: {
+    qciNumber: bigint;
+    content: QCIContent;
   };
   initialTitle?: string;
-  initialNetwork?: string;
+  initialChain?: string;
   initialContent?: string;
   initialImplementor?: string;
 }
 
-const NETWORKS = ['Polygon', 'Ethereum', 'Base', 'Metis', 'Arbitrum', 'Optimism', 'BSC', 'Avalanche'];
+const NETWORKS = [
+  "Ethereum",
+  "Base",
+  "Polygon PoS",
+  "Linea",
+  "BNB",
+  "Metis",
+  "Optimism",
+  "Arbitrum",
+  "Avalanche",
+  "Polygon zkEVM",
+  "Gnosis",
+  "Kava",
+];
 
-export const ProposalEditor: React.FC<ProposalEditorProps> = ({ 
-  registryAddress, 
+export const ProposalEditor: React.FC<ProposalEditorProps> = ({
+  registryAddress,
   rpcUrl,
-  existingQIP,
+  existingQCI,
   initialTitle,
-  initialNetwork,
+  initialChain,
   initialContent,
-  initialImplementor
+  initialImplementor,
 }) => {
   const { address, isConnected, chain, status } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { switchChain } = useSwitchChain();
-  
-  // Debug logging
-  console.log("🔍 ProposalEditor Debug:");
-  console.log("- registryAddress:", registryAddress);
-  console.log("- Wallet Connection Status:", status);
-  console.log("- isConnected:", isConnected);
-  console.log("- address:", address);
-  console.log("- chain:", chain);
-  console.log("- walletClient:", walletClient ? "✅ Available" : "❌ Not available");
-  
-  // Debug environment variables directly
-  console.log("🔍 Direct Env Vars Check:");
-  // @ts-ignore
-  console.log("- VITE_USE_MAI_API:", import.meta.env?.VITE_USE_MAI_API);
-  // @ts-ignore
-  console.log("- VITE_IPFS_API_URL:", import.meta.env?.VITE_IPFS_API_URL);
-  // @ts-ignore
-  console.log("- VITE_USE_LOCAL_IPFS:", import.meta.env?.VITE_USE_LOCAL_IPFS);
-  
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Track if we've already navigated to prevent multiple navigations
+  const hasNavigatedRef = useRef(false);
+
   // Check if we need to switch chains
   const isWrongChain = chain && chain.id !== 8453;
-  
+
   const handleSwitchChain = async () => {
     try {
       await switchChain({ chainId: 8453 });
@@ -64,32 +76,36 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       console.error("Failed to switch chain:", error);
     }
   };
-  
-  // Form state - prioritize existingQIP over initial props
-  const [title, setTitle] = useState(existingQIP?.content.title || initialTitle || '');
-  const [network, setNetwork] = useState(existingQIP?.content.network || initialNetwork || 'Polygon');
-  const [content, setContent] = useState(existingQIP?.content.content || initialContent || '');
-  const [implementor, setImplementor] = useState(existingQIP?.content.implementor || initialImplementor || 'None');
+
+  const importedData = (location.state as any)?.importedData;
+
+  const [title, setTitle] = useState(existingQCI?.content.title || importedData?.title || initialTitle || "");
+  const [combooxSelectedChain, setComboboxSelectedChain] = useState(
+    existingQCI?.content.chain || importedData?.chain || initialChain || "Polygon"
+  );
+  const [content, setContent] = useState(existingQCI?.content.content || importedData?.content || initialContent || "");
+  const [implementor, setImplementor] = useState(
+    existingQCI?.content.implementor || importedData?.implementor || initialImplementor || "None"
+  );
+  const [author] = useState(existingQCI?.content.author || address || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
-  
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [editingTransactionIndex, setEditingTransactionIndex] = useState<number | null>(null);
+
   // Services
-  const [qipClient, setQipClient] = useState<QIPClient | null>(null);
+  const [qciClient, setQipClient] = useState<QCIClient | null>(null);
   const [ipfsService, setIpfsService] = useState<IPFSService | null>(null);
   const queryClient = useQueryClient();
-
-  // Debug saving state changes
-  useEffect(() => {
-    console.log("🔍 Saving state changed:", saving);
-  }, [saving]);
 
   // Add a safety timeout to clear saving state if it gets stuck
   useEffect(() => {
     if (saving) {
       const timeout = setTimeout(() => {
-        console.warn("⚠️ Saving state stuck for 30 seconds, forcing clear");
+        console.warn("Saving operation timed out after 30 seconds");
         setSaving(false);
         if (!success && !error) {
           setError("Operation timed out. Please check if your transaction was successful.");
@@ -102,8 +118,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   useEffect(() => {
     if (registryAddress) {
-      console.log("🔧 Initializing QIPClient with RPC:", rpcUrl || config.baseRpcUrl);
-      const client = new QIPClient(registryAddress, rpcUrl || config.baseRpcUrl);
+      const client = new QCIClient(registryAddress, rpcUrl || config.baseRpcUrl);
       setQipClient(client);
     }
 
@@ -111,9 +126,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     try {
       const service = getIPFSService();
       setIpfsService(service);
-      console.log("✅ IPFS service initialized successfully");
     } catch (error) {
-      console.error("❌ Failed to initialize IPFS service:", error);
+      console.error("Failed to initialize IPFS service:", error);
       // Service will remain null, and the component will show the error state
     }
   }, [registryAddress, walletClient, rpcUrl]);
@@ -121,246 +135,306 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      console.log("📝 Form submission started");
 
-      if (!qipClient || !ipfsService || !address || !walletClient) {
+      // Reset navigation flag for new submission
+      hasNavigatedRef.current = false;
+
+      if (!qciClient || !ipfsService || !address || !walletClient) {
         setError("Please connect your wallet");
-        console.error("❌ Missing required services:", { qipClient: !!qipClient, ipfsService: !!ipfsService, address });
+        console.error("Missing required services:", { qciClient: !!qciClient, ipfsService: !!ipfsService, address });
         return;
       }
 
       setError(null);
       setSuccess(null);
       setSaving(true);
-      console.log("🔄 Saving state set to true");
 
       try {
-        // Create QIP content object
-        const qipContent: QIPContent = {
-          qip: existingQIP?.qipNumber ? Number(existingQIP.qipNumber) : 0, // Will be assigned by contract
+        // Create QCI content object
+        // For existing QCIs, preserve certain blockchain fields (source of truth)
+        const qciContent: QCIContent = {
+          qci: existingQCI?.qciNumber ? Number(existingQCI.qciNumber) : 0, // Will be assigned by contract
           title,
-          network,
-          status: "Draft",
-          author: address,
-          implementor,
-          "implementation-date": "None",
-          proposal: "None",
-          created: new Date().toISOString().split("T")[0],
+          chain: combooxSelectedChain, // Allow updating in IPFS content
+          // Preserve critical blockchain fields for existing QCIs
+          status: existingQCI ? existingQCI.content.status : "Draft",
+          author: author,
+          implementor, // Allow updating in IPFS content
+          "implementation-date": existingQCI ? existingQCI.content["implementation-date"] : "None",
+          proposal: existingQCI ? existingQCI.content.proposal : "None",
+          created: existingQCI ? existingQCI.content.created : new Date().toISOString().split("T")[0], // Preserve original creation date
           content,
+          transactions: transactions.length > 0 ? transactions.map((tx) => ABIParser.formatTransaction(tx)) : undefined,
         };
 
         // Format the full content for IPFS
-        const fullContent = ipfsService.formatQIPContent(qipContent);
-        
+        const fullContent = ipfsService.formatQCIContent(qciContent);
+
         // Step 1: Pre-calculate IPFS CID without uploading
-        console.log("🔮 Calculating IPFS CID...");
         const expectedCID = await ipfsService.calculateCID(fullContent);
         const expectedIpfsUrl = `ipfs://${expectedCID}`;
-        console.log("✅ Expected CID:", expectedCID);
-        
-        // Step 2: Calculate content hash for blockchain
-        const contentHash = ipfsService.calculateContentHash(qipContent);
 
-        let qipNumber: bigint;
+        // Step 2: Calculate content hash for blockchain
+        const contentHash = ipfsService.calculateContentHash(qciContent);
+
+        let qciNumber: bigint;
         let txHash: string;
-        
-        if (existingQIP) {
-          // Update existing QIP
-          console.log("📝 Updating QIP on blockchain...");
-          txHash = await qipClient.updateQIP(
-            walletClient,
-            existingQIP.qipNumber,
-            title,
-            contentHash,
-            expectedIpfsUrl,
-            "Updated via web interface"
-          );
-          qipNumber = existingQIP.qipNumber;
-          console.log("✅ Blockchain update successful:", txHash);
+
+        if (existingQCI) {
+          // Update existing QCI
+          try {
+            txHash = await qciClient.updateQCI({
+              walletClient,
+              qciNumber: existingQCI.qciNumber,
+              title,
+              chain: combooxSelectedChain,
+              implementor,
+              newContentHash: contentHash,
+              newIpfsUrl: expectedIpfsUrl,
+              changeNote: "Updated via web interface",
+            });
+            qciNumber = existingQCI.qciNumber;
+          } catch (updateError) {
+            console.error("QCI update failed:", updateError);
+            throw updateError;
+          }
         } else {
-          // Create new QIP
-          console.log("🚀 Creating new QIP on blockchain...");
-          const result = await qipClient.createQIP(walletClient, title, network, contentHash, expectedIpfsUrl);
+          // Create new QCI
+          const result = await qciClient.createQCI(walletClient, title, combooxSelectedChain, contentHash, expectedIpfsUrl);
           txHash = result.hash;
-          qipNumber = result.qipNumber;
-          console.log("✅ QIP created on blockchain:", { txHash, qipNumber });
+          qciNumber = result.qciNumber;
         }
-        
+
         // Step 3: Upload to IPFS with proper metadata AFTER blockchain confirmation
-        console.log("📤 Uploading to IPFS with metadata...");
-        const actualCID = await ipfsService.provider.upload(fullContent, {
-          qipNumber: qipNumber > 0 ? qipNumber.toString() : 'pending',
-          groupId: config.pinataGroupId
-        });
-        
+        let actualCID;
+        try {
+          actualCID = await ipfsService.provider.upload(fullContent, {
+            qciNumber: qciNumber > 0 ? qciNumber.toString() : "pending",
+            groupId: config.pinataGroupId,
+          });
+        } catch (ipfsError) {
+          console.error("IPFS upload failed:", ipfsError);
+          // Don't throw here - blockchain update succeeded
+          // Set actualCID to expectedCID as fallback
+          actualCID = expectedCID;
+          console.warn("Using expected CID as fallback:", actualCID);
+        }
+
         // Verify CIDs match
         if (actualCID !== expectedCID) {
-          console.warn("⚠️ CID mismatch! Expected:", expectedCID, "Actual:", actualCID);
-          // In production, you might want to handle this more gracefully
-        } else {
-          console.log("✅ IPFS upload successful, CID matches:", actualCID);
+          console.warn("CID mismatch! Expected:", expectedCID, "Actual:", actualCID);
         }
-        
-        // Set success message
-        if (existingQIP) {
-          setSuccess(`QIP-${qipNumber} updated successfully! Transaction: ${txHash}`);
-        } else if (qipNumber > 0) {
-          setSuccess(`QIP-${qipNumber} created successfully! Transaction: ${txHash}`);
-        } else {
-          setSuccess(
-            `QIP submitted successfully! Transaction: ${txHash}\n\nNote: The QIP number will be available once the transaction is confirmed.`
-          );
-        }
-        
-        // Invalidate list to refresh AllProposals
-        queryClient.invalidateQueries({ queryKey: ["qips"] });
 
-        // Reset form for new QIP
-        console.log("🔄 Resetting form...");
-        setTitle("");
-        setContent("");
-        setImplementor("None");
-        console.log("✅ Form reset complete");
+        // Invalidate caches immediately after successful update
+        if (existingQCI) {
+          // Invalidate all related caches for the updated QCI
+          const qciNum = Number(qciNumber);
+
+          // Get current data to find IPFS URL
+          const currentData = queryClient.getQueryData<any>(["qci", qciNum, registryAddress]);
+
+          // Invalidate QCI query
+          queryClient.invalidateQueries({
+            queryKey: ["qci", qciNum, registryAddress],
+          });
+
+          // Invalidate blockchain cache
+          queryClient.invalidateQueries({
+            queryKey: ["qci-blockchain", qciNum, registryAddress],
+          });
+
+          // Invalidate old IPFS content if exists
+          if (currentData?.ipfsUrl) {
+            queryClient.invalidateQueries({
+              queryKey: ["ipfs", currentData.ipfsUrl],
+            });
+          }
+
+          // Also invalidate the new IPFS URL
+          queryClient.invalidateQueries({
+            queryKey: ["ipfs", `ipfs://${actualCID}`],
+          });
+        }
+
+        // Invalidate list to refresh AllProposals
+        queryClient.invalidateQueries({ queryKey: ["qcis"] });
+
+        // Show success toast and navigate (prevent multiple navigations)
+        if (!hasNavigatedRef.current) {
+          if (existingQCI) {
+            toast.success(`QCI updated successfully!`);
+            // Mark as navigated before actually navigating
+            hasNavigatedRef.current = true;
+            // Navigate back to the QCI detail page with transaction hash
+            // Include timestamp to ensure fresh data fetch
+            navigate(`/qcis/${qciNumber}`, {
+              state: {
+                txHash,
+                justUpdated: true,
+                timestamp: Date.now(), // Force refresh with timestamp
+              },
+            });
+          } else {
+            // For new QCI, show success and reset form
+            if (qciNumber > 0) {
+              toast.success(`QCI created successfully!`);
+              // Mark as navigated before actually navigating
+              hasNavigatedRef.current = true;
+              // Navigate to the new QCI page
+              navigate(`/qcis/${qciNumber}`, {
+                state: {
+                  txHash,
+                  justCreated: true,
+                  timestamp: Date.now(), // Force refresh with timestamp
+                },
+              });
+            } else {
+              toast.success(`QCI submitted! Check transaction for QCI number.`);
+              setSuccess(`Transaction: ${txHash}`);
+            }
+          }
+        }
+
+        // Reset form only for new QCIs that don't redirect
+        if (!existingQCI && qciNumber === 0n) {
+          setTitle("");
+          setContent("");
+          setImplementor("None");
+        }
       } catch (err: any) {
-        console.error("❌ Error saving QIP:", err);
+        console.error("Error saving QCI:", err);
 
         // Provide more helpful error messages
-        let errorMessage = err.message || "Failed to save QIP";
+        let errorMessage = err.message || "Failed to save QCI";
 
         if (errorMessage.includes("Content already exists")) {
-          errorMessage = "A QIP with identical content already exists. Please modify your proposal content to make it unique.";
+          errorMessage = "A QCI with identical content already exists. Please modify your proposal content to make it unique.";
         }
 
         setError(errorMessage);
       } finally {
-        console.log("🔄 Setting saving state to false in finally block");
         setSaving(false);
-        console.log("✅ Saving state set to false");
       }
     },
-    [qipClient, ipfsService, address, walletClient, title, network, content, implementor, existingQIP]
+    [qciClient, ipfsService, address, walletClient, title, combooxSelectedChain, content, implementor, existingQCI, transactions]
   );
 
   const handlePreview = () => {
     setPreview(!preview);
   };
 
+  const handleAddTransaction = (transaction: TransactionData) => {
+    if (editingTransactionIndex !== null) {
+      const updated = [...transactions];
+      updated[editingTransactionIndex] = transaction;
+      setTransactions(updated);
+      setEditingTransactionIndex(null);
+    } else {
+      setTransactions([...transactions, transaction]);
+    }
+  };
+
+  const handleEditTransaction = (index: number) => {
+    setEditingTransactionIndex(index);
+    setShowTransactionModal(true);
+  };
+
+  const handleDeleteTransaction = (index: number) => {
+    setTransactions(transactions.filter((_, i) => i !== index));
+  };
+
   if (!isConnected) {
     return (
-      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
-        Please connect your wallet to create or edit QIPs
-      </div>
+      <Alert className="border-yellow-400 bg-yellow-500/10">
+        <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+          Please connect your wallet to create or edit QCIs
+        </AlertDescription>
+      </Alert>
     );
   }
-  
+
   if (!registryAddress) {
     return (
-      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
-        Error: Registry address not configured. Please restart Gatsby to load environment variables.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>Error: Registry address not configured. Please restart Gatsby to load environment variables.</AlertDescription>
+      </Alert>
     );
   }
-  
+
   if (!ipfsService) {
     return (
-      <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded">
-        Error: IPFS provider not configured. Please check your environment configuration.
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>Error: IPFS provider not configured. Please check your environment configuration.</AlertDescription>
+      </Alert>
     );
   }
-  
+
   if (isWrongChain) {
     return (
-      <div className="bg-yellow-500/10 border border-yellow-400 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
-        <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
-        <button 
-          onClick={handleSwitchChain}
-          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
-        >
-          Switch to Local Base Fork
-        </button>
-      </div>
+      <Alert className="border-yellow-400 bg-yellow-500/10">
+        <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+          <p className="mb-2">Please switch to Local Base Fork network (Chain ID: 8453)</p>
+          <Button onClick={handleSwitchChain} variant="default">
+            Switch to Local Base Fork
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">
-        {existingQIP ? `Edit QIP-${existingQIP.qipNumber}` : 'Create New QIP'}
-      </h2>
-
       {error && (
-        <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          {success}
-        </div>
+        <Alert className="mb-4 border-green-400 bg-green-100 text-green-700">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-foreground">
-            Title *
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="title">Title *</Label>
+          <Input
             type="text"
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Improve QiDAO Collateral Framework"
           />
         </div>
 
-        <div>
-          <label htmlFor="network" className="block text-sm font-medium text-foreground">
-            Network *
-          </label>
-          <select
-            id="network"
-            value={network}
-            onChange={(e) => setNetwork(e.target.value)}
-            required
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
-          >
-            {NETWORKS.map(net => (
-              <option key={net} value={net}>{net}</option>
-            ))}
-          </select>
+        <div className="space-y-2">
+          <Label htmlFor="chain">Chain *</Label>
+          <ChainCombobox value={combooxSelectedChain} onChange={setComboboxSelectedChain} placeholder="Select or type a chain..." />
         </div>
 
-        <div>
-          <label htmlFor="implementor" className="block text-sm font-medium text-foreground">
-            Implementor
-          </label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="implementor">Implementor</Label>
+          <Input
             type="text"
             id="implementor"
             value={implementor}
             onChange={(e) => setImplementor(e.target.value)}
-            className="mt-1 block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary dark:bg-zinc-800 dark:border-zinc-700"
             placeholder="Dev team, DAO, or None"
           />
         </div>
 
-        <div>
-          <label htmlFor="content" className="block text-sm font-medium text-foreground">
-            Proposal Content (Markdown) *
-          </label>
-          <div className="mt-1">
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              required
-              rows={20}
-              className="block w-full rounded-md border-border bg-background text-foreground shadow-sm focus:border-primary focus:ring-primary font-mono text-sm dark:bg-zinc-800 dark:border-zinc-700"
-              placeholder={`## Summary
+        <div className="space-y-2">
+          <Label htmlFor="content">Proposal Content (Markdown) *</Label>
+          <Textarea
+            id="content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            required
+            rows={20}
+            className="font-mono text-sm"
+            placeholder={`## Summary
 
 Brief overview of your proposal...
 
@@ -375,49 +449,112 @@ Why this proposal is needed...
 ## Technical Specification
 
 Implementation details...`}
-            />
+          />
+        </div>
+
+        {/* Transactions Section */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Transactions</Label>
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingTransactionIndex(null);
+                setShowTransactionModal(true);
+              }}
+              variant="outline"
+              size="sm"
+            >
+              <Plus size={16} />
+              Add Transaction
+            </Button>
           </div>
+
+          {transactions.length > 0 ? (
+            <div className="space-y-2 mb-4">
+              {transactions.map((tx, index) => (
+                <div key={index} className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+                  <div className="flex-1">
+                    <code className="text-sm font-mono break-all">{ABIParser.formatTransaction(tx)}</code>
+                  </div>
+                  <div className="flex gap-2 ml-4">
+                    <Button type="button" onClick={() => handleEditTransaction(index)} variant="ghost" size="icon" className="h-8 w-8">
+                      <Edit2 size={16} className="text-muted-foreground" />
+                    </Button>
+                    <Button type="button" onClick={() => handleDeleteTransaction(index)} variant="ghost" size="icon" className="h-8 w-8">
+                      <Trash2 size={16} className="text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-4">
+              No transactions added. Click "Add Transaction" to include on-chain transactions with this proposal.
+            </p>
+          )}
         </div>
 
         <div className="flex space-x-4">
-          <GradientButton
-            type="submit"
-            disabled={saving}
-            variant="primary"
-            className="text-sm"
-          >
-            {saving ? 'Saving...' : existingQIP ? 'Update QIP' : 'Create QIP'}
-          </GradientButton>
+          <Button type="submit" disabled={saving} variant="gradient-primary" size="lg">
+            {saving ? "Saving..." : existingQCI ? "Update QCI" : "Create QCI"}
+          </Button>
 
-          <button
-            type="button"
-            onClick={handlePreview}
-            className="flex items-center justify-center rounded-lg border border-border bg-card py-3 px-8 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          >
-            {preview ? 'Edit' : 'Preview'}
-          </button>
+          <Button type="button" onClick={handlePreview} variant="outline" size="lg">
+            {preview ? "Edit" : "Preview"}
+          </Button>
         </div>
       </form>
 
       {preview && (
         <div className="mt-8 border-t pt-8">
           <h3 className="text-xl font-bold mb-4">Preview</h3>
-          <div className="bg-muted/30 dark:bg-zinc-800/50 p-6 rounded-lg">
-            <h1 className="text-2xl font-bold mb-2">{title || 'Untitled'}</h1>
+          <div className="p-6">
+            <h1 className="text-2xl font-bold mb-2">{title || "Untitled"}</h1>
             <div className="text-sm text-muted-foreground mb-4">
-              <span>Network: {network}</span> • 
-              <span> Author: {address}</span> • 
-              <span> Status: Draft</span>
+              <span>Chain: {combooxSelectedChain}</span> •<span> Author: {author || address}</span> •<span> Status: Draft</span>
             </div>
-            <div 
-              className="prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ 
-                __html: content.replace(/\n/g, '<br />') 
-              }} 
-            />
+            <div className="prose dark:prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            </div>
+
+            {/* Show transactions in preview */}
+            {transactions.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-border">
+                <h2 className="text-xl font-bold mb-4">Transactions</h2>
+                <pre className="bg-muted/50 p-4 rounded-lg overflow-x-auto">
+                  <code className="text-sm font-mono">
+                    {JSON.stringify(
+                      transactions.map((tx) => {
+                        const formatted = ABIParser.formatTransaction(tx);
+                        try {
+                          return JSON.parse(formatted);
+                        } catch {
+                          return formatted;
+                        }
+                      }),
+                      null,
+                      2
+                    )}
+                  </code>
+                </pre>
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Transaction Formatter Modal */}
+      <TransactionFormatter
+        isOpen={showTransactionModal}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setEditingTransactionIndex(null);
+        }}
+        onAdd={handleAddTransaction}
+        networks={NETWORKS}
+        editingTransaction={editingTransactionIndex !== null ? transactions[editingTransactionIndex] : undefined}
+      />
     </div>
   );
 };

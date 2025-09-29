@@ -8,18 +8,18 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 export const CACHE_TIMES = {
   // How long data is considered fresh (no background refetch)
   STALE_TIME: {
-    QIP_LIST: 5 * 60 * 1000,        // 5 minutes - QIP list doesn't change often
-    QIP_DETAIL: 10 * 60 * 1000,     // 10 minutes - Individual QIP data
-    QIP_NUMBERS: 2 * 60 * 1000,     // 2 minutes - QIP numbers (for pagination)
+    QCI_LIST: 5 * 60 * 1000,        // 5 minutes - QCI list doesn't change often
+    QCI_DETAIL: 10 * 60 * 1000,     // 10 minutes - Individual QCI data
+    QCI_NUMBERS: 2 * 60 * 1000,     // 2 minutes - QCI numbers (for pagination)
     IPFS_CONTENT: 60 * 60 * 1000,   // 1 hour - IPFS content is immutable
     STATUS_FILTER: 5 * 60 * 1000,   // 5 minutes - Status filtered lists
   },
   
   // How long to keep data in cache (even if stale)
   GC_TIME: {
-    QIP_LIST: 30 * 60 * 1000,       // 30 minutes
-    QIP_DETAIL: 60 * 60 * 1000,     // 1 hour
-    QIP_NUMBERS: 10 * 60 * 1000,    // 10 minutes
+    QCI_LIST: 30 * 60 * 1000,       // 30 minutes
+    QCI_DETAIL: 60 * 60 * 1000,     // 1 hour
+    QCI_NUMBERS: 10 * 60 * 1000,    // 10 minutes
     IPFS_CONTENT: 24 * 60 * 60 * 1000, // 24 hours - IPFS is immutable
     STATUS_FILTER: 30 * 60 * 1000,  // 30 minutes
   }
@@ -33,10 +33,10 @@ export function createQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         // Stale time: how long until data is considered stale
-        staleTime: CACHE_TIMES.STALE_TIME.QIP_DETAIL,
+        staleTime: CACHE_TIMES.STALE_TIME.QCI_DETAIL,
         
         // Cache time: how long to keep data in cache
-        gcTime: CACHE_TIMES.GC_TIME.QIP_DETAIL,
+        gcTime: CACHE_TIMES.GC_TIME.QCI_DETAIL,
         
         // Retry configuration
         retry: (failureCount, error: any) => {
@@ -74,7 +74,7 @@ export function createPersister() {
 
   return createSyncStoragePersister({
     storage: window.localStorage,
-    key: 'qips-query-cache',
+    key: 'qcis-query-cache',
     throttleTime: 1000, // Throttle writes to localStorage
   });
 }
@@ -107,24 +107,24 @@ export function setupPersistentCache(queryClient: QueryClient) {
  */
 export const prefetchHelpers = {
   /**
-   * Prefetch a QIP detail
+   * Prefetch a QCI detail
    */
-  prefetchQIP: async (queryClient: QueryClient, qipNumber: number, fetcher: () => Promise<any>) => {
+  prefetchQCI: async (queryClient: QueryClient, qciNumber: number, fetcher: () => Promise<any>) => {
     await queryClient.prefetchQuery({
-      queryKey: ['qip', qipNumber],
+      queryKey: ['qci', qciNumber],
       queryFn: fetcher,
-      staleTime: CACHE_TIMES.STALE_TIME.QIP_DETAIL,
-      gcTime: CACHE_TIMES.GC_TIME.QIP_DETAIL,
+      staleTime: CACHE_TIMES.STALE_TIME.QCI_DETAIL,
+      gcTime: CACHE_TIMES.GC_TIME.QCI_DETAIL,
     });
   },
 
   /**
-   * Prefetch multiple QIPs
+   * Prefetch multiple QCIs
    */
-  prefetchQIPs: async (queryClient: QueryClient, qipNumbers: number[], fetcher: (num: number) => Promise<any>) => {
+  prefetchQCIs: async (queryClient: QueryClient, qciNumbers: number[], fetcher: (num: number) => Promise<any>) => {
     await Promise.all(
-      qipNumbers.map(num => 
-        prefetchHelpers.prefetchQIP(queryClient, num, () => fetcher(num))
+      qciNumbers.map(num => 
+        prefetchHelpers.prefetchQCI(queryClient, num, () => fetcher(num))
       )
     );
   },
@@ -143,35 +143,106 @@ export const prefetchHelpers = {
 };
 
 /**
+ * Clear QCI-related cache on fresh page load (browser refresh)
+ * Preserves IPFS and other valuable cached data
+ */
+export function clearQCICacheOnFreshLoad() {
+  // Check if this is a fresh page load (browser refresh, new tab, etc.)
+  if (typeof window === 'undefined') return;
+
+  // Use performance.navigation API or navigation.type to detect page refresh
+  // Type 1 = reload, Type 0 = navigation
+  const isPageReload = (
+    (window.performance && window.performance.navigation && window.performance.navigation.type === 1) ||
+    (window.performance && (window.performance as any).getEntriesByType &&
+     (window.performance as any).getEntriesByType('navigation')[0] &&
+     (window.performance as any).getEntriesByType('navigation')[0].type === 'reload')
+  );
+
+  // Also check if this is the first load in this React app instance
+  // We use a window property that React Router won't persist
+  const isFirstLoad = !(window as any).__qcis_app_loaded;
+
+  if (isPageReload || isFirstLoad) {
+    try {
+      console.log('[Cache] Detected fresh page load (reload:', isPageReload, ', first load:', isFirstLoad, ')');
+
+      const cacheKey = 'qcis-query-cache';
+      const cachedData = localStorage.getItem(cacheKey);
+
+      if (cachedData) {
+        const parsed = JSON.parse(cachedData);
+
+        if (parsed.clientState && parsed.clientState.queries) {
+          const originalCount = parsed.clientState.queries.length;
+
+          parsed.clientState.queries = parsed.clientState.queries.filter((query: any) => {
+            const queryKey = query.queryKey;
+            if (!Array.isArray(queryKey) || queryKey.length === 0) return true;
+
+            const firstKey = queryKey[0];
+
+            if (firstKey === 'qci' ||
+                firstKey === 'qcis' ||
+                firstKey === 'qci-numbers' ||
+                firstKey === 'qci-blockchain' ||
+                firstKey === 'qci-versions') {
+              console.log('[Cache] Clearing stale QCI query:', queryKey);
+              return false;
+            }
+
+            return true;
+          });
+
+          const removedCount = originalCount - parsed.clientState.queries.length;
+          console.log(`[Cache] Cleared ${removedCount} QCI queries, preserved ${parsed.clientState.queries.length} other queries`);
+        }
+
+        localStorage.setItem(cacheKey, JSON.stringify(parsed));
+        console.log('[Cache] Successfully cleared QCI queries on fresh page load');
+      }
+
+      // Mark that the app has loaded
+      (window as any).__qcis_app_loaded = true;
+    } catch (error) {
+      console.error('[Cache] Error clearing QCI cache:', error);
+      localStorage.removeItem('qcis-query-cache');
+    }
+  } else {
+    console.log('[Cache] Internal navigation detected, preserving all cache');
+  }
+}
+
+/**
  * Cache invalidation helpers
  */
 export const cacheInvalidation = {
   /**
-   * Invalidate all QIP-related queries
+   * Invalidate all QCI-related queries
    */
   invalidateAll: (queryClient: QueryClient) => {
-    queryClient.invalidateQueries({ queryKey: ['qip'] });
-    queryClient.invalidateQueries({ queryKey: ['qips'] });
-    queryClient.invalidateQueries({ queryKey: ['qip-numbers'] });
+    queryClient.invalidateQueries({ queryKey: ['qci'] });
+    queryClient.invalidateQueries({ queryKey: ['qcis'] });
+    queryClient.invalidateQueries({ queryKey: ['qci-numbers'] });
   },
 
   /**
-   * Invalidate a specific QIP
+   * Invalidate a specific QCI
    */
-  invalidateQIP: (queryClient: QueryClient, qipNumber: number) => {
-    queryClient.invalidateQueries({ queryKey: ['qip', qipNumber] });
-    // Also invalidate list queries as they might contain this QIP
-    queryClient.invalidateQueries({ queryKey: ['qips'] });
+  invalidateQCI: (queryClient: QueryClient, qciNumber: number) => {
+    queryClient.invalidateQueries({ queryKey: ['qci', qciNumber] });
+    // Also invalidate list queries as they might contain this QCI
+    queryClient.invalidateQueries({ queryKey: ['qcis'] });
   },
 
   /**
-   * Smart invalidation based on QIP status change
+   * Smart invalidation based on QCI status change
    */
-  invalidateOnStatusChange: (queryClient: QueryClient, qipNumber: number, newStatus: string) => {
-    // Invalidate the specific QIP
-    queryClient.invalidateQueries({ queryKey: ['qip', qipNumber] });
+  invalidateOnStatusChange: (queryClient: QueryClient, qciNumber: number, newStatus: string) => {
+    // Invalidate the specific QCI
+    queryClient.invalidateQueries({ queryKey: ['qci', qciNumber] });
     // Invalidate status-filtered lists
-    queryClient.invalidateQueries({ queryKey: ['qips', 'status'] });
+    queryClient.invalidateQueries({ queryKey: ['qcis', 'status'] });
     // Don't invalidate IPFS content as it's immutable
   },
 };
