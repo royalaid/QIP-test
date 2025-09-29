@@ -745,28 +745,46 @@ ${qciData.content}`;
         functionName: "statusCount",
       })) as bigint;
 
-      const hashes: string[] = [];
-      const names: string[] = [];
+      if (Number(count) === 0) {
+        return { hashes: [], names: [] };
+      }
 
-      // Fetch each status
+      // Create multicall for all statusAt calls
+      const statusAtCalls = [];
       for (let i = 0; i < Number(count); i++) {
-        const statusHash = (await this.publicClient.readContract({
+        statusAtCalls.push({
           address: this.contractAddress,
           abi: QCI_REGISTRY_ABI,
           functionName: "statusAt",
           args: [BigInt(i)],
-        })) as `0x${string}`;
-
-        const statusName = (await this.publicClient.readContract({
-          address: this.contractAddress,
-          abi: QCI_REGISTRY_ABI,
-          functionName: "getStatusName",
-          args: [statusHash],
-        })) as string;
-
-        hashes.push(statusHash);
-        names.push(statusName);
+        });
       }
+
+      // Batch fetch all status hashes
+      const hashResults = await this.publicClient.multicall({
+        contracts: statusAtCalls,
+        allowFailure: false,
+      });
+
+      const hashes = hashResults.map((result) => result as `0x${string}`);
+
+      // Create multicall for all getStatusName calls
+      const nameCalls = hashes.map((hash) => ({
+        address: this.contractAddress,
+        abi: QCI_REGISTRY_ABI,
+        functionName: "getStatusName",
+        args: [hash],
+      }));
+
+      // Batch fetch all status names
+      const nameResults = await this.publicClient.multicall({
+        contracts: nameCalls,
+        allowFailure: false,
+      });
+
+      const names = nameResults.map((result) => result as string);
+
+      console.log(`[fetchAllStatuses] Fetched ${names.length} statuses in 3 RPC calls (was ${1 + names.length * 2})`);
 
       return { hashes, names };
     } catch (error) {
