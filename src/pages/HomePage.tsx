@@ -83,29 +83,28 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* Learn More Section */}
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-6 text-foreground decoration-primary/30">
-              Learn more in the
-              <a
-                href="https://docs.mai.finance/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-foreground hover:text-primary"
-              >
-                docs
-              </a>
-            </h3>
-          </div>
-
           {/* DAO Glossary */}
           <div className="bg-card rounded-xl border p-8 text-left">
-            <h4 className="text-xl font-semibold mb-4 text-foreground">DAO Glossary - QCIs</h4>
+            <h4 className="text-xl font-semibold mb-4 text-foreground">DAO Glossary</h4>
+            <h5 className="text-lg font-semibold mb-4 text-foreground">QCI: </h5>
             <p className="text-muted-foreground leading-relaxed">
               QiDao Community Ideas (QCI) describe suggestions for improvement to the QiDao protocol, including core protocol parameters,
               platform updates, client APIs, and contract standards. Once a QCI gains support, it can graduate into a QiDao Improvement
               Proposal (QIP) for Snapshot voting.
             </p>
+          </div>
+
+          <div className="text-center mt-10">
+            <h3 className="">
+              <a
+                href="https://docs.mai.finance/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-foreground hover:text-primary text-xl font-semibold mb-6"
+              >
+                Learn more in the docs
+              </a>
+            </h3>
           </div>
         </div>
       </div>
