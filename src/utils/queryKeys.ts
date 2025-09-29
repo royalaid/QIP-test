@@ -63,8 +63,12 @@ export const queryKeys = {
     ['proposals', snapshotSpace] as const,
   
   // Token balance queries
-  tokenBalance: (tokenAddress: string, connectionState: string, requiresTokenBalance: boolean) => 
+  tokenBalance: (tokenAddress: string, connectionState: string, requiresTokenBalance: boolean) =>
     ['tokenBalance', tokenAddress, connectionState, requiresTokenBalance] as const,
+
+  // Status queries
+  allStatuses: (registryAddress: string | undefined) =>
+    ['statuses', registryAddress] as const,
 } as const;
 
 /**
