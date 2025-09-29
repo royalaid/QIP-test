@@ -11,7 +11,7 @@ const HomePage: React.FC = () => {
             <h1 className="text-5xl font-bold mb-8 text-foreground">QiDao Governance Hub</h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Welcome to the QiDao Governance Hub. A space to propose and refine QiDao Community Ideas (QCI) before they graduate into
-              formal QiDao Improvement Proposals (QIPs) which are decided through Snapshot voting.
+              formal QiDao Improvement Proposals (QIP) which are decided through Snapshot voting.
             </p>
           </div>
 
@@ -24,7 +24,7 @@ const HomePage: React.FC = () => {
               <h2 className="text-2xl font-semibold mb-4 text-foreground">Browse ideas and proposals</h2>
               <p className="text-muted-foreground text-left">
                 Explore all the governance ideas organized by status. See what's being drafted and discussed (QCIs) and what gathered enough
-                support to be voted on and implemented (QIPs).
+                support to be voted on and implemented (QIP).
               </p>
             </Link>
 
