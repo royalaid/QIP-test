@@ -22,13 +22,23 @@ const Navigation = () => {
           </Link>
         </div>
         <Link to="/all-proposals" className="underline text-foreground hover:text-primary">
-          Explore
+          🏛️ Explore
         </Link>
-        <a href="https://discord.com/invite/mQq55j65xJ" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary">
+        <a
+          href="https://discord.com/invite/mQq55j65xJ"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-foreground hover:text-primary"
+        >
           💬 Community Discord
         </a>
-        <a href="https://snapshot.box/#/s:qidao.eth" target="_blank" rel="noopener noreferrer" className="underline text-foreground hover:text-primary">
-          ⚡️Snapshot
+        <a
+          href="https://snapshot.box/#/s:qidao.eth"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-foreground hover:text-primary"
+        >
+          ⚡️ Snapshot
         </a>
         {location.pathname !== "/create-proposal" && (
           <Button variant="gradient-primary" onClick={() => navigate("/create-proposal")} size="sm">
