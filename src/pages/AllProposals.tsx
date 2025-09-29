@@ -9,21 +9,16 @@ import { config } from '../config/env'
 import { showDevTools } from '../config/debug'
 import { RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 
-// Map blockchain status strings to display strings
-const statusDisplayMap: Record<string, string> = {
-  Draft: "Draft",
-  "Ready for Snapshot": "Ready for Snapshot",
-  "Posted to Snapshot": "Posted to Snapshot",
-  Archived: "Archived",
-};
-
-// Status order for display
-const statusOrder = ["Draft", "Ready for Snapshot", "Posted to Snapshot", "Archived"];
 
 const AllProposals: React.FC = () => {
   const localMode = config.localMode;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [archivedCollapsed, setArchivedCollapsed] = useState(true);
+  const [qciSectionCollapsed, setQciSectionCollapsed] = useState(false);
+  const [qipSectionCollapsed, setQipSectionCollapsed] = useState(false);
+  const [draftsCollapsed, setDraftsCollapsed] = useState(false);
+  const [readyForSnapshotCollapsed, setReadyForSnapshotCollapsed] = useState(false);
+  const [postedToSnapshotCollapsed, setPostedToSnapshotCollapsed] = useState(false);
 
   const {
     blockchainQCIs: qcis,
@@ -47,16 +42,21 @@ const AllProposals: React.FC = () => {
     }
   };
 
-  // Group QCIs by status
-  const groupedQCIs = useMemo(() => {
-    const groups: Record<string, any[]> = {};
+  // Group QCIs by category and status
+  const categorizedQCIs = useMemo(() => {
+    const categories = {
+      qci: {
+        drafts: [] as any[],
+        readyForSnapshot: [] as any[]
+      },
+      qip: {
+        postedToSnapshot: [] as any[]
+      },
+      archived: [] as any[]
+    };
 
     qcis.forEach((qci) => {
-      const status = qci.status;
-      if (!groups[status]) {
-        groups[status] = [];
-      }
-      groups[status].push({
+      const proposalData = {
         ...qci,
         id: `blockchain-${qci.qciNumber}`,
         frontmatter: {
@@ -69,32 +69,41 @@ const AllProposals: React.FC = () => {
           created: qci.created,
           status: qci.status,
         },
-      });
+      };
+
+      // Categorize by status
+      switch (qci.status) {
+        case "Draft":
+          categories.qci.drafts.push(proposalData);
+          break;
+        case "Ready for Snapshot":
+          categories.qci.readyForSnapshot.push(proposalData);
+          break;
+        case "Posted to Snapshot":
+          categories.qip.postedToSnapshot.push(proposalData);
+          break;
+        case "Archived":
+          categories.archived.push(proposalData);
+          break;
+      }
     });
 
-    // Sort QCIs within each group by number (descending)
-    Object.keys(groups).forEach((status) => {
-      groups[status] = sortBy((p) => -p.qciNumber, groups[status]);
-    });
+    // Sort QCIs within each category by number (descending)
+    categories.qci.drafts = sortBy((p) => -p.qciNumber, categories.qci.drafts);
+    categories.qci.readyForSnapshot = sortBy((p) => -p.qciNumber, categories.qci.readyForSnapshot);
+    categories.qip.postedToSnapshot = sortBy((p) => -p.qciNumber, categories.qip.postedToSnapshot);
+    categories.archived = sortBy((p) => -p.qciNumber, categories.archived);
 
-    return groups;
+    return categories;
   }, [qcis]);
 
-  // Get ordered status groups
-  const orderedGroups = statusOrder
-    .filter((status) => groupedQCIs[status] && groupedQCIs[status].length > 0)
-    .map((status) => ({
-      status,
-      qcis: groupedQCIs[status],
-      displayName: statusDisplayMap[status] || status,
-    }));
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl font-bold">All QiDAO Community Ideas</h1>
+            <h1 className="text-4xl font-bold">Governance Hub</h1>
             {showDevTools && (
               <button
                 onClick={handleRefresh}
@@ -155,32 +164,138 @@ const AllProposals: React.FC = () => {
 
         {/* Show actual content when not fetching or when we have cached data */}
         <div className={`space-y-8 ${isFetching && !isLoading ? "hidden" : ""}`}>
-          {orderedGroups.map(({ status, qcis, displayName }) => {
-            const isArchived = status === "Archived";
-            const isCollapsed = isArchived && archivedCollapsed;
+          {/* QCI Section */}
+          {(categorizedQCIs.qci.drafts.length > 0 || categorizedQCIs.qci.readyForSnapshot.length > 0) && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setQciSectionCollapsed(!qciSectionCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {qciSectionCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                🧠 QiDao Community Ideas (QCI)
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({categorizedQCIs.qci.drafts.length + categorizedQCIs.qci.readyForSnapshot.length})
+                </span>
+              </h2>
 
-            return (
-              <div key={status}>
-                <h2
-                  className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isArchived ? "cursor-pointer select-none" : ""}`}
-                  onClick={isArchived ? () => setArchivedCollapsed(!archivedCollapsed) : undefined}
-                >
-                  {isArchived && (
-                    <span className="transition-transform duration-200">
-                      {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </span>
+              {!qciSectionCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200 ml-6 space-y-6">
+                  {/* Drafts Subsection */}
+                  {categorizedQCIs.qci.drafts.length > 0 && (
+                    <div>
+                      <h3
+                        className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                        onClick={() => setDraftsCollapsed(!draftsCollapsed)}
+                      >
+                        <span className="transition-transform duration-200">
+                          {draftsCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </span>
+                        Drafts
+                        <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.drafts.length})</span>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3 ml-6">
+                        Drafts that are posted to gather feedback and support.
+                      </p>
+                      {!draftsCollapsed && (
+                        <div className="animate-in slide-in-from-top-2 duration-200">
+                          <ProposalListItem proposals={categorizedQCIs.qci.drafts} />
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {displayName}
-                  <span className="text-sm font-normal text-muted-foreground">({qcis.length})</span>
-                </h2>
-                {!isCollapsed && (
-                  <div className={`${isArchived ? "animate-in slide-in-from-top-2 duration-200" : ""}`}>
-                    <ProposalListItem proposals={qcis} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Ready for Snapshot Subsection */}
+                  {categorizedQCIs.qci.readyForSnapshot.length > 0 && (
+                    <div>
+                      <h3
+                        className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                        onClick={() => setReadyForSnapshotCollapsed(!readyForSnapshotCollapsed)}
+                      >
+                        <span className="transition-transform duration-200">
+                          {readyForSnapshotCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </span>
+                        Ready for Snapshot
+                        <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qci.readyForSnapshot.length})</span>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3 ml-6">
+                        Ideas ready to be pushed by anyone with enough aveQI.
+                      </p>
+                      {!readyForSnapshotCollapsed && (
+                        <div className="animate-in slide-in-from-top-2 duration-200">
+                          <ProposalListItem proposals={categorizedQCIs.qci.readyForSnapshot} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* QIP Section */}
+          {categorizedQCIs.qip.postedToSnapshot.length > 0 && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setQipSectionCollapsed(!qipSectionCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {qipSectionCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                ⚡️ QiDao Improvement Proposals (QIP)
+                <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qip.postedToSnapshot.length})</span>
+              </h2>
+
+              {!qipSectionCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200 ml-6">
+                  <h3
+                    className="text-xl font-semibold mb-3 flex items-center gap-2 cursor-pointer select-none"
+                    onClick={() => setPostedToSnapshotCollapsed(!postedToSnapshotCollapsed)}
+                  >
+                    <span className="transition-transform duration-200">
+                      {postedToSnapshotCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </span>
+                    Posted on Snapshot
+                    <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.qip.postedToSnapshot.length})</span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-3 ml-6">
+                    Posted on Snapshot. Dynamic status (voting open, closed, passed, rejected, etc) depending on the outcome. IPFS linked.
+                  </p>
+                  {!postedToSnapshotCollapsed && (
+                    <div className="animate-in slide-in-from-top-2 duration-200">
+                      <ProposalListItem proposals={categorizedQCIs.qip.postedToSnapshot} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Archived Section */}
+          {categorizedQCIs.archived.length > 0 && (
+            <div>
+              <h2
+                className="text-3xl font-bold mb-6 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => setArchivedCollapsed(!archivedCollapsed)}
+              >
+                <span className="transition-transform duration-200">
+                  {archivedCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronDown className="h-6 w-6" />}
+                </span>
+                🗄️ Archived
+                <span className="text-sm font-normal text-muted-foreground">({categorizedQCIs.archived.length})</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mb-3 ml-6">
+                QCIs that didn't gather support to become a QIP within X time to be defined.
+              </p>
+              {!archivedCollapsed && (
+                <div className="animate-in slide-in-from-top-2 duration-200">
+                  <ProposalListItem proposals={categorizedQCIs.archived} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Total count indicator */}
