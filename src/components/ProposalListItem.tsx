@@ -8,12 +8,9 @@ import { config } from '../config/env';
 import { CACHE_TIMES } from '../config/queryClient';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { SnapshotStatus } from './SnapshotStatus';
+import { StatusBadge } from "@/components/ui/status-badge";
 
-const statusColor:any = {
-    Draft: '#757575',
-    'Ready for Snapshot': '#FFEB3B',
-    'Posted to Snapshot': '#4CAF50'
-};
+// Use shared StatusBadge for consistent styling across the app
 
 const ProposalListItem = (props: any) => {
   const { proposals } = props;
@@ -171,12 +168,7 @@ const ProposalListItem = (props: any) => {
                     {data.snapshotProposalId ? (
                       <SnapshotStatus proposalIdOrUrl={data.snapshotProposalId} showVotes={false} compact={true} />
                     ) : (
-                      <span
-                        style={{ backgroundColor: statusColor[data.status] }}
-                        className="text-white text-xs px-2 py-1 rounded-full font-medium"
-                      >
-                        {data.status}
-                      </span>
+                      <StatusBadge status={data.status} size="sm" />
                     )}
                   </div>
                 </div>

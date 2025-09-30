@@ -14,38 +14,38 @@ interface StatusBadgeProps extends Omit<BadgeProps, 'variant'> {
 const STATUS_CONFIG: Record<number | string, { label: string; className: string }> = {
   // New simplified status system (numbers)
   [DEFAULT_STATUSES.Draft]: {
-    label: 'Draft',
-    className: 'bg-muted text-foreground hover:bg-muted/80',
+    label: "Draft",
+    className: "bg-muted text-foreground hover:bg-muted/80",
   },
   [DEFAULT_STATUSES.ReadyForSnapshot]: {
-    label: 'Ready for Snapshot',
-    className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20',
+    label: "Ready for Snapshot",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25",
   },
   [DEFAULT_STATUSES.PostedToSnapshot]: {
-    label: 'Posted to Snapshot',
-    className: 'bg-primary/10 text-primary hover:bg-primary/20',
+    label: "Posted to Snapshot",
+    className: "bg-primary/10 text-primary hover:bg-primary/20",
   },
   [DEFAULT_STATUSES.Archived]: {
-    label: 'Archived',
-    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40',
+    label: "Archived",
+    className: "bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40",
   },
   // String values for custom statuses
-  'Draft': {
-    label: 'Draft',
-    className: 'bg-muted text-foreground hover:bg-muted/80',
+  Draft: {
+    label: "Draft",
+    className: "bg-muted text-foreground hover:bg-muted/80",
   },
-  'Ready for Snapshot': {
-    label: 'Ready for Snapshot',
-    className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20',
+  "Ready for Snapshot": {
+    label: "Ready for Snapshot",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25",
   },
-  'Posted to Snapshot': {
-    label: 'Posted to Snapshot',
-    className: 'bg-primary/10 text-primary hover:bg-primary/20',
+  "Posted to Snapshot": {
+    label: "Posted to Snapshot",
+    className: "bg-primary/10 text-primary hover:bg-primary/20",
   },
-  'Archived': {
-    label: 'Archived',
-    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40',
-  }
+  Archived: {
+    label: "Archived",
+    className: "bg-gray-500/20 text-gray-600 dark:text-gray-300 hover:bg-gray-500/30 dark:bg-gray-600/30 dark:hover:bg-gray-600/40",
+  },
 };
 
 const SIZE_CLASSES = {
