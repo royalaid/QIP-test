@@ -6,8 +6,10 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { AlertCircle, CheckCircle2, Edit3, Loader2 } from "lucide-react";
 import { useWalletClient, usePublicClient } from "wagmi";
+import { base } from "wagmi/chains";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 import { toast } from "sonner";
+import { ChainSwitchRejectedError, useEnsureChain } from "../hooks/useEnsureChain";
 
 interface SnapshotModeratorProps {
   qciNumber: number;
@@ -29,7 +31,8 @@ const SnapshotModerator: React.FC<SnapshotModeratorProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: base.id });
+  const { ensureChain, isOnChain, switching } = useEnsureChain(base.id);
 
   const handleUpdate = async () => {
     if (!walletClient || !publicClient) {
@@ -56,6 +59,11 @@ const SnapshotModerator: React.FC<SnapshotModeratorProps> = ({
     setError(null);
 
     try {
+      // Make sure the wallet is on Base before estimating, simulating, or
+      // writing. Prevents the documented polygon-rpc.com 401 path that
+      // happens when the wallet is left on another chain after a SIWE sign.
+      await ensureChain();
+
       // Estimate gas for the transaction
       const estimatedGas = await publicClient.estimateContractGas({
         address: registryAddress,
@@ -78,8 +86,8 @@ const SnapshotModerator: React.FC<SnapshotModeratorProps> = ({
         gas: gasWithBuffer,
       });
 
-      // Execute the transaction
-      const hash = await walletClient.writeContract(request);
+      // Execute the transaction (chain pinned so viem asserts at write time)
+      const hash = await walletClient.writeContract({ ...request, chain: base });
 
       // Wait for confirmation
       const receipt = await publicClient.waitForTransactionReceipt({
@@ -105,6 +113,12 @@ const SnapshotModerator: React.FC<SnapshotModeratorProps> = ({
         throw new Error("Transaction failed");
       }
     } catch (error: any) {
+      // Quiet path for chain-switch rejection: inline message only, no toast.
+      if (error instanceof ChainSwitchRejectedError) {
+        setError("Switch to Base to continue");
+        return;
+      }
+
       console.error("Failed to update Snapshot proposal:", error);
 
       let errorMessage = "Failed to update Snapshot proposal";
@@ -134,9 +148,10 @@ const SnapshotModerator: React.FC<SnapshotModeratorProps> = ({
         variant="outline"
         size="sm"
         className="gap-2"
+        disabled={switching}
       >
         <Edit3 className="h-3 w-3" />
-        Update Snapshot Link
+        {isOnChain ? "Update Snapshot Link" : "Switch to Base to update"}
       </Button>
     );
   }
