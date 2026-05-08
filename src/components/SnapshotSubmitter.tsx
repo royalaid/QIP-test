@@ -10,8 +10,10 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { AlertCircle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { useWalletClient, usePublicClient } from "wagmi";
+import { base } from "wagmi/chains";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 import { getLatestQipNumber } from "../utils/snapshotClient";
+import { ChainSwitchRejectedError, useEnsureChain } from "../hooks/useEnsureChain";
 
 interface SnapshotSubmitterProps {
   frontmatter: any;
@@ -35,7 +37,9 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
   isEditor = false,
 }) => {
   const signer = useEthersSigner();
-  const publicClient = usePublicClient();
+  // Pin reads to Base so estimate/sim never depend on the wallet's RPC.
+  const publicClient = usePublicClient({ chainId: base.id });
+  const { ensureChain } = useEnsureChain(base.id);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<React.ReactNode>(null);
   const [showStatusUpdatePrompt, setShowStatusUpdatePrompt] = useState(false);
@@ -337,6 +341,12 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           throw new Error("Public client not available");
         }
 
+        // Make sure the wallet is on Base before any contract reads or the
+        // write. Mirrors the SIWE chain-switch pattern; prevents viem from
+        // routing eth_estimateGas through the wallet's current-chain RPC
+        // (e.g., polygon-rpc.com after a SIWE sign on a Polygon Safe).
+        await ensureChain();
+
         // First, estimate gas for the transaction
 
         const estimatedGas = await publicClient.estimateContractGas({
@@ -359,9 +369,21 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
           gas: gasWithBuffer,
         });
 
-        // Execute the transaction with the simulated request
-        hash = await walletClient.writeContract(request);
+        // Execute the transaction (chain pinned so viem asserts at write time)
+        hash = await walletClient.writeContract({ ...request, chain: base });
       } catch (contractError: any) {
+        // Quiet path for chain-switch rejection: brief inline status, no
+        // toast.error stack.
+        if (contractError instanceof ChainSwitchRejectedError) {
+          setStatus(
+            <div className="flex items-center gap-2 text-sm">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <span>Switch to Base to link the Snapshot proposal.</span>
+            </div>
+          );
+          setStatusLevel("info");
+          throw contractError;
+        }
         const errorMessage = contractError?.message || "Unknown contract error";
         const isSimulationError = errorMessage.includes("simulation") || errorMessage.includes("revert");
 
@@ -400,6 +422,12 @@ const SnapshotSubmitter: React.FC<SnapshotSubmitterProps> = ({
       } else {
       }
     } catch (error: any) {
+      // The inner catch already set a quiet inline status for this case;
+      // skip the noisy error logging and overwrite.
+      if (error instanceof ChainSwitchRejectedError) {
+        return;
+      }
+
       console.error("[SnapshotSubmitter] Failed to link Snapshot proposal:", {
         error,
         errorMessage: error instanceof Error ? error.message : "Unknown error",
