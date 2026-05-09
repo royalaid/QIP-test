@@ -3,7 +3,7 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConnectKitProvider } from "connectkit";
-import { mainnet } from "wagmi/chains";
+import { arbitrum, base, baseSepolia, gnosis, mainnet, optimism, polygon } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 import { config, getChains, getDefaultChainId, localBaseFork } from "../config";
 import { createQueryClient, setupPersistentCache, clearQCICacheOnFreshLoad, CACHE_TIMES } from "../config/queryClient";
@@ -11,17 +11,34 @@ import { useTheme } from "../providers/ThemeProvider";
 import { queryKeys } from "../utils/queryKeys";
 import { QCIClient } from "../services/qciClient";
 import { ALL_STATUS_NAMES, ALL_STATUS_HASHES } from "../config/statusConfig";
+import { buildChainTransport } from "../utils/rpcPools";
+import { attachDebugGlobal } from "../utils/rpcObservability";
+import { RpcStatusBanner } from "../components/RpcStatusBanner";
 
 // Get chains from config
 const chains = getChains();
 
-// Transports configuration
+// Transports — every chain (except the localBaseFork dev shim) flows through
+// buildChainTransport, which returns a memoized viem.fallback per chainId
+// with rank-based health probing, Retry-After honoring via per-http retry,
+// and observability hooks. Chains here MUST stay in sync with
+// src/config/chains.ts; missing entries silently break wagmi reads on that
+// chain. The localBaseFork shim shares base.id, so passing
+// { rpcUrlOverride: config.baseRpcUrl } gives the local Anvil flow a single-
+// endpoint transport without the pool/observability overhead.
 const transports = {
   [localBaseFork.id]: http(config.baseRpcUrl),
-  [8453]: http(config.baseRpcUrl), // Base
-  [84532]: http(), // Base Sepolia
-  [mainnet.id]: http(),
+  [base.id]: buildChainTransport(base.id),
+  [baseSepolia.id]: buildChainTransport(baseSepolia.id),
+  [mainnet.id]: buildChainTransport(mainnet.id),
+  [optimism.id]: buildChainTransport(optimism.id),
+  [gnosis.id]: buildChainTransport(gnosis.id),
+  [polygon.id]: buildChainTransport(polygon.id),
+  [arbitrum.id]: buildChainTransport(arbitrum.id),
 };
+
+// Attach window.__qipsRpc in dev so console-level debugging works.
+attachDebugGlobal();
 
 // Wagmi configuration
 const wagmiConfig = createConfig({
@@ -134,6 +151,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           }}
         >
           {children}
+          <RpcStatusBanner />
         </ConnectKitProvider>
         {config.isDevelopment && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>

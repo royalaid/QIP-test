@@ -5,6 +5,36 @@
  */
 
 import { QCIStatus } from './qciClient';
+import type {
+  CommentListResponse,
+  ListCommentsOptions,
+  ModerationRequest,
+  ModerationResponse,
+  NonceResponse,
+  PostCommentRequest,
+  PostCommentResponse,
+  VerifyRequest,
+  VerifyResponse,
+} from '../types/comments';
+
+/**
+ * Thrown by Mai API client methods when the upstream returns a non-2xx
+ * status. Carries the numeric `status` so consumers can branch on
+ * 5xx-vs-4xx without parsing the error message text. Future renames of the
+ * formatted message must not break the comments-error UX in
+ * CommentList.tsx — branch on `instanceof MaiApiError` and `status`.
+ */
+export class MaiApiError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor(status: number, statusText: string) {
+    super(`Mai API request failed: ${status} ${statusText}`);
+    this.name = 'MaiApiError';
+    this.status = status;
+    this.statusText = statusText;
+  }
+}
 
 /**
  * QCI data as returned by the Mai API
@@ -183,6 +213,286 @@ export class MaiAPIClient {
     };
 
     return statusMap[status] || `Status ${status}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     QIP comments — auth (SIWE)
+     ───────────────────────────────────────────────────────── */
+
+  /**
+   * Request a single-use SIWE nonce bound to the given address.
+   *
+   * Caller signs the SIWE message containing this nonce, then submits the
+   * message + signature to verifyQipCommentSignature(). The plaintext nonce
+   * is returned once; only the HMAC hash is persisted server-side.
+   */
+  async requestQipCommentNonce(address: string): Promise<NonceResponse> {
+    return this.commentsJsonRequest<NonceResponse>(
+      'POST',
+      '/v2/auth/qip-comments/nonce',
+      { address },
+    );
+  }
+
+  /**
+   * Verify a SIWE signature and exchange it for a session.
+   *
+   * On success returns a bearer token (kept in memory only — never persist
+   * to localStorage) and the API also sets a same-origin HttpOnly session
+   * cookie. Subsequent comment writes can use either authentication path.
+   */
+  async verifyQipCommentSignature(req: VerifyRequest): Promise<VerifyResponse> {
+    return this.commentsJsonRequest<VerifyResponse>(
+      'POST',
+      '/v2/auth/qip-comments/verify',
+      req,
+    );
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     QIP comments — public reads + gated writes
+     ───────────────────────────────────────────────────────── */
+
+  /**
+   * List visible (non-hidden) comments for a QCI, newest-first.
+   *
+   * No auth required for reading. Use the `before` cursor (returned as
+   * `nextBefore` in each page) for infinite-scroll pagination. Hidden
+   * comments are filtered server-side and never appear in the response.
+   */
+  async listQipComments(opts: ListCommentsOptions): Promise<CommentListResponse> {
+    const params = new URLSearchParams();
+    params.append('qciId', String(opts.qciId));
+    if (opts.limit !== undefined) params.append('limit', String(opts.limit));
+    if (opts.before !== undefined) params.append('before', String(opts.before));
+
+    const url = `${this.baseUrl}/v2/comments?${params.toString()}`;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (opts.sessionToken) {
+      headers.Authorization = `Bearer ${opts.sessionToken}`;
+    }
+
+    // GET is anonymous-by-default — the comment list does not require
+    // auth. Use credentials: 'omit' so cross-origin reads aren't blocked
+    // by the CORS preflight against `Access-Control-Allow-Origin: *`
+    // (browsers reject `*` + `credentials: include`). Same-origin reads
+    // don't need cookies for this route.
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      credentials: 'omit',
+      signal: AbortSignal.timeout(this.defaultTimeout),
+    });
+
+    if (!response.ok) {
+      throw new MaiApiError(response.status, response.statusText);
+    }
+    return (await response.json()) as CommentListResponse;
+  }
+
+  /**
+   * Post a comment on a QCI.
+   *
+   * Returns a discriminated union — callers should branch on `result.ok`
+   * and `result.status`. The 403 case carries the API's actual `threshold`
+   * and `currentVp` so the toast can render the values the server saw,
+   * not anything the client computed locally.
+   */
+  async postQipComment(req: PostCommentRequest): Promise<PostCommentResponse> {
+    return this.commentsResultRequest<PostCommentResponse>(
+      'POST',
+      '/v2/comments',
+      { qciId: req.qciId, body: req.body },
+      req.sessionToken,
+      (status, comment) => ({ ok: true, status, comment }) as never,
+    ) as Promise<PostCommentResponse>;
+  }
+
+  /** Editor-only: hide a comment. Idempotent — 409 if already hidden. */
+  async hideQipComment(req: ModerationRequest): Promise<ModerationResponse> {
+    return this.commentsResultRequest<ModerationResponse>(
+      'POST',
+      `/v2/comments/${req.commentId}/hide`,
+      req.reason !== undefined ? { reason: req.reason } : {},
+      req.sessionToken,
+      (_status, payload) => ({
+        ok: true,
+        commentId: (payload as { commentId: number }).commentId,
+        actionId: (payload as { actionId: number }).actionId,
+      }),
+    ) as Promise<ModerationResponse>;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     QIP comments — Safe deployment lookup
+     ───────────────────────────────────────────────────────── */
+
+  /**
+   * Look up which chains an address is deployed on as a Safe.
+   *
+   * Server probes mainnet, polygon, base, and linea via on-chain RPC
+   * (eth_getCode + Safe ABI multicall) with results cached in Redis for
+   * 90 days. The frontend uses the `deployedOn` list to pick the right
+   * chainId for the SIWE message — load-bearing for EIP-1271 verification.
+   *
+   * `unknown` lists chains where the lookup couldn't conclude (RPC down,
+   * env var missing); the caller's job is to treat unknown chains the
+   * same as not-yet-probed and fall back to the wallet's reported chain.
+   */
+  async getSafeDeployments(
+    address: string,
+  ): Promise<{
+    address: string;
+    deployedOn: number[];
+    unknown: number[];
+    details: Record<
+      number,
+      { version: string; threshold: number; ownerCount: number }
+    >;
+  }> {
+    const url = `${this.baseUrl}/v2/safe-deployments?address=${encodeURIComponent(
+      address,
+    )}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      credentials: 'omit',
+      signal: AbortSignal.timeout(this.defaultTimeout),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Mai API request failed: ${response.status} ${response.statusText}`,
+      );
+    }
+    return (await response.json()) as {
+      address: string;
+      deployedOn: number[];
+      unknown: number[];
+      details: Record<
+        number,
+        { version: string; threshold: number; ownerCount: number }
+      >;
+    };
+  }
+
+  /** Editor-only: unhide a previously hidden comment. */
+  async unhideQipComment(req: ModerationRequest): Promise<ModerationResponse> {
+    return this.commentsResultRequest<ModerationResponse>(
+      'POST',
+      `/v2/comments/${req.commentId}/unhide`,
+      req.reason !== undefined ? { reason: req.reason } : {},
+      req.sessionToken,
+      (_status, payload) => ({
+        ok: true,
+        commentId: (payload as { commentId: number }).commentId,
+        actionId: (payload as { actionId: number }).actionId,
+      }),
+    ) as Promise<ModerationResponse>;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Shared transport helpers for the comment endpoints
+     ───────────────────────────────────────────────────────── */
+
+  /**
+   * Fire a JSON request and throw on any non-2xx — used for the auth
+   * endpoints where every failure is fatal to the flow.
+   *
+   * Uses credentials: 'omit' because the API responds with
+   * Access-Control-Allow-Origin: *, which Chrome refuses to honor for
+   * credentialed cross-origin requests (response is dropped with
+   * net::ERR_FAILED). The verify response body returns the bearer token,
+   * which is the primary auth mechanism; the Set-Cookie returned alongside
+   * is only useful for same-origin deployments. Same-origin browsers can
+   * still use cookies with `credentials: 'same-origin'` (the default), but
+   * cross-origin must rely on the Bearer header.
+   */
+  private async commentsJsonRequest<T>(
+    method: string,
+    path: string,
+    body: unknown,
+  ): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.defaultTimeout),
+    });
+
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const errBody = (await response.json()) as { error?: string; message?: string };
+        detail = errBody.error || errBody.message || '';
+      } catch {
+        // Non-JSON error body; fall through to status text.
+      }
+      throw new Error(
+        `Mai API ${path} failed: ${response.status} ${response.statusText}${
+          detail ? ` (${detail})` : ''
+        }`,
+      );
+    }
+    return (await response.json()) as T;
+  }
+
+  /**
+   * Fire a JSON request and return a discriminated `{ ok, ... }` result for
+   * routes whose error states the caller wants to pattern-match (POST
+   * comment, moderation actions). Auth failures and rate limits are NOT
+   * thrown — they're returned as structured errors.
+   */
+  private async commentsResultRequest<TResult>(
+    method: string,
+    path: string,
+    body: unknown,
+    sessionToken: string | undefined,
+    onSuccess: (status: number, payload: unknown) => unknown,
+  ): Promise<TResult> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (sessionToken) {
+      headers.Authorization = `Bearer ${sessionToken}`;
+    }
+
+    // credentials: 'omit' — see commentsJsonRequest above for why this
+    // matters cross-origin against `Access-Control-Allow-Origin: *`. Bearer
+    // is the cross-origin auth path; same-origin clients can switch to
+    // 'same-origin' (the default) for a cookie path if/when we land
+    // origin-specific CORS.
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers,
+      credentials: 'omit',
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.defaultTimeout),
+    });
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (response.ok) {
+      return onSuccess(response.status, payload) as TResult;
+    }
+
+    // Coerce the server's structured error into the discriminated shape.
+    const err = payload as Record<string, unknown>;
+    const base = {
+      ok: false as const,
+      status: response.status as 401 | 403 | 404 | 409 | 413 | 429 | 503 | 400 | 500,
+      error: typeof err.error === 'string' ? err.error : 'unknown',
+    };
+    return { ...base, ...err } as TResult;
   }
 
   /**

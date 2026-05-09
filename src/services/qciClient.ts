@@ -1,6 +1,6 @@
-import { createPublicClient, http, type PublicClient, type WalletClient, type Hash, keccak256, toBytes, type Address } from "viem";
+import { createPublicClient, type PublicClient, type WalletClient, type Hash, keccak256, toBytes, type Address } from "viem";
 import { base, baseSepolia } from "viem/chains";
-import { loadBalance, getRPCEndpoints } from "../utils/loadBalance";
+import { buildChainTransport } from "../utils/rpcPools";
 import { QCIRegistryABI } from "../config/abis/QCIRegistry";
 import {
   QCIStatus,
@@ -88,26 +88,41 @@ export class QCIClient {
   constructor(contractAddress: Address, rpcUrl?: string, testnet: boolean = false) {
     this.contractAddress = contractAddress;
 
-    // For local development, use a custom chain configuration
-    const chain =
-      rpcUrl?.includes("localhost") || rpcUrl?.includes("127.0.0.1")
-        ? {
-            ...base,
-            id: 8453, // Base chain ID
-            name: "Local Base Fork",
-            rpcUrls: {
-              default: { http: [rpcUrl || "http://localhost:8545"] },
-              public: { http: [rpcUrl || "http://localhost:8545"] },
-            },
-          }
-        : testnet
-        ? baseSepolia
-        : base;
+    // Chain selection: localhost rpcUrl arg → custom local-base-fork shape;
+    // testnet flag → baseSepolia; otherwise → base.
+    const isLocal = rpcUrl?.includes("localhost") || rpcUrl?.includes("127.0.0.1");
+    const chain = isLocal
+      ? {
+          ...base,
+          id: 8453, // Base chain ID
+          name: "Local Base Fork",
+          rpcUrls: {
+            default: { http: [rpcUrl || "http://localhost:8545"] },
+            public: { http: [rpcUrl || "http://localhost:8545"] },
+          },
+        }
+      : testnet
+      ? baseSepolia
+      : base;
 
-    // Create load balanced transport with multiple RPC endpoints
-    // Always use multiple endpoints for load balancing, even if one is provided
-    const rpcEndpoints = getRPCEndpoints();
-    const transport = rpcEndpoints.length > 1 ? loadBalance(rpcEndpoints.map((url) => http(url))) : http(rpcEndpoints[0]);
+    // Route through the shared per-chain pool factory. The rpcUrl arg only
+    // becomes an override when it points at localhost (Anvil forks); for any
+    // other URL we ignore it and fall through to the pool. Rationale: every
+    // QCIClient instantiation site passes config.baseRpcUrl as rpcUrl, but
+    // their intent is "use the production RPC for Base", not "force this
+    // exact URL with no failover". Honoring the rpcUrl arg as a strict
+    // override for non-localhost URLs collapses the multi-endpoint pool to
+    // a single endpoint — exactly the rate-limit-storm the pool was built
+    // to prevent. Localhost URLs are different: those flag an explicit
+    // Anvil-fork dev flow where the pool semantics are wrong.
+    //
+    // Without an override, the factory returns the memoized fallback
+    // transport for that chain — the same instance used by Web3Provider,
+    // so there is exactly one rank loop per chain across every QCIClient
+    // instantiation site.
+    const transport = buildChainTransport(chain.id, {
+      rpcUrlOverride: isLocal ? rpcUrl : undefined,
+    });
 
     this.publicClient = createPublicClient({
       chain,

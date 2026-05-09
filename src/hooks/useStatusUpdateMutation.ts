@@ -1,9 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useWalletClient } from 'wagmi';
+import { usePublicClient, useWalletClient } from 'wagmi';
+import { base } from 'wagmi/chains';
 import { QCIClient, QCIStatus } from '../services/qciClient';
 import { toast } from 'react-hot-toast';
 import type { Hash } from 'viem';
 import { config } from '../config/env';
+import { ChainSwitchRejectedError, useEnsureChain } from './useEnsureChain';
 
 interface StatusUpdateParams {
   qciNumber: bigint;
@@ -19,9 +21,16 @@ interface StatusUpdateParams {
 export function useStatusUpdateMutation() {
   const { data: walletClient } = useWalletClient();
   const queryClient = useQueryClient();
+  // Pin reads (incl. waitForTransactionReceipt) to Base via the wagmi
+  // transport registered in Web3Provider, regardless of the wallet's chain.
+  const basePublicClient = usePublicClient({ chainId: base.id });
+  const { ensureChain } = useEnsureChain(base.id);
 
   return useMutation<Hash, Error, StatusUpdateParams>({
     retry: (failureCount, error) => {
+      if (error instanceof ChainSwitchRejectedError) {
+        return false;
+      }
       if (error?.message?.includes("user rejected") ||
           error?.message?.includes("User denied") ||
           error?.message?.includes("User cancelled") ||
@@ -35,6 +44,12 @@ export function useStatusUpdateMutation() {
         throw new Error("Please connect your wallet");
       }
 
+      // Make sure the wallet is on Base before any contract reads or the
+      // write. Without this, viem routes eth_estimateGas through the
+      // wallet's current-chain RPC (e.g., polygon-rpc.com after a SIWE
+      // sign on a Polygon Safe).
+      await ensureChain();
+
       const qciClient = new QCIClient(registryAddress, rpcUrl, false);
 
       let hash: Hash;
@@ -44,18 +59,10 @@ export function useStatusUpdateMutation() {
         throw error;
       }
 
-      // Wait for transaction confirmation
-      const publicClient = walletClient.chain
-        ? await import("viem").then((m) =>
-            m.createPublicClient({
-              chain: walletClient.chain,
-              transport: m.http(rpcUrl || import.meta.env.VITE_BASE_RPC_URL),
-            })
-          )
-        : null;
-
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({
+      // Wait for transaction confirmation on Base, not on whatever chain
+      // the wallet currently reports.
+      if (basePublicClient) {
+        await basePublicClient.waitForTransactionReceipt({
           hash,
           confirmations: 1,
         });
@@ -135,7 +142,9 @@ export function useStatusUpdateMutation() {
       }
 
       let errorMessage = "Failed to update status";
-      if (err.message?.includes("AccessControl")) {
+      if (err instanceof ChainSwitchRejectedError) {
+        errorMessage = "Switch to Base to update the status";
+      } else if (err.message?.includes("AccessControl")) {
         errorMessage = "You do not have permission to update this status";
       } else if (err.message?.includes("user rejected")) {
         errorMessage = "Transaction cancelled";
