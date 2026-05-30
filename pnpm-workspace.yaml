@@ -1,0 +1,29 @@
+# pnpm 11.4 settings file. The package.json `pnpm` field is no longer read.
+# Build-script approval is an allowBuilds MAP (not a list / not onlyBuiltDependencies).
+# Only the scripts pnpm actually reported as ignored are listed:
+#   - esbuild: downloads/links its platform binary (load-bearing for vite build)
+#   - bufferutil / utf-8-validate: native node-gyp-build (ws perf addons)
+#   - keccak: native node-gyp-build hashing addon (via ethers/ipfs deps)
+#   - fsevents: macOS native file-watcher used by vite/vitest watch mode
+allowBuilds:
+  esbuild: true
+  bufferutil: true
+  utf-8-validate: true
+  keccak: true
+  fsevents: true
+  # protobufjs@6.11.6 (transitive via ipfs-only-hash) postinstall is a no-op
+  # version-scheme warning helper — it compiles nothing. Left unapproved.
+  protobufjs: false
+
+# Migrated from package.json `overrides`.
+overrides:
+  '@parcel/watcher': 2.1.0
+  # Pin the wagmi/connectkit stack to the versions the old bun.lock had frozen.
+  # A fresh resolve of the floating ^ ranges drifts wagmi -> 2.19.5 / @wagmi/core
+  # -> 2.22.1, whose sendCallsSync action imports `sendCallsSync` from viem/actions
+  # — an export that doesn't exist until viem 2.31+, while this app pins viem ~2.30.0.
+  # Holding these at the previously-shipped versions keeps the build resolvable.
+  wagmi: 2.15.5
+  '@wagmi/core': 2.17.2
+  '@wagmi/connectors': 5.8.4
+  connectkit: 1.9.0
